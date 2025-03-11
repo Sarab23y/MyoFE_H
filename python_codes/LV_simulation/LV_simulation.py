@@ -503,12 +503,17 @@ class LV_simulation():
             
             
 
-        '''data_field = self.spatial_hs_data_fields +\
+        data_field = self.spatial_hs_data_fields +\
                         self.spatial_myof_data_fields+\
                             self.spatial_memb_data_fields+\
                             self.spatial_fiber_data_fields+\
-                            self.spatial_extra'''
+                            self.spatial_extra
         
+
+
+
+
+
         ### to save resutls space, here we save less results
         '''data_field = self.spatial_fiber_data_fields+\
                             self.spatial_extra'''
@@ -528,18 +533,18 @@ class LV_simulation():
     
                     self.spatial_gr_data_fields.append(k)
 
-            '''data_field = self.spatial_hs_data_fields +\
+            data_field = self.spatial_hs_data_fields +\
                         self.spatial_myof_data_fields+\
                         self.spatial_memb_data_fields+ \
                         self.spatial_fiber_data_fields+ \
                         self.spatial_gr_data_fields+\
-                            self.spatial_extra'''
+                            self.spatial_extra
             
             #MM here is version for just Growth and remodling
             
-            data_field = self.spatial_fiber_data_fields+\
+            '''data_field = self.spatial_fiber_data_fields+\
                          self.spatial_gr_data_fields+\
-                            self.spatial_extra
+                            self.spatial_extra'''
 
         if in_average:
             spatial_data = pd.DataFrame()
@@ -2297,7 +2302,7 @@ class LV_simulation():
                     self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field
 
 
-            '''for f in self.spatial_hs_data_fields:
+            for f in self.spatial_hs_data_fields:
                 data_field = []
                 for h in self.hs_objs_list:
                     data_field.append(h.data[f])
@@ -2326,7 +2331,7 @@ class LV_simulation():
             if self.gr:
                 for f in self.spatial_gr_data_fields:
                     data_field = self.gr.data[f]
-                    self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field'''
+                    self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field
             
 
 

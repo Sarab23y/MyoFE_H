@@ -97,7 +97,7 @@ class fiber_reorientation():
 
             # Convert lists to DataFrames
 
-                df_f_proj = pd.DataFrame(self.parent_params.f_proj_value)
+                """df_f_proj = pd.DataFrame(self.parent_params.f_proj_value)
                 df_f_proj_CG = pd.DataFrame(self.parent_params.f_proj_CG_value)
                 df_traction_vector = pd.DataFrame(self.parent_params.traction_vector_value)
                 
@@ -107,7 +107,7 @@ class fiber_reorientation():
 
                 df_f_proj.to_csv(mesh_output_path + "f_proj_output.csv", index=False, header=False)
                 df_f_proj_CG.to_csv(mesh_output_path + "f_proj_CG_output.csv", index=False, header=False)
-                df_traction_vector.to_csv(mesh_output_path + "traction_vector_output.csv", index=False, header=False)
+                df_traction_vector.to_csv(mesh_output_path + "traction_vector_output.csv", index=False, header=False)"""
 
 
 
