@@ -38,7 +38,7 @@ class MeshClass():
 
             # Handle file opening safely
             if os.path.exists(mesh_str):
-                with HDF5File(MPI.comm_world, mesh_str, 'r') as hdf5_file:
+                with HDF5File(mpi_comm_world(), mesh_str, 'r') as hdf5_file:
                     datasets = hdf5_file.attributes("/")
                     if "ellipsoidal" in datasets:
                         hdf5_file.read(self.model['mesh'], "ellipsoidal", False)
