@@ -23,7 +23,7 @@
             true
         ],
         "mesh_path": [
-            "/home/fenics/shared/demos/HCM_paper/simulations_baseline_final/baseline_final/sim_inputs/ellipsoidal.hdf5"
+            "../demos/HCM_paper/simulations_baseline_final/baseline_final/sim_inputs/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -540,10 +540,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/home/fenics/shared/demos/HCM_paper/simulations_baseline_final/baseline_final/sim_inputs/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulations_baseline_final/baseline_final/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/home/fenics/shared/demos/HCM_paper/simulations_baseline_final/baseline_final/sim_inputs/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulations_baseline_final/baseline_final/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
