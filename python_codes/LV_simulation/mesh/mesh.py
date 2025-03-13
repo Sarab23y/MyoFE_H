@@ -31,8 +31,37 @@ class MeshClass():
 
         self.model = dict()
         self.data = dict()
-
         if not predefined_mesh:
+            mesh_str = os.path.join(os.getcwd(), mesh_struct['mesh_path'][0])
+
+            self.model['mesh'] = Mesh()
+
+            # Handle file opening safely
+            if os.path.exists(mesh_str):
+                with HDF5File(MPI.comm_world, mesh_str, 'r') as hdf5_file:
+                    datasets = hdf5_file.attributes("/")
+                    if "ellipsoidal" in datasets:
+                        hdf5_file.read(self.model['mesh'], "ellipsoidal", False)
+                    else:
+                        # Handle missing dataset: assign a default or empty mesh
+                        self.model['mesh'] = Mesh()  # Fallback to empty mesh
+            else:
+                self.model['mesh'] = Mesh()  # Fallback in case of missing file
+
+        else:
+            self.model['mesh'] = predefined_mesh
+
+        # Parallel communicator
+        self.comm = self.model['mesh'].mpi_comm()
+
+        # Safe handling for MeshFunction
+        try:
+            subdomains = MeshFunction('int', self.model['mesh'], 3)
+            self.no_of_cells = len(subdomains.array())
+        except:
+            self.no_of_cells = 0 
+
+        """if not predefined_mesh:
             mesh_str = os.path.join(os.getcwd(),mesh_struct['mesh_path'][0])
         
             self.model['mesh'] = Mesh()
@@ -55,7 +84,7 @@ class MeshClass():
         self.no_of_cells = len(subdomains.array())
         #print "no of cells"
         #print self.no_of_cells
-
+"""
         
 
         self.model['function_spaces'] = self.initialize_function_spaces(mesh_struct)
