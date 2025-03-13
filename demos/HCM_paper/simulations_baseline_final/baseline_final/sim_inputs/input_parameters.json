@@ -23,7 +23,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/HCM_paper/simulations_baseline_final/baseline_final/sim_inputs/ellipsoidal.hdf5"
+            "/home/sba431/MyoFE_H/demos/HCM_paper/simulations_baseline_final/baseline_final/sim_inputs/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -540,10 +540,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "../demos/HCM_paper/simulations_baseline_final/baseline_final/sim_output/data.csv"
+            "/home/sba431/MyoFE_H/demos/HCM_paper/simulations_baseline_final/baseline_final/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "../demos/HCM_paper/simulations_baseline_final/baseline_final/sim_output/"
+            "/home/sba431/MyoFE_H/demos/HCM_paper/simulations_baseline_final/baseline_final/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
