@@ -8,7 +8,7 @@ from pyclbr import Function
 import numpy as np
 import json
 from dolfin import HDF5File
-from dolfin import MPI
+from mpi4py import MPI
 from dolfin import *
 from dolfin import Mesh
 import os
