@@ -7,7 +7,10 @@ Created on Mon Jan 10 11:15:59 2022
 from pyclbr import Function
 import numpy as np
 import json
+from dolfin import HDF5File
+from dolfin import MPI
 from dolfin import *
+from dolfin import Mesh
 import os
 from ..dependencies.forms import Forms
 from ..dependencies.nsolver import NSolver#from ..dependencies.assign_heterogeneous_params import assign_heterogeneous_params as assign_params
