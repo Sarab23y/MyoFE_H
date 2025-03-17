@@ -23,7 +23,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/HCM_paper/simulations_baseline_final/baseline_final/sim_inputs/ellipsoidal.hdf5"
+            "../demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -540,10 +540,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output/odata.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
