@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            150000
+            20000
         ],
         "time_step": [
             0.001
@@ -10,7 +10,7 @@
             "activations": [
                 {
                     "t_start_s": [
-                        5
+                        500
                     ],
                     "t_stop_s": [
                         150000
@@ -182,7 +182,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "semi_structural"
+                    "Holzapfel"
                 ],
                 "c": [
                     200
@@ -201,6 +201,30 @@
                 ],
                 "bfs": [
                     1.627
+                ],
+                "hbf": [
+                    4.7435
+                ],
+                "hbfs": [
+                    3.39
+                ],
+                "hbs": [
+                    1.5998
+                ],
+                "hb": [
+                    3.243
+                ],
+                "a": [
+                    134.8
+                ],
+                "af": [
+                    3176.2
+                ],
+                "as_": [
+                    542.6
+                ],
+                "afs": [
+                    234.4
                 ],
                 "phi_m": [
                     1.0
@@ -528,10 +552,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/mme250/HCM_paper/baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/mme250/HCM_paper/baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
