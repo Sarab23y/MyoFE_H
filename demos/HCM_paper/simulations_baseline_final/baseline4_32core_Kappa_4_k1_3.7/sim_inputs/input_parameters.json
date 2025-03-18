@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            20000
+            20
         ],
         "time_step": [
             0.001
@@ -35,7 +35,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/HCM_paper/simulations_baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
+            "../demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -184,23 +184,11 @@
                 "passive_law": [
                     "Holzapfel"
                 ],
-                "c": [
-                    200
-                ],
                 "c2": [
                     250
                 ],
                 "c3": [
                     15.0
-                ],
-                "bf": [
-                    8.0
-                ],
-                "bt": [
-                    3.58
-                ],
-                "bfs": [
-                    1.627
                 ],
                 "hbf": [
                     4.7435
@@ -552,10 +540,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/data.csv"
+            "/home/fenics/shared/demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/"
+            "/home/fenics/shared/demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
