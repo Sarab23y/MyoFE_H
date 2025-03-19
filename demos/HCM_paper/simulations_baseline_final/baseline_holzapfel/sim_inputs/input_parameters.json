@@ -23,7 +23,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/HCM_paper/simulations_baseline_final/baseline_holzapfel/sim_inputs/ellipsoidal.hdf5"
+            "../demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
