@@ -170,7 +170,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Holzapfel"
+                    "Guccione"
                 ],
                 "c": [
                     200
@@ -540,10 +540,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output/odata.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulations_baseline_final/baseline_final/sim_outputg/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulations_baseline_final/baseline_final/sim_outputg/"
         ],
         "mesh_object_to_save": [
             "displacement",
