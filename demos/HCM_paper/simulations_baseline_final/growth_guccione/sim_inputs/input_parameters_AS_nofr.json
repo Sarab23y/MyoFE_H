@@ -593,18 +593,18 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growth/sim_output/"        ], 
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/guccione/sim_output/"        ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growth/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/guccione/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growth/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/guccione/mesh_output/"
         ]
     }, 
     "mesh": {
