@@ -612,9 +612,14 @@ class MeshClass():
                 project(self.model['functions']['hsl'],
                     self.model['function_spaces']['quadrature_space']).vector().get_local()[:]
         
-        self.model['functions']["passive_total_stress"], self.model['functions']["Sff"] ,self.model['functions']["myo_passive_PK2"],\
+        """self.model['functions']["passive_total_stress"], self.model['functions']["Sff"] ,self.model['functions']["myo_passive_PK2"],\
         self.model['functions']["bulk_passive"],self.model['functions']["incomp_stress"],self.model['functions']["fiber_strain"] = \
+            uflforms.stress(self.model['functions']["hsl"])"""
+        self.model['functions']["passive_total_stress"], self.model['functions']["Sff"], self.model['functions']["myo_passive_PK2"],\
+        self.model['functions']["bulk_passive"], self.model['functions']["incomp_stress"], self.model['functions']["fiber_strain"],\
+        self.model['functions']["I1"], self.model['functions']["I4f"] = \
             uflforms.stress(self.model['functions']["hsl"])
+
         
         temp_DG = project(self.model['functions']["Sff"], FunctionSpace(mesh, "DG", 1), form_compiler_parameters={"representation":"uflacs"})
         p_f = interpolate(temp_DG, self.model['function_spaces']['quadrature_space'])

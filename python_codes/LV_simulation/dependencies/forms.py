@@ -569,7 +569,7 @@ class Forms(object):
         else:
             raise ValueError("Unknown passive law: {}".format(passive_law))
         
-        return S_global+PK2_global-p*inv(Ctensor),Sff , S_global, PK2_global, -p*inv(Ctensor),Eff
+        return S_global+PK2_global-p*inv(Ctensor),Sff , S_global, PK2_global, -p*inv(Ctensor),Eff,I1,I4f
 
     def passivestress(self,hsl):
 
