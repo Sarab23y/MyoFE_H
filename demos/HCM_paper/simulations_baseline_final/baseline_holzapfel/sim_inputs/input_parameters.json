@@ -531,10 +531,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputs/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputcor/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputs/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputcor/"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -559,7 +559,7 @@
             false
         ],
         "frequency_n": [
-            10
+            5
         ]
     }
 }
