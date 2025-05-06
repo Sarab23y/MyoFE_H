@@ -170,7 +170,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Guccione"
+                    "Holzapfel"
                 ],
                 "c": [
                     200
@@ -181,38 +181,29 @@
                 "c3": [
                     15.0
                 ],
-                "bf": [
-                    8.0
-                ],
-                "bt": [
-                    3.58
-                ],
-                "bfs": [
-                    1.627
-                ],
                 "hbf": [
-                    3.9
+                    3.8
                 ],
                 "hbfs": [
-                    3.39
+                    2.9
                 ],
                 "hbs": [
                     1.5998
                 ],
                 "hb": [
-                    3.9
+                    3.0
                 ],
                 "a": [
-                    134.8
+                    94.36
                 ],
                 "af": [
-                    1000.0
+                    700.0
                 ],
                 "as_": [
-                    542.6
+                    350.0
                 ],
                 "afs": [
-                    234.4
+                    164.08
                 ],
                 "phi_m": [
                     1.0
@@ -540,13 +531,14 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulations_baseline_final/baseline_final/sim_outputg/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputho/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulations_baseline_final/baseline_final/sim_outputg/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputho/"
         ],
         "mesh_object_to_save": [
             "displacement",
+            "fiber_strain",
             "active_stress",
             "active_stress_DG0",
             "hs_length",
