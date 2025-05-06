@@ -466,6 +466,11 @@ class Forms(object):
             Esn = s0[i]*Ea[i,j]*n0[j]
             Esn = dolfin.variable(Esn)
             Ens = dolfin.variable(Ens)
+            I1 = Ctensor[i, j] * Identity(3)[i, j]
+            I1 = dolfin.variable(I1)
+
+            I4f = f0[i] * Ctensor[i, j] * f0[j]
+            I4f = dolfin.variable(I4f)
             # Myofiber stretch
             myofiber_stretch = hsl / hsl0
             Q = C3 * conditional(myofiber_stretch > 1.0, (myofiber_stretch - 1.0) ** 2.0, 0.0)
