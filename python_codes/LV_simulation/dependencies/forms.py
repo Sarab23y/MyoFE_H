@@ -241,6 +241,8 @@ class Forms(object):
             Esf = inner(s0, Ea*f0)
             Esn = inner(s0, Ea*n0)
             Enf = inner(n0, Ea*f0)
+            I1 = tr(Cmat)
+            I4f = inner(f0, Cmat * f0)
 
         
             if(isincomp):
@@ -329,6 +331,8 @@ class Forms(object):
             Esf = inner(s0, Ea*f0)
             Esn = inner(s0, Ea*n0)
             Enf = inner(n0, Ea*f0)
+            I1 = tr(Cmat)
+            I4f = inner(f0, Cmat * f0)
 
         
             if(isincomp):
