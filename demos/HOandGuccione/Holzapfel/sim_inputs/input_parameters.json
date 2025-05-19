@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            30000
+            20000
         ],
         "time_step": [
             0.001
@@ -417,7 +417,7 @@
                     4.92
                 ],
                 "k_force": [
-                    0.001
+                    0.0013
                 ],
                 "k_2": [
                     200
@@ -531,10 +531,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputho/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputho/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
