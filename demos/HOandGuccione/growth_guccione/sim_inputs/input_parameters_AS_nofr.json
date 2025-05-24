@@ -10,13 +10,13 @@
                         "aorta_resistance"
                     ], 
                     "t_stop_s": [
-                        60
+                        40
                     ], 
                     "total_change": [
                         170
                     ], 
                     "t_start_s": [
-                        50
+                        30
                     ], 
                     "level": [
                         "circulation"
@@ -31,7 +31,7 @@
                         400
                     ], 
                     "t_start_s": [
-                        40
+                        20
                     ]
                 }
             ]
@@ -43,10 +43,10 @@
             "activations": [
                 {
                     "t_stop_s": [
-                        2500
+                        25000
                     ], 
                     "t_start_s": [
-                        500
+                        5000
                     ]
                 }
             ]
@@ -98,10 +98,10 @@
                     100
                 ], 
                 "k_cb": [
-                    0.001
+                    0.0015
                 ], 
                 "k_1": [
-                    4.92
+                    5.4
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -160,7 +160,7 @@
                     0.6
                 ], 
                 "cb_number_density": [
-                    6.9e+16
+                    7.6e+16
                 ], 
                 "ext_passive_l_slack": [
                     950
@@ -197,7 +197,7 @@
                     0.0006
                 ], 
                 "k_serca": [
-                    7.866
+                    8.866
                 ], 
                 "Ca_content": [
                     0.001
@@ -276,7 +276,7 @@
                         "aorta"
                     ], 
                     "resistance": [
-                        20
+                        15
                     ]
                 }, 
                 {
@@ -290,7 +290,7 @@
                         "arteries"
                     ], 
                     "resistance": [
-                        20
+                        25
                     ]
                 }, 
                 {
@@ -593,18 +593,18 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/guccione/sim_output/"        ], 
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/guccione/sim_output/"        ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/guccione/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/guccione/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/guccione/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/guccione/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -617,7 +617,7 @@
                     1e-08
                 ], 
                 "max_iter": [
-                    100
+                    300
                 ], 
                 "abs_tol": [
                     1e-08
@@ -822,7 +822,7 @@
                     "Guccione"
                 ],
                 "c": [
-                    200
+                    233
                 ],
                "c2": [
                     250
@@ -831,13 +831,13 @@
                     15.0
                 ],
                 "bf": [
-                    8.0
+                    8.7
                 ],
                 "bt": [
-                    3.58
+                    4.3
                 ],
                 "bfs": [
-                    1.627
+                    1.73
                 ],
                 "phi_m": [
                     1.0
