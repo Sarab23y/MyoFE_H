@@ -170,10 +170,10 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Guccione"
+                    "Holzapfel"
                 ],
                 "c": [
-                    270
+                    200
                 ],
                 "c2": [
                     250
@@ -181,38 +181,29 @@
                 "c3": [
                     15.0
                 ],
-                "bf": [
-                    7.6
-                ],
-                "bt": [
+                "hbf": [
                     3.8
                 ],
-                "bfs": [
-                    1.7
-                ],
-                "hbf": [
-                    3.9
-                ],
                 "hbfs": [
-                    3.39
+                    2.9
                 ],
                 "hbs": [
                     1.5998
                 ],
                 "hb": [
-                    3.9
+                    2.8
                 ],
                 "a": [
-                    134.8
+                    80
                 ],
                 "af": [
-                    1000.0
+                    550.0
                 ],
                 "as_": [
-                    542.6
+                    275.0
                 ],
                 "afs": [
-                    234.4
+                    150
                 ],
                 "phi_m": [
                     1.0
@@ -401,7 +392,7 @@
                     0.0806
                 ],
                 "k_serca": [
-                    8.866
+                    7.866
                 ],
                 "t_open": [
                     0.01
@@ -420,10 +411,10 @@
                     0.0
                 ],
                 "prop_myofilaments": [
-                    0.6
+                    0.65
                 ],
                 "k_1": [
-                    6.0
+                    6.4
                 ],
                 "k_force": [
                     0.001
@@ -447,7 +438,7 @@
                     5.2
                 ],
                 "k_on": [
-                    173500000.0
+                    179500000.0
                 ],
                 "k_off": [
                     200
@@ -540,10 +531,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputs/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output1/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputs/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output1/"
         ],
         "mesh_object_to_save": [
             "displacement",
