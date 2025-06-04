@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            30000
+            15000
         ],
         "time_step": [
             0.001
@@ -173,7 +173,7 @@
                     "Guccione"
                 ],
                 "c": [
-                    200
+                    240
                 ],
                 "c2": [
                     250
@@ -182,13 +182,13 @@
                     15.0
                 ],
                 "bf": [
-                    8.0
+                    8.2
                 ],
                 "bt": [
-                    3.58
+                    4.0
                 ],
                 "bfs": [
-                    1.627
+                    1.6
                 ],
                 "hbf": [
                     3.9
@@ -358,7 +358,7 @@
                         50
                     ],
                     "compliance": [
-                        0.1078
+                        0.07
                     ],
                     "slack_volume": [
                         2.0
@@ -420,10 +420,10 @@
                     0.0
                 ],
                 "prop_myofilaments": [
-                    0.6
+                    0.65
                 ],
                 "k_1": [
-                    3.7
+                    6.4
                 ],
                 "k_force": [
                     0.001
@@ -447,7 +447,7 @@
                     5.2
                 ],
                 "k_on": [
-                    173500000.0
+                    179500000.0
                 ],
                 "k_off": [
                     200
@@ -540,10 +540,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output20/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputs/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_output20/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/sim_outputs/"
         ],
         "mesh_object_to_save": [
             "displacement",
