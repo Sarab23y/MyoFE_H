@@ -248,13 +248,13 @@
         "solver": {
             "params": {
                 "rel_tol": [
-                    1e-08
+                    1e-05
                 ],
                 "abs_tol": [
-                    1e-08
+                    1e-05
                 ],
                 "max_iter": [
-                    300
+                    100
                 ],
                 "debugging_mode": [
                     false
