@@ -38,270 +38,18 @@
         }, 
         "no_of_time_steps": [
             150000
-        ]
-    },
-    "heart_rate": {
-        "t_active_period": [
-            0.003
         ],
-        "t_quiescent_period": [
-            0.92
-        ],
-        "t_first_activation": [
-            0.1
-        ]
-    },
-    "mesh": {
-        "relative_path": [
-            true
-        ],
-        "mesh_path": [
-            "../demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
-        ],
-        "function_spaces": [
-            {
-                "name": [
-                    "stimulusFS"
-                ],
-                "type": [
-                    "scalar"
-                ],
-                "element_type": [
-                    "DG"
-                ],
-                "degree": [
-                    1
-                ]
-            },
-            {
-                "name": [
-                    "scalar"
-                ],
-                "type": [
-                    "scalar"
-                ],
-                "element_type": [
-                    "DG"
-                ],
-                "degree": [
-                    1
-                ]
-            },
-            {
-                "name": [
-                    "scalar_DG0"
-                ],
-                "type": [
-                    "scalar"
-                ],
-                "element_type": [
-                    "DG"
-                ],
-                "degree": [
-                    0
-                ]
-            },
-            {
-                "name": [
-                    "scalar_CG"
-                ],
-                "type": [
-                    "scalar"
-                ],
-                "element_type": [
-                    "CG"
-                ],
-                "degree": [
-                    1
-                ]
-            },
-            {
-                "name": [
-                    "tensor_space"
-                ],
-                "type": [
-                    "tensor"
-                ],
-                "element_type": [
-                    "DG"
-                ],
-                "degree": [
-                    1
-                ]
-            },
-            {
-                "name": [
-                    "material_coord_system_space"
-                ],
-                "type": [
-                    "vector"
-                ],
-                "element_type": [
-                    "Quadrature"
-                ],
-                "degree": [
-                    2
-                ]
-            },
-            {
-                "name": [
-                    "quadrature_space"
-                ],
-                "type": [
-                    "scalar"
-                ],
-                "element_type": [
-                    "Quadrature"
-                ],
-                "degree": [
-                    2
-                ]
-            },
-            {
-                "name": [
-                    "fiber_FS"
-                ],
-                "type": [
-                    "vector"
-                ],
-                "element_type": [
-                    "Quadrature"
-                ],
-                "degree": [
-                    2
-                ]
-            },
-            {
-                "name": [
-                    "fiber_vis"
-                ],
-                "type": [
-                    "vector"
-                ],
-                "element_type": [
-                    "Quadrature"
-                ],
-                "degree": [
-                    2
-                ]
-            },
-            {
-                "name": [
-                    "fiber_vis2"
-                ],
-                "type": [
-                    "vector"
-                ],
-                "element_type": [
-                    "Quadrature"
-                ],
-                "degree": [
-                    2
-                ]
-            }
-        ],
-        "forms_parameters": {
-            "passive_law_parameters": {
-                "passive_law": [
-                    "Guccione"
-                ],
-                "c": [
-                    185
-                ],
-                "c2": [
-                    200
-                ],
-                "c3": [
-                    15.0
-                ],
-                "bf": [
-                    8.0
-                ],
-                "bt": [
-                    3.58
-                ],
-                "bfs": [
-                    1.627
-                ],
-                "hbf": [
-                    3.9
-                ],
-                "hbfs": [
-                    3.39
-                ],
-                "hbs": [
-                    1.5998
-                ],
-                "hb": [
-                    3.9
-                ],
-                "a": [
-                    134.8
-                ],
-                "af": [
-                    1000.0
-                ],
-                "as_": [
-                    542.6
-                ],
-                "afs": [
-                    234.4
-                ],
-                "phi_m": [
-                    1.0
-                ],
-                "phi_g": [
-                    1.0
-                ]
-            }
-        },
-        "apex_contractility": {
-            "components": [
+        "fiber_reorientation": {
+            "activations": [
                 {
-                    "radius_ratio": [
-                        0.4
+                    "t_start_s": [
+                        300000
                     ],
-                    "level": [
-                        "myofilaments"
-                    ],
-                    "variable": [
-                        "k_1"
-                    ],
-                    "factor": [
-                        1
-                    ]
-                },
-                {
-                    "radius_ratio": [
-                        0.4
-                    ],
-                    "level": [
-                        "myofilaments"
-                    ],
-                    "variable": [
-                        "k_on"
-                    ],
-                    "factor": [
-                        1
+                    "t_stop_s": [
+                        400000
                     ]
                 }
             ]
-        },
-        "solver": {
-            "params": {
-                "rel_tol": [
-                    1e-08
-                ],
-                "abs_tol": [
-                    1e-08
-                ],
-                "max_iter": [
-                    300
-                ],
-                "debugging_mode": [
-                    false
-                ]
-            }
         }
     },
     "model": {
@@ -601,6 +349,17 @@
             ]
         }
     },
+    "heart_rate": {
+        "t_active_period": [
+            0.003
+        ],
+        "t_quiescent_period": [
+            0.92
+        ],
+        "t_first_activation": [
+            0.1
+        ]
+    },
     "output_handler": {
         "mesh_object_to_save": [
             "displacement", 
@@ -659,5 +418,258 @@
         "growth_mesh_path": [
             "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/gumr/mesh_output/"
         ]
-    }
+    },
+    "mesh": {
+        "solver": {
+            "params": {
+                "rel_tol": [
+                    1e-08
+                ],
+                "abs_tol": [
+                    1e-08
+                ],
+                "max_iter": [
+                    300
+                ],
+                "debugging_mode": [
+                    false
+                ]
+            }
+        },
+        "function_spaces": [
+            {
+                "name": [
+                    "stimulusFS"
+                ],
+                "type": [
+                    "scalar"
+                ],
+                "element_type": [
+                    "DG"
+                ],
+                "degree": [
+                    1
+                ]
+            },
+            {
+                "name": [
+                    "scalar"
+                ],
+                "type": [
+                    "scalar"
+                ],
+                "element_type": [
+                    "DG"
+                ],
+                "degree": [
+                    1
+                ]
+            },
+            {
+                "name": [
+                    "scalar_DG0"
+                ],
+                "type": [
+                    "scalar"
+                ],
+                "element_type": [
+                    "DG"
+                ],
+                "degree": [
+                    0
+                ]
+            },
+            {
+                "name": [
+                    "scalar_CG"
+                ],
+                "type": [
+                    "scalar"
+                ],
+                "element_type": [
+                    "CG"
+                ],
+                "degree": [
+                    1
+                ]
+            },
+            {
+                "name": [
+                    "tensor_space"
+                ],
+                "type": [
+                    "tensor"
+                ],
+                "element_type": [
+                    "DG"
+                ],
+                "degree": [
+                    1
+                ]
+            },
+            {
+                "name": [
+                    "material_coord_system_space"
+                ],
+                "type": [
+                    "vector"
+                ],
+                "element_type": [
+                    "Quadrature"
+                ],
+                "degree": [
+                    2
+                ]
+            },
+            {
+                "name": [
+                    "quadrature_space"
+                ],
+                "type": [
+                    "scalar"
+                ],
+                "element_type": [
+                    "Quadrature"
+                ],
+                "degree": [
+                    2
+                ]
+            },
+            {
+                "name": [
+                    "fiber_FS"
+                ],
+                "type": [
+                    "vector"
+                ],
+                "element_type": [
+                    "Quadrature"
+                ],
+                "degree": [
+                    2
+                ]
+            },
+            {
+                "name": [
+                    "fiber_vis"
+                ],
+                "type": [
+                    "vector"
+                ],
+                "element_type": [
+                    "Quadrature"
+                ],
+                "degree": [
+                    2
+                ]
+            },
+            {
+                "name": [
+                    "fiber_vis2"
+                ],
+                "type": [
+                    "vector"
+                ],
+                "element_type": [
+                    "Quadrature"
+                ],
+                "degree": [
+                    2
+                ]
+            }
+        ],
+        "apex_contractility": {
+            "components": [
+                {
+                    "radius_ratio": [
+                        0.4
+                    ],
+                    "level": [
+                        "myofilaments"
+                    ],
+                    "variable": [
+                        "k_1"
+                    ],
+                    "factor": [
+                        1
+                    ]
+                },
+                {
+                    "radius_ratio": [
+                        0.4
+                    ],
+                    "level": [
+                        "myofilaments"
+                    ],
+                    "variable": [
+                        "k_on"
+                    ],
+                    "factor": [
+                        1
+                    ]
+                }
+            ]
+        },
+        "mesh_path": [
+            "../demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
+        ],
+        "relative_path": [
+            true
+        ],
+        "forms_parameters": {
+            "passive_law_parameters": {
+                "passive_law": [
+                    "Guccione"
+                ],
+                "c": [
+                    185
+                ],
+                "c2": [
+                    200
+                ],
+                "c3": [
+                    15.0
+                ],
+                "bf": [
+                    8.0
+                ],
+                "bt": [
+                    3.58
+                ],
+                "bfs": [
+                    1.627
+                ],
+                "hbf": [
+                    3.9
+                ],
+                "hbfs": [
+                    3.39
+                ],
+                "hbs": [
+                    1.5998
+                ],
+                "hb": [
+                    3.9
+                ],
+                "a": [
+                    134.8
+                ],
+                "af": [
+                    1000.0
+                ],
+                "as_": [
+                    542.6
+                ],
+                "afs": [
+                    234.4
+                ],
+                "phi_m": [
+                    1.0
+                ],
+                "phi_g": [
+                    1.0
+                ]
+            }
+        }
+    }   
 }
