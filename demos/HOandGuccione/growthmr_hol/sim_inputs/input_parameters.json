@@ -74,7 +74,7 @@
                     200
                 ], 
                 "k_on": [
-                    173500000.0
+                    175500000.0
                 ], 
                 "x_ps": [
                     5.2
@@ -98,10 +98,10 @@
                     100
                 ], 
                 "k_cb": [
-                    0.0015
+                    0.001
                 ], 
                 "k_1": [
-                    5.4
+                    5.2
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -160,7 +160,7 @@
                     0.6
                 ], 
                 "cb_number_density": [
-                    7.6e+16
+                    6.9e+16
                 ], 
                 "ext_passive_l_slack": [
                     950
@@ -197,7 +197,7 @@
                     0.0006
                 ], 
                 "k_serca": [
-                    8.866
+                    7.866
                 ], 
                 "Ca_content": [
                     0.001
@@ -253,7 +253,7 @@
                         "aorta"
                     ], 
                     "resistance": [
-                        15
+                        20
                     ]
                 }, 
                 {
@@ -317,7 +317,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.07
+                        0.146
                     ], 
                     "name": [
                         "veins"
@@ -529,7 +529,6 @@
     "output_handler": {
         "mesh_object_to_save": [
             "displacement", 
-            "fiber_strain",
             "active_stress", 
             "total_stress", 
             "total_passive", 
@@ -571,19 +570,19 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/growthmrh/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/holmr/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/growthmrh/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/holmr/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/growthmrh/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/holmr/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -810,7 +809,7 @@
                     15.0
                 ],
                 "hbf": [
-                    3.8
+                    3.0
                 ],
                 "hbfs": [
                     2.9
@@ -819,19 +818,19 @@
                     1.5998
                 ],
                 "hb": [
-                    3.6
+                    2.8
                 ],
                 "a": [
-                    120
+                    80
                 ],
                 "af": [
-                    700.0
+                    500.0
                 ],
                 "as_": [
-                    540.7
+                    220.0
                 ],
                 "afs": [
-                    180.0
+                    130
                 ],
                 "phi_m": [
                     1.0
@@ -839,7 +838,6 @@
                 "phi_g": [
                     1.0
                 ]
-
             }
         }
     }
