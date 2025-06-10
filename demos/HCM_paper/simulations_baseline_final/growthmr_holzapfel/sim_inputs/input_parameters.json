@@ -16,7 +16,7 @@
                         0.005
                     ], 
                     "t_start_s": [
-                        30
+                        25
                     ], 
                     "level": [
                         "circulation"
@@ -31,22 +31,22 @@
                         400
                     ], 
                     "t_start_s": [
-                        20
+                        15
                     ]
                 }
             ]
         }, 
         "no_of_time_steps": [
-            150000
+            100000
         ], 
         "baroreflex": {
             "activations": [
                 {
                     "t_stop_s": [
-                        2500
+                        250000
                     ], 
                     "t_start_s": [
-                        500
+                        50000
                     ]
                 }
             ]
