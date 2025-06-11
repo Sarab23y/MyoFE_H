@@ -286,6 +286,8 @@ class Forms(object):
             I4f = inner(f0, Cmat * f0)
             I4s = inner(s0, Cmat * s0)
             I8fs = inner(f0, Cmat * s0)
+            if(isincomp):
+                p = self.parameters["pressure_variable"]
 
             Qbulk = b * (I1 - 3)
             Qfiber_sheet = (af / (2.0 * bf)) * (exp(bf * (I4f - 1) ** 2) - 1) + (as_ / (2.0 * bs)) * (exp(bs * (I4s - 1) ** 2) - 1)
@@ -297,7 +299,9 @@ class Forms(object):
             QQ_m = conditional(myofiber_stretch > 1.0, C3*(myofiber_stretch - 1.0)**2.0, 0.0)
 
             Wp_m = C2 * (exp(QQ_m) - 1.0)
-            Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
+            if(isincomp):
+                Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
+     
             Wp = Wp_m + Wp_c
             return Wp
 
@@ -383,7 +387,8 @@ class Forms(object):
             QQ_m = conditional(myofiber_stretch > 1.0, C3*(myofiber_stretch - 1.0)**2.0, 0.0)
 
             Wp_m = C2 * (exp(QQ_m) - 1.0)
-            Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
+            if(isincomp):
+                Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
             Wp = Wp_m + Wp_c
             return Wp
 
