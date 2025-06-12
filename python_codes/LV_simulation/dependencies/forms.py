@@ -300,7 +300,7 @@ class Forms(object):
 
             Wp_m = C2 * (exp(QQ_m) - 1.0)
             if(isincomp):
-                Wp_c = (a / (2.0 * b)) * exp(Qbulk) + Qfiber_sheet + Qcoupling
+                Wp_c = (a / (2.0 * b)) * (exp(Qbulk)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
                 #Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
      
             Wp = Wp_m + Wp_c
@@ -389,7 +389,7 @@ class Forms(object):
 
             Wp_m = C2 * (exp(QQ_m) - 1.0)
             if(isincomp):
-                Wp_c = (a / (2.0 * b)) * exp(Qbulk) + Qfiber_sheet + Qcoupling
+                Wp_c = (a / (2.0 * b)) * (exp(Qbulk)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
                 #Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
             Wp = Wp_m + Wp_c
             return Wp
@@ -554,7 +554,7 @@ class Forms(object):
             Qbulk = b * (I1 - 3)
             Qfiber_sheet = (af / (2.0 * bf)) * (exp(bf * (I4f - 1) ** 2) - 1) + (as_ / (2.0 * bs)) * (exp(bs * (I4s - 1) ** 2) - 1)
             Qcoupling = (afs / (2.0 * bfs)) * (exp(bfs * I8fs ** 2) - 1)
-            Wp_c = (a / (2.0 * b)) * exp(Qbulk) + Qfiber_sheet + Qcoupling
+            Wp_c = (a / (2.0 * b)) * (exp(Qbulk)) + Qfiber_sheet + Qcoupling
             #Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling
 
             # Compute PK2 stress tensor
@@ -719,7 +719,7 @@ class Forms(object):
             Qbulk = b * (I1 - 3)
             Qfiber_sheet = (af / (2.0 * bf)) * (exp(bf * (I4f - 1) ** 2) - 1) + (as_ / (2.0 * bs)) * (exp(bs * (I4s - 1) ** 2) - 1)
             Qcoupling = (afs / (2.0 * bfs)) * (exp(bfs * I8fs ** 2) - 1)
-            Wp_c = (a / (2.0 * b)) * exp(Qbulk) + Qfiber_sheet + Qcoupling
+            Wp_c = (a / (2.0 * b)) * (exp(Qbulk)) + Qfiber_sheet + Qcoupling 
             #Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling
 
             # Compute PK2 stress tensor
