@@ -10,7 +10,7 @@
                         "mitral_insufficiency_conductance"
                     ], 
                     "t_stop_s": [
-                        40
+                        30
                     ], 
                     "total_change": [
                         0.005
@@ -28,7 +28,7 @@
             "activations": [
                 {
                     "t_stop_s": [
-                        400
+                        30
                     ], 
                     "t_start_s": [
                         15
@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            100000
+            30000
         ], 
         "baroreflex": {
             "activations": [
@@ -580,7 +580,7 @@
             "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growth/sim_output/data.csv"
         ], 
         "frequency_n": [
-            20
+            10
         ], 
         "growth_mesh_path": [
             "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growth/mesh_output/"
