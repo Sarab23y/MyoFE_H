@@ -300,8 +300,8 @@ class Forms(object):
             QQ_m = conditional(myofiber_stretch > 1.0, C3*(myofiber_stretch - 1.0)**2.0, 0.0)
 
             Wp_m = C2 * (exp(QQ_m) - 1.0)
-            if(isincomp):
-                Wp_c = Qbulk + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
+        
+            Wp_c = Qbulk + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
                 #Wp_c = (a / (2.0 * b)) * (exp(Qbulk)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
                 #Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
      
@@ -390,8 +390,8 @@ class Forms(object):
             QQ_m = conditional(myofiber_stretch > 1.0, C3*(myofiber_stretch - 1.0)**2.0, 0.0)
 
             Wp_m = C2 * (exp(QQ_m) - 1.0)
-            if(isincomp):
-                Wp_c = Qbulk + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
+            
+            Wp_c = Qbulk + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
                 #Wp_c = (a / (2.0 * b)) * (exp(Qbulk)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
                 #Wp_c = ((a / (2.0 * b)) * (exp(Qbulk)-1)) + Qfiber_sheet + Qcoupling - p*(self.J() - 1.0)
             Wp = Wp_m + Wp_c
