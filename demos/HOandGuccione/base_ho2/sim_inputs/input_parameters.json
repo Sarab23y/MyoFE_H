@@ -542,18 +542,7 @@
             "active_stress",
             "active_stress_DG0",
             "hs_length",
-            "reorienting_angle",
-            "c_param",
-            "c_param_DG0",
-            "fiber_direction",
-            "endo_distance",
-            "cb_number_density_DG0",
-            "cb_number_density",
-            "k_1",
-            "k_1_DG0",
-            "total_stress_vector",
-            "Transverse_Angle",
-            "Helical_Angle"
+            "total_stress_vector"
         ],
         "dumping_spatial_in_average": [
             false
