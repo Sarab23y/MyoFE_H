@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            150000
+            100000
         ]
     },
     "heart_rate": {
@@ -305,7 +305,7 @@
                     200
                 ], 
                 "k_on": [
-                    177000000.0
+                    173500000.0
                 ], 
                 "x_ps": [
                     5.2
@@ -428,7 +428,7 @@
                     0.0006
                 ], 
                 "k_serca": [
-                    8.866
+                    7.866
                 ], 
                 "Ca_content": [
                     0.001
@@ -548,7 +548,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.146
+                        0.108
                     ], 
                     "name": [
                         "veins"
@@ -631,24 +631,22 @@
             "cb_number_density",
             "k_1",
             "k_1_DG0",
-            "total_stress_vector",
-            "Transverse_Angle",
-            "Helical_Angle"
+            "total_stress_vector"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/homr/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growthmr/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/homr/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growthmr/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/baseline_final/homr/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growthmr/mesh_output/"
         ]
     }
 }
