@@ -576,7 +576,7 @@
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growthmr/sim_output/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growthmr/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
@@ -821,16 +821,16 @@
                     3.0
                 ],
                 "a": [
-                    188.72
+                    94.72
                 ],
                 "af": [
                     700.0
                 ],
                 "as_": [
-                    350.0
+                    300.0
                 ],
                 "afs": [
-                    328.16
+                    168.16
                 ],
                 "phi_m": [
                     1.0
