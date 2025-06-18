@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            150000
+            100000
         ], 
         "baroreflex": {
             "activations": [
@@ -563,11 +563,8 @@
             "endo_distance",
             "cb_number_density_DG0",
             "cb_number_density",
-            "k_1",
             "k_1_DG0",
-            "total_stress_vector",
-            "Transverse_Angle",
-            "Helical_Angle"
+            "total_stress_vector"
         ], 
         "mesh_output_path": [
             "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/simulation_baseline_final/growthmr/sim_output/"
@@ -595,7 +592,7 @@
                     1e-08
                 ], 
                 "max_iter": [
-                    100
+                    300
                 ], 
                 "abs_tol": [
                     1e-08
