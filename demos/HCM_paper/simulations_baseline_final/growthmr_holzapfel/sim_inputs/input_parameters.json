@@ -10,13 +10,13 @@
                         "mitral_insufficiency_conductance"
                     ], 
                     "t_stop_s": [
-                        30
+                        40
                     ], 
                     "total_change": [
                         0.005
                     ], 
                     "t_start_s": [
-                        25
+                        30
                     ], 
                     "level": [
                         "circulation"
@@ -31,13 +31,13 @@
                         30
                     ], 
                     "t_start_s": [
-                        15
+                        20
                     ]
                 }
             ]
         }, 
         "no_of_time_steps": [
-            30000
+            80000
         ], 
         "baroreflex": {
             "activations": [
