@@ -274,16 +274,6 @@ class GrowthMechanicsClass():
         functions["hsl_old"] = hsl_old
         functions["y_vec"] = y_vec
         #functions['core_ranks'] = core_ranks
-        
-        #SARA: Numerical Error Detection Code
-        for key, func in self.model['functions'].items():
-            if isinstance(func, Function):
-                vec_data = func.vector().get_local()
-                if np.isnan(vec_data).any():
-                    raise RuntimeError("NaNs detected in function: " + key)
-                if np.isinf(vec_data).any():
-                    raise RuntimeError("Infinite values detected in function: " + key)
-
 
         return functions
 
