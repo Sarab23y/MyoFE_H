@@ -34,7 +34,7 @@ def MyoFE():
     rank = comm.Get_rank()
 
     #SARA: I ADD IT ON 6/25/2025
-    print(f"[MPI] Core {rank+1} of {size} is active.")
+    print "[MPI] Core %d of %d is active." % (rank+1, size)
 
     if rank == 0:
         print ('%.0f numbers of core is called!' %size)
@@ -64,7 +64,7 @@ def MyoFE():
                 execute_MyoFE(instruct_file, comm)
                 comm.Barrier()
             except Exception as e:
-                print(f"[Core {rank}] Error: {e}")
+                print "[Core %d] Error: %s" % (rank, str(e))
                 raise  # re-throw the error so MPI terminates properly
 
 
