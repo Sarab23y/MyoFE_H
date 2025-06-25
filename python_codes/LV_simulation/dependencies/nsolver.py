@@ -162,8 +162,18 @@ class NSolver(object):
                     #print self.mesh_obj.model['functions']['incomp'].vector()
                     #incomp = project(self.mesh_obj.model['functions']['incomp'],
                     #            self.mesh_obj.model['function_spaces']['tensor_space'])
-
                     
+
+                    for key, func in self.model['functions'].items():
+                        if isinstance(func, Function):
+                            vec_data = func.vector().get_local()
+                            if np.isnan(vec_data).any():
+                                raise RuntimeError("NaNs detected in function: " + key)
+                            if np.isinf(vec_data).any():
+                                raise RuntimeError("Infinite values detected in function: " + key)
+
+
+                    #SARA: Numerical Error Detection Code
                     
                     """hsl_temp = project(self.mesh_obj.model['functions']['hsl'], 
                             self.mesh_obj.model['function_spaces']["quadrature_space"])
