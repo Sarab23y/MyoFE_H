@@ -33,6 +33,9 @@ def MyoFE():
     size = comm.Get_size()
     rank = comm.Get_rank()
 
+    #SARA: I ADD IT ON 6/25/2025
+    print(f"[MPI] Core {rank+1} of {size} is active.")
+
     if rank == 0:
         print ('%.0f numbers of core is called!' %size)
                   
@@ -54,7 +57,16 @@ def MyoFE():
     elif no_of_arguments == 3:
         if sys.argv[1] == 'LV_sim':
             instruct_file = sys.argv[2]
-            execute_MyoFE(instruct_file,comm)
+
+            #SARA ADDED ON 6/25/2025
+            try:
+                comm.Barrier()
+                execute_MyoFE(instruct_file, comm)
+                comm.Barrier()
+            except Exception as e:
+                print(f"[Core {rank}] Error: {e}")
+                raise  # re-throw the error so MPI terminates properly
+
 
     MPI.Finalize()
 

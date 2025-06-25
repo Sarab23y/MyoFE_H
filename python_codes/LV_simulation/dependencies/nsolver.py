@@ -128,6 +128,17 @@ class NSolver(object):
                                     )
 
                     solve(A, dww.vector(), b)
+
+                    for key, func in self.model['functions'].items():
+                        if isinstance(func, Function):
+                            vec_data = func.vector().get_local()
+                            if np.isnan(vec_data).any():
+                                raise RuntimeError("NaNs detected in function: " + key)
+                            if np.isinf(vec_data).any():
+                                raise RuntimeError("Infinite values detected in function: " + key)
+                    #SARA: Numerical Error Detection Code
+
+                    
                     #solve(A, dww.vector(), b,'gmres')
                     #self.solver.solve(A, w.vector(), b)
                     #solve(A, dww.vector(), b,solver_parameters={"linear_solver": "gmres",
@@ -164,16 +175,6 @@ class NSolver(object):
                     #            self.mesh_obj.model['function_spaces']['tensor_space'])
                     
 
-                    for key, func in self.model['functions'].items():
-                        if isinstance(func, Function):
-                            vec_data = func.vector().get_local()
-                            if np.isnan(vec_data).any():
-                                raise RuntimeError("NaNs detected in function: " + key)
-                            if np.isinf(vec_data).any():
-                                raise RuntimeError("Infinite values detected in function: " + key)
-
-
-                    #SARA: Numerical Error Detection Code
                     
                     """hsl_temp = project(self.mesh_obj.model['functions']['hsl'], 
                             self.mesh_obj.model['function_spaces']["quadrature_space"])
