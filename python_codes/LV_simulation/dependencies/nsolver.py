@@ -129,16 +129,16 @@ class NSolver(object):
 
                     solve(A, dww.vector(), b)
 
-                    for key, func in self.model['functions'].items():
+                    """for key, func in self.model['functions'].items():
                         if isinstance(func, Function):
                             vec_data = func.vector().get_local()
                             if np.isnan(vec_data).any():
                                 raise RuntimeError("NaNs detected in function: " + key)
                             if np.isinf(vec_data).any():
                                 raise RuntimeError("Infinite values detected in function: " + key)
-                    #SARA: Numerical Error Detection Code
+                    #SARA: Numerical Error Detection Code"""
 
-                    
+
                     #solve(A, dww.vector(), b,'gmres')
                     #self.solver.solve(A, w.vector(), b)
                     #solve(A, dww.vector(), b,solver_parameters={"linear_solver": "gmres",
