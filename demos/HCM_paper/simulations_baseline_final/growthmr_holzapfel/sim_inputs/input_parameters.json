@@ -541,7 +541,7 @@
             "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/sim_output/"
         ], 
         "dumping_spatial_in_average": [
-            true
+            false
         ], 
         "output_data_path": [
             "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/sim_output/data.csv"
