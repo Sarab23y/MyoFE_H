@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    4.92
+                    5.2
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -317,7 +317,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.07
+                        0.1078
                     ], 
                     "name": [
                         "veins"
@@ -538,19 +538,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/growthmrguccione/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/growthmrguccione/sim_output/data.csv"
         ], 
         "frequency_n": [
-            10
+            20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/growthmrguccione/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -765,40 +765,28 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Holzapfel"
+                    "Guccione"
                 ],
                 "c": [
                     200
-                ], 
+                ],
                 "c2": [
                     250
                 ],
                 "c3": [
                     15.0
                 ],
+                "bf": [
+                    8.0
+                ],
+                "bt": [
+                    3.58
+                ],
+                "bfs": [
+                    1.627
+                ],
                 "hbf": [
-                    3.8
-                ],
-                "hbfs": [
-                    2.9
-                ],
-                "hbs": [
-                    1.5998
-                ],
-                "hb": [
-                    3.0
-                ],
-                "a": [
-                    94.36
-                ],
-                "af": [
-                    700.0
-                ],
-                "as_": [
-                    350.0
-                ],
-                "afs": [
-                    164.08
+                    3.9
                 ],
                 "phi_m": [
                     1.0

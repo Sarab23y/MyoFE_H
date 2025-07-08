@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    4.92
+                    5.2
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -317,7 +317,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.07
+                        0.1078
                     ], 
                     "name": [
                         "veins"
@@ -538,19 +538,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/growthmrholzapfel/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/growthmrholzapfel/sim_output/data.csv"
         ], 
         "frequency_n": [
-            10
+            20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr1/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/growthmrholzapfel/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -769,8 +769,8 @@
                 ],
                 "c": [
                     200
-                ], 
-                "c2": [
+                ],
+               "c2": [
                     250
                 ],
                 "c3": [
