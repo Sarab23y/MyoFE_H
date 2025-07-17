@@ -217,10 +217,33 @@
                         1.1
                     ], 
                     "signal": [
-                        "myofiber_passive_stress"
+                        "total_stress"
                     ], 
                     "type": [
-                        "fiber"
+                        "sheet"
+                    ], 
+                    "local_theta_min": [
+                        0.9
+                    ], 
+                    "theta_max": [
+                        1.5
+                    ]
+                }, 
+                {
+                    "theta_min": [
+                        0.5
+                    ], 
+                    "tau": [
+                        8
+                    ], 
+                    "local_theta_max": [
+                        1.1
+                    ], 
+                    "signal": [
+                        "total_stress"
+                    ], 
+                    "type": [
+                        "sheet_normal"
                     ], 
                     "local_theta_min": [
                         0.9
@@ -317,7 +340,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.146
+                        0.1078
                     ], 
                     "name": [
                         "veins"
