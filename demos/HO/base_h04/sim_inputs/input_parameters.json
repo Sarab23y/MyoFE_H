@@ -182,7 +182,7 @@
                     15.0
                 ],
                 "hbf": [
-                    3.2
+                    3.6
                 ],
                 "hbfs": [
                     2.0
@@ -197,13 +197,13 @@
                     50.0
                 ],
                 "af": [
-                    100.0
+                    300.0
                 ],
                 "as_": [
-                    40.0
+                    45.0
                 ],
                 "afs": [
-                    45.0
+                    40.0
                 ],
                 "phi_m": [
                     1.0
@@ -531,10 +531,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HO/hol03/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/hol04/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HO/hol03/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HO/hol04/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
