@@ -37,16 +37,16 @@
             ]
         }, 
         "no_of_time_steps": [
-            150000
+            100000
         ], 
         "baroreflex": {
             "activations": [
                 {
                     "t_stop_s": [
-                        250000
+                        2500
                     ], 
                     "t_start_s": [
-                        50000
+                        500
                     ]
                 }
             ]
@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    4.92
+                    6.0
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -317,7 +317,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.07
+                        0.1078
                     ], 
                     "name": [
                         "veins"
@@ -511,7 +511,7 @@
                 "new_stress_kroon"
             ],
             "time_constant": [
-                4
+                3
             ]
         }
     }, 
@@ -529,7 +529,6 @@
     "output_handler": {
         "mesh_object_to_save": [
             "displacement", 
-            "fiber_strain",
             "active_stress", 
             "total_stress", 
             "total_passive", 
@@ -557,27 +556,33 @@
             "stimulus_fiber", 
             "setpoint_fiber",
             "active_stress_DG0",
+            "reorienting_angle",
+            "c_param",
+            "c_param_DG0",
             "fiber_direction",
             "endo_distance",
             "cb_number_density_DG0",
             "cb_number_density",
-            "total_stress_vector"
-            
+            "k_1",
+            "k_1_DG0",
+            "total_stress_vector",
+            "Transverse_Angle",
+            "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr12/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrh04/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr12/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrh04/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HCM_paper/growthmr12/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrh04/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -788,7 +793,7 @@
         ], 
         "relative_path": [
             true
-        ], 
+        ],  
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
@@ -796,7 +801,7 @@
                 ],
                 "c": [
                     200
-                ], 
+                ],
                 "c2": [
                     250
                 ],
@@ -804,28 +809,28 @@
                     15.0
                 ],
                 "hbf": [
-                    3.8
+                    3.6
                 ],
                 "hbfs": [
-                    2.9
+                    2.0
                 ],
                 "hbs": [
-                    1.5998
+                    1.0
                 ],
                 "hb": [
                     3.0
                 ],
                 "a": [
-                    94.36
+                    50.0
                 ],
                 "af": [
-                    700.0
+                    300.0
                 ],
                 "as_": [
-                    350.0
+                    40.0
                 ],
                 "afs": [
-                    164.08
+                    45.0
                 ],
                 "phi_m": [
                     1.0
