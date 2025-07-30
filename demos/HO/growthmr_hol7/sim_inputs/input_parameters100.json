@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    5.5
+                    4.92
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -317,7 +317,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.14
+                        0.15
                     ], 
                     "name": [
                         "veins"
@@ -570,19 +570,19 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/growthmrh031/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrh0310/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/growthmrh031/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrh0310/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/growthmrh031/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrh0310/mesh_output/"
         ]
     }, 
     "mesh": {
