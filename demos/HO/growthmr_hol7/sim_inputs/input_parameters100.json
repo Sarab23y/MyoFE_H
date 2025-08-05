@@ -43,10 +43,10 @@
             "activations": [
                 {
                     "t_stop_s": [
-                        2500
+                        400
                     ], 
                     "t_start_s": [
-                        500
+                        10
                     ]
                 }
             ]
