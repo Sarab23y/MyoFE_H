@@ -182,28 +182,28 @@
                     15.0
                 ],
                 "hbf": [
-                    3.216
+                    1.41
                 ],
                 "hbfs": [
-                    2.26
+                    0.226
                 ],
                 "hbs": [
-                    1.109
+                    0.314
                 ],
                 "hb": [
-                    2.156
+                    0.206
                 ],
                 "a": [
-                    175.7
+                    1700.0
                 ],
                 "af": [
-                    3318.0
+                    550.0
                 ],
                 "as_": [
-                    690.0
+                    444.0
                 ],
                 "afs": [
-                    299.0
+                    368.0
                 ],
                 "phi_m": [
                     1.0
@@ -349,7 +349,7 @@
                         50
                     ],
                     "compliance": [
-                        0.078
+                        0.07
                     ],
                     "slack_volume": [
                         2.0
@@ -414,7 +414,7 @@
                     0.6
                 ],
                 "k_1": [
-                    4.92
+                    5.2
                 ],
                 "k_force": [
                     0.001
@@ -531,10 +531,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HolUG/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/HolUG2/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HolUG/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/HolUG2/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
