@@ -276,7 +276,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        20
+                        25
                     ],
                     "compliance": [
                         0.0004
@@ -290,7 +290,7 @@
                         "arteries"
                     ],
                     "resistance": [
-                        20
+                        25
                     ],
                     "compliance": [
                         0.0008
