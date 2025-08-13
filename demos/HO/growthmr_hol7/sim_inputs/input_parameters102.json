@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    5.2
+                    4.92
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -267,7 +267,7 @@
                         "arteries"
                     ], 
                     "resistance": [
-                        30
+                        25
                     ]
                 }, 
                 {
@@ -570,19 +570,19 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/growthmrhUG/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrUG/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/growthmrhUG/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrUG/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/growthmrhUG/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/growthmrUG/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -809,28 +809,28 @@
                     15.0
                 ],
                 "hbf": [
-                    1.41
+                    2.2
                 ],
                 "hbfs": [
-                    0.226
+                    0.38
                 ],
                 "hbs": [
-                    0.314
+                    0.44
                 ],
                 "hb": [
-                    0.206
+                    0.23
                 ],
                 "a": [
-                    1700.0
+                    2200.0
                 ],
                 "af": [
-                    550.0
+                    1300.0
                 ],
                 "as_": [
-                    444.0
+                    600.0
                 ],
                 "afs": [
-                    368.0
+                    430.0
                 ],
                 "phi_m": [
                     1.0
