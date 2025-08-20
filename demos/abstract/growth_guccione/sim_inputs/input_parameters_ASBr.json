@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            150000
+            100000
         ], 
         "baroreflex": {
             "activations": [
@@ -228,6 +228,29 @@
                     "theta_max": [
                         1.5
                     ]
+                }, 
+                {
+                    "theta_min": [
+                        0.5
+                    ], 
+                    "tau": [
+                        8
+                    ], 
+                    "local_theta_max": [
+                        1.1
+                    ], 
+                    "signal": [
+                        "total_stress"
+                    ], 
+                    "type": [
+                        "sheet_normal"
+                    ], 
+                    "local_theta_min": [
+                        0.9
+                    ], 
+                    "theta_max": [
+                        1.5
+                    ]
                 }
             ], 
             "growth_frequency_n": [
@@ -253,7 +276,7 @@
                         "aorta"
                     ], 
                     "resistance": [
-                        25
+                        20
                     ]
                 }, 
                 {
@@ -267,7 +290,7 @@
                         "arteries"
                     ], 
                     "resistance": [
-                        30
+                        20
                     ]
                 }, 
                 {
@@ -317,7 +340,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.1078
+                        0.07
                     ], 
                     "name": [
                         "veins"
@@ -511,7 +534,7 @@
                 "new_stress_kroon"
             ],
             "time_constant": [
-                1
+                4
             ]
         }
     }, 
@@ -557,32 +580,24 @@
             "setpoint_fiber",
             "active_stress_DG0",
             "reorienting_angle",
-            "c_param",
-            "c_param_DG0",
             "fiber_direction",
             "endo_distance",
-            "cb_number_density_DG0",
-            "cb_number_density",
-            "k_1",
-            "k_1_DG0",
-            "total_stress_vector",
-            "Transverse_Angle",
-            "Helical_Angle"
+            "total_stress_vector"
+          
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/sim_output/"
-        ], 
+            "/mnt/gpfs2_4m/scratch/sba431/guccione/sim_output/"        ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/guccione/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/guccione/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -755,7 +770,7 @@
                     0
                 ]
             }
-        ], 
+        ],
         "apex_contractility": {
             "components": [
                 {
@@ -795,42 +810,30 @@
             true
         ], 
         "forms_parameters": {
-            "passive_law_parameters": {
+            "passive_law_parameters": { 
                 "passive_law": [
-                    "Holzapfel"
+                    "Guccione"
                 ],
                 "c": [
-                    200
+                    185
                 ],
                 "c2": [
-                    250
+                    200
                 ],
                 "c3": [
                     15.0
                 ],
+                "bf": [
+                    7.5
+                ],
+                "bt": [
+                    3.58
+                ],
+                "bfs": [
+                    1.627
+                ],
                 "hbf": [
-                    2.6
-                ],
-                "hbfs": [
-                    0.5
-                ],
-                "hbs": [
-                    0.54
-                ],
-                "hb": [
-                    0.5
-                ],
-                "a": [
-                    2500.0
-                ],
-                "af": [
-                    1700.0
-                ],
-                "as_": [
-                    650.0
-                ],
-                "afs": [
-                    470.0
+                    3.9
                 ],
                 "phi_m": [
                     1.0

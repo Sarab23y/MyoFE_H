@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            150000
+            100000
         ], 
         "baroreflex": {
             "activations": [
@@ -228,6 +228,29 @@
                     "theta_max": [
                         1.5
                     ]
+                }, 
+                {
+                    "theta_min": [
+                        0.5
+                    ], 
+                    "tau": [
+                        8
+                    ], 
+                    "local_theta_max": [
+                        1.1
+                    ], 
+                    "signal": [
+                        "total_stress"
+                    ], 
+                    "type": [
+                        "sheet_normal"
+                    ], 
+                    "local_theta_min": [
+                        0.9
+                    ], 
+                    "theta_max": [
+                        1.5
+                    ]
                 }
             ], 
             "growth_frequency_n": [
@@ -253,7 +276,7 @@
                         "aorta"
                     ], 
                     "resistance": [
-                        25
+                        20
                     ]
                 }, 
                 {
@@ -267,7 +290,7 @@
                         "arteries"
                     ], 
                     "resistance": [
-                        30
+                        20
                     ]
                 }, 
                 {
@@ -317,7 +340,7 @@
                         2.0
                     ], 
                     "compliance": [
-                        0.1078
+                        0.07
                     ], 
                     "name": [
                         "veins"
@@ -511,7 +534,7 @@
                 "new_stress_kroon"
             ],
             "time_constant": [
-                1
+                4
             ]
         }
     }, 
@@ -528,7 +551,8 @@
     }, 
     "output_handler": {
         "mesh_object_to_save": [
-            "displacement", 
+            "displacement",
+            "fiber_strain", 
             "active_stress", 
             "total_stress", 
             "total_passive", 
@@ -570,19 +594,18 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/sim_output/"
-        ], 
+            "/mnt/gpfs2_4m/scratch/sba431/growthas/sim_output/"        ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/growthas/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/growthas/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -755,7 +778,7 @@
                     0
                 ]
             }
-        ], 
+        ],
         "apex_contractility": {
             "components": [
                 {
@@ -795,42 +818,42 @@
             true
         ], 
         "forms_parameters": {
-            "passive_law_parameters": {
+            "passive_law_parameters": { 
                 "passive_law": [
                     "Holzapfel"
                 ],
                 "c": [
                     200
                 ],
-                "c2": [
+               "c2": [
                     250
                 ],
                 "c3": [
                     15.0
                 ],
                 "hbf": [
-                    2.6
+                    3.8
                 ],
                 "hbfs": [
-                    0.5
+                    2.9
                 ],
                 "hbs": [
-                    0.54
+                    1.5998
                 ],
                 "hb": [
-                    0.5
+                    3.0
                 ],
                 "a": [
-                    2500.0
+                    94.36
                 ],
                 "af": [
-                    1700.0
+                    700.0
                 ],
                 "as_": [
-                    650.0
+                    350.0
                 ],
                 "afs": [
-                    470.0
+                    164.08
                 ],
                 "phi_m": [
                     1.0
