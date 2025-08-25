@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            100000
+            140000
         ], 
         "baroreflex": {
             "activations": [
@@ -77,7 +77,7 @@
                     173500000.0
                 ], 
                 "x_ps": [
-                    5.08
+                    5.2
                 ], 
                 "prop_fibrosis": [
                     0.0
@@ -571,19 +571,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MR_g9/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/MR_h223/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MR_g9/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/MR_h223/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MR_g9/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/MR_h223/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -798,10 +798,10 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Guccione"
+                    "Holzapfel"
                 ],
                 "c": [
-                    477.07
+                    200
                 ],
                 "c2": [
                     250
@@ -809,19 +809,31 @@
                 "c3": [
                     15.0
                 ],
-                "bf": [
-                    21.316
+                "hbf": [
+                    2.5
                 ],
-                "bt": [
-                    9.648
+                "hbfs": [
+                    0.44
                 ],
-                "bfs": [
-                    4.773
+                "hbs": [
+                    0.53
+                ],
+                "hb": [
+                    0.27
+                ],
+                "a": [
+                    2350.0
+                ],
+                "af": [
+                    1650.0
+                ],
+                "as_": [
+                    650.0
+                ],
+                "afs": [
+                    470.0
                 ],
                 "phi_m": [
-                    1.0
-                ],
-                "phi_g": [
                     1.0
                 ]
             }
