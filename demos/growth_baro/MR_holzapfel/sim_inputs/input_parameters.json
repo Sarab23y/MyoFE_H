@@ -10,13 +10,13 @@
                         "mitral_insufficiency_conductance"
                     ], 
                     "t_stop_s": [
-                        40
+                        45
                     ], 
                     "total_change": [
                         0.005
                     ], 
                     "t_start_s": [
-                        30
+                        35
                     ], 
                     "level": [
                         "circulation"
@@ -31,13 +31,13 @@
                         400
                     ], 
                     "t_start_s": [
-                        20
+                        30
                     ]
                 }
             ]
         }, 
         "no_of_time_steps": [
-            100000
+            120000
         ], 
         "baroreflex": {
             "activations": [
@@ -571,19 +571,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MR_ho/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/MRho/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MR_ho/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/MRho/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MR_ho/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/MRho/mesh_output/"
         ]
     }, 
     "mesh": {

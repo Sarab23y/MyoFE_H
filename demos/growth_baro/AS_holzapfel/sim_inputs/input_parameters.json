@@ -10,13 +10,13 @@
                         "aorta_resistance"
                     ], 
                     "t_stop_s": [
-                        40
+                        45
                     ], 
                     "total_change": [
                         170
                     ], 
                     "t_start_s": [
-                        30
+                        35
                     ], 
                     "level": [
                         "circulation"
@@ -31,7 +31,7 @@
                         400
                     ], 
                     "t_start_s": [
-                        20
+                        30
                     ]
                 }
             ]
@@ -570,19 +570,19 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/ASho/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/ASho/sim_output/data.csv"
         ], 
         "frequency_n": [
             20
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/AS_ho/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/ASho/mesh_output/"
         ]
     }, 
     "mesh": {
