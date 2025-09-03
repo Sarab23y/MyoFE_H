@@ -10,13 +10,13 @@
                         "mitral_insufficiency_conductance"
                     ], 
                     "t_stop_s": [
-                        4000
+                        45
                     ], 
                     "total_change": [
                         0.005
                     ], 
                     "t_start_s": [
-                        3000
+                        35
                     ], 
                     "level": [
                         "circulation"
@@ -28,22 +28,22 @@
             "activations": [
                 {
                     "t_stop_s": [
-                        4000
+                        400
                     ], 
                     "t_start_s": [
-                        2000
+                        25
                     ]
                 }
             ]
         }, 
         "no_of_time_steps": [
-            15000
+            120000
         ], 
         "baroreflex": {
             "activations": [
                 {
                     "t_stop_s": [
-                        20
+                        250
                     ], 
                     "t_start_s": [
                         5
@@ -77,7 +77,7 @@
                     173500000.0
                 ], 
                 "x_ps": [
-                    5.25
+                    5.2
                 ], 
                 "prop_fibrosis": [
                     0.0
@@ -267,7 +267,7 @@
                         "arteries"
                     ], 
                     "resistance": [
-                        25
+                        30
                     ]
                 }, 
                 {
@@ -534,26 +534,56 @@
             "total_passive", 
             "myofiber_passive", 
             "hs_length", 
+            "facetboundaries", 
+            "k_1", 
+            "k_3", 
+            "k_on", 
+            "k_act", 
+            "k_serca", 
+            "local_theta_vis_sheet", 
+            "global_theta_vis_sheet", 
+            "local_theta_vis_fiber", 
+            "global_theta_vis_fiber", 
+            "deviation_sheet", 
+            "stimulus_sheet", 
+            "setpoint_sheet", 
+            "local_theta_vis_sheet_normal", 
+            "global_theta_vis_sheet_normal", 
+            "deviation_sheet_normal", 
+            "stimulus_sheet_normal", 
+            "setpoint_sheet_normal", 
+            "deviation_fiber", 
+            "stimulus_fiber", 
+            "setpoint_fiber",
             "active_stress_DG0",
             "reorienting_angle",
+            "c_param",
+            "c_param_DG0",
             "fiber_direction",
             "endo_distance",
-            "total_stress_vector"
-            
+            "cb_number_density_DG0",
+            "cb_number_density",
+            "k_1",
+            "k_1_DG0",
+            "total_stress_vector",
+            "Transverse_Angle",
+            "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/ho/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/MRg1012/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/ho/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/MRg1012/sim_output/data.csv"
         ], 
         "frequency_n": [
-            10
+            20
+        ], 
+        "growth_mesh_path": [
+            "/mnt/gpfs2_4m/scratch/sba431/MRg1012/mesh_output/"
         ]
-        
     }, 
     "mesh": {
         "solver": {
@@ -767,10 +797,10 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Holzapfel"
+                    "Guccione"
                 ],
                 "c": [
-                    200
+                    600
                 ],
                 "c2": [
                     250
@@ -778,29 +808,14 @@
                 "c3": [
                     15.0
                 ],
-                "hbf": [
-                    2.537
+                "bf": [
+                    19.0
                 ],
-                "hbfs": [
-                    0.443
+                "bt": [
+                    10.0
                 ],
-                "hbs": [
-                    0.542
-                ],
-                "hb": [
-                    0.273
-                ],
-                "a": [
-                    2384.0
-                ],
-                "af": [
-                    1675.0
-                ],
-                "as_": [
-                    659.0
-                ],
-                "afs": [
-                    477.6
+                "bfs": [
+                    5.0
                 ],
                 "phi_m": [
                     1.0

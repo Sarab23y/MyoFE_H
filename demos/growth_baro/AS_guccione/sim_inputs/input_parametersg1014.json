@@ -551,13 +551,13 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/g1013/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/g1014/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/g1013/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/g1014/sim_output/data.csv"
         ], 
         "frequency_n": [
             10
@@ -778,7 +778,7 @@
                     "Guccione"
                 ],
                 "c": [
-                    612.0
+                    624.0
                 ],
                 "c2": [
                     250.0
@@ -787,7 +787,7 @@
                     15.0
                 ],
                 "bf": [
-                    18.0
+                    17.6
                 ],
                 "bt": [
                     10.0
