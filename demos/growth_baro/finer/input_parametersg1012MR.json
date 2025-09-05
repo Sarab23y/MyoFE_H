@@ -10,13 +10,13 @@
                         "mitral_insufficiency_conductance"
                     ], 
                     "t_stop_s": [
-                        45
+                        60
                     ], 
                     "total_change": [
                         0.005
                     ], 
                     "t_start_s": [
-                        35
+                        50
                     ], 
                     "level": [
                         "circulation"
@@ -31,13 +31,13 @@
                         400
                     ], 
                     "t_start_s": [
-                        25
+                        40
                     ]
                 }
             ]
         }, 
         "no_of_time_steps": [
-            120000
+            200000
         ], 
         "baroreflex": {
             "activations": [
@@ -570,19 +570,19 @@
             "Helical_Angle"
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MRg1012/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/MRgu/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MRg1012/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/MRgu/sim_output/data.csv"
         ], 
         "frequency_n": [
-            20
+            10
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/MRg1012/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/MRgu/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -800,7 +800,7 @@
                     "Guccione"
                 ],
                 "c": [
-                    600
+                    550
                 ],
                 "c2": [
                     250
