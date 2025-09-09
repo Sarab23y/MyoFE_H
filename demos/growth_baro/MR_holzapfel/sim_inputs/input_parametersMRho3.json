@@ -570,7 +570,7 @@
             "/mnt/gpfs2_4m/scratch/sba431/MRhf3/sim_output/data.csv"
         ], 
         "frequency_n": [
-            10
+            20
         ],
         "growth_mesh_path": [
             "/mnt/gpfs2_4m/scratch/sba431/MRhf3/mesh_output/"
