@@ -1780,8 +1780,8 @@ class LV_simulation():
     
     
     def handle_output(self, outputstruct):
-        '''Modified version that only saves main data.csv and specific stress files'''
-    
+        """Modified version that only saves main data.csv and specific stress files"""
+        
         # Only save main simulation data (data.csv)
         if outputstruct and self.comm.Get_rank() == 0:
             if self.output_data_str:
@@ -1824,10 +1824,11 @@ class LV_simulation():
                 total_stress = stress_data['active'] + stress_data['total_passive']
                 stress_data['total_stress'] = total_stress
                 
-                # Save each stress component to separate CSV files
-                for stress_name, stress_values in stress_data.items():
+                
+                for stress_name in stress_data.keys():
+                    stress_values = stress_data[stress_name]
                     stress_df = pd.DataFrame(stress_values)
-                    stress_file_path = os.path.join(output_dir, f"{stress_name}.csv")
+                    stress_file_path = os.path.join(output_dir, stress_name + ".csv")
                     stress_df.to_csv(stress_file_path, index=False, header=False)
                     
         return
