@@ -1806,59 +1806,13 @@ class LV_simulation():
 
         return data_dict
     
-    
     def handle_output(self, outputstruct):
-        """Modified version that only saves main data.csv and specific stress files"""
-        
-        # Only save main simulation data (data.csv)
+        """Simplified version that only saves main data.csv"""
         if outputstruct and self.comm.Get_rank() == 0:
             if self.output_data_str:
                 # Save main simulation data to data.csv
                 output_sim_data = pd.DataFrame(data=self.sim_data)
                 output_sim_data.to_csv(self.output_data_str)
-                
-                # Get output directory for stress files
-                output_dir = os.path.dirname(self.output_data_str)
-                
-                # ONLY save specific stress CSV files
-                stress_data = {}
-                
-                # Active stress (myofiber direction)
-                temp0 = inner(self.mesh.model_functions['f0'], self.mesh.model_functions['P_active'] * self.mesh.model_functions['f0'])
-                temp = project(temp0, self.mesh.model_function_spaces['quadrature_space'])
-                stress_data['active'] = temp.vector().get_local()
-                
-                # Total passive stress  
-                temp = inner(self.mesh.model_functions['f0'], self.mesh.model_functions['passive_total_stress'] * self.mesh.model_functions['f0'])
-                total_passive = project(temp, self.mesh.model_function_spaces['scalar'], form_compiler_parameters={"representation": "uflacs"}).vector().get_local()
-                stress_data['total_passive'] = total_passive
-                
-                # Myofiber passive stress
-                temp = inner(self.mesh.model_functions['f0'], self.mesh.model_functions['myopassive_PK2'] * self.mesh.model_functions['f0'])
-                myofiber_passive = project(temp, self.mesh.model_function_spaces['quadrature_space']).vector().get_local()
-                stress_data['myofiber'] = myofiber_passive
-                
-                # Bulk passive stress
-                temp = inner(self.mesh.model_functions['f0'], self.mesh.model_functions['bulk_passive'] * self.mesh.model_functions['f0'])
-                bulk_passive = project(temp, self.mesh.model_function_spaces['scalar'], form_compiler_parameters={"representation": "uflacs"}).vector().get_local()
-                stress_data['bulk'] = bulk_passive
-                
-                # Incompressible stress
-                temp = inner(self.mesh.model_functions['f0'], self.mesh.model_functions['incomp_stress'] * self.mesh.model_functions['f0'])
-                incomp_stress = project(temp, self.mesh.model_function_spaces['quadrature_space']).vector().get_local()
-                stress_data['incompressible'] = incomp_stress
-                
-                # Total stress (active + passive)
-                total_stress = stress_data['active'] + stress_data['total_passive']
-                stress_data['total_stress'] = total_stress
-                
-                
-                for stress_name in stress_data.keys():
-                    stress_values = stress_data[stress_name]
-                    stress_df = pd.DataFrame(stress_values)
-                    stress_file_path = os.path.join(output_dir, stress_name + ".csv")
-                    stress_df.to_csv(stress_file_path, index=False, header=False)
-                    
         return
 
     def rebuild_from_perturbations(self):
