@@ -42,7 +42,12 @@ class LV_simulation():
     def __init__(self,comm, instruction_data):
 
 
-
+        self.spatial_gr_data_fields = []
+        self.spatial_myof_data_fields = []
+        self.spatial_memb_data_fields = []
+        self.spatial_hs_data_fields = []
+        self.spatial_fiber_data_fields = []
+        self.spatial_extra = []
         self.f0_values = []
         self.fdiff_values = []
         self.lcoord_values = []
