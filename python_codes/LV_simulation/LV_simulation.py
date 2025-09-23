@@ -54,6 +54,31 @@ class LV_simulation():
         self.f_proj_value = []
         self.f_proj_CG_value = []
         self.traction_vector_value = []
+        # Initialize spatial data field lists
+        self.spatial_gr_data_fields = []
+        self.spatial_myof_data_fields = []
+        self.spatial_memb_data_fields = []
+        self.spatial_hs_data_fields = []
+        self.spatial_fiber_data_fields = []
+        self.spatial_extra = []
+        
+        # After sim_data is created, add growth keys
+        if hasattr(self, 'gr') and self.gr:
+            growth_keys = [
+                'gr_setpoint_sheet_normal', 'gr_setpoint_fiber', 'gr_setpoint_sheet',
+                'gr_deviation_sheet_normal', 'gr_deviation_fiber', 'gr_deviation_sheet',
+                'gr_stimulus_sheet_normal', 'gr_stimulus_fiber', 'gr_stimulus_sheet',
+                'gr_local_theta_sheet_normal', 'gr_local_theta_fiber', 'gr_local_theta_sheet',
+                'gr_global_theta_sheet_normal', 'gr_global_theta_fiber', 'gr_global_theta_sheet'
+            ]
+            
+            # Add growth keys to sim_data if they don't exist
+            if hasattr(self, 'sim_data'):
+                for key in growth_keys:
+                    if key not in self.sim_data:
+                        # Initialize with zeros for the number of time steps
+                        num_steps = len(self.sim_data[self.sim_data.keys()[0]])  # Get length from existing key
+                        self.sim_data[key] = np.zeros(num_steps)
 
         # Check for model input first
         if not "model" in  instruction_data:
@@ -1712,16 +1737,14 @@ class LV_simulation():
                 self.sim_data[f][self.write_counter] = self.br.data[f]
         if (self.gr):
             for f in list(self.gr.data.keys()):
-
-                
-        #if (self.fr):
-            #for f in list(self.fr.data.keys()):
-                #self.sim_data[f][self.write_counter] = self.fr.data[f]
-
-
-
-                if f not in self.spatial_gr_data_fields:
-                    self.sim_data[f][self.write_counter] = self.gr.data[f]
+                # Add this safety check to prevent KeyError
+                if hasattr(self, 'spatial_gr_data_fields') and f not in self.spatial_gr_data_fields:
+                    # Only try to write if the key exists in sim_data
+                    if f in self.sim_data:
+                        self.sim_data[f][self.write_counter] = self.gr.data[f]
+                    else:
+                        # Skip this growth parameter if sim_data doesn't have the key
+                        print("Skipping growth parameter: " + f)
 
     
         self.sim_data['write_mode'] = 1
