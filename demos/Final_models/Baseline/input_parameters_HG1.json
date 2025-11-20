@@ -497,19 +497,19 @@
         "mesh_object_to_save": [
            ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineHO/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineHG/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineHO/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineHG/sim_output/data.csv"
         ], 
         "frequency_n": [
             10
         ], 
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineHO/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineHG/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -736,28 +736,28 @@
                     15.0
                 ],
                 "hbf": [
-                    1.0
+                    8.0
                 ],
                 "hbfs": [
-                    3.39
+                    4.0
                 ],
                 "hbs": [
-                    1.5998
+                    3.6
                 ],
                 "hb": [
-                    3.243
+                    5.0
                 ],
                 "a": [
-                    134.8
+                    60.0
                 ],
                 "af": [
-                    0.0
+                    300.0
                 ],
                 "as_": [
-                    542.6
+                    120.0
                 ],
                 "afs": [
-                    234.4
+                    180.0
                 ],
                 "phi_m": [
                     1.0
