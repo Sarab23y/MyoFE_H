@@ -4,7 +4,7 @@
             0.001
         ], 
         "no_of_time_steps": [
-            100000
+            40000
         ], 
         "baroreflex": {
             "activations": [
@@ -25,7 +25,7 @@
                         20
                     ],
                     "t_stop_s": [
-                        200000
+                        40
                     ]
                 }
             ]
@@ -500,7 +500,7 @@
             "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineG/sim_output/"
         ], 
         "dumping_spatial_in_average": [
-            true
+            false
         ], 
         "output_data_path": [
             "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineG/sim_output/data.csv"
