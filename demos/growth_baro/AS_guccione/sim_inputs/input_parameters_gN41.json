@@ -68,7 +68,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    5.42
+                    4.92
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -497,19 +497,19 @@
         "mesh_object_to_save": [
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/gN33FR/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/gN33/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/gN33FR/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/gN33/sim_output/data.csv"
         ], 
         "frequency_n": [
             10
         ],
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/gN33FR/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/gN33/mesh_output/"
         ]  
     }, 
     "mesh": {
@@ -727,7 +727,7 @@
                     "Guccione"
                 ],
                 "c": [
-                    500
+                    340
                 ],
                 "c2": [
                     300
@@ -736,13 +736,13 @@
                     16.0
                 ],
                 "bf": [
-                    14.0
+                    11.0
                 ],
                 "bt": [
-                    6.0
+                    5.04
                 ],
                 "bfs": [
-                    3.0
+                    2.28
                 ],
                 "phi_m": [
                     1.0
