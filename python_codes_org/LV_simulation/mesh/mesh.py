@@ -53,6 +53,7 @@ class MeshClass():
         self.no_of_cells = len(subdomains.array())
         #print "no of cells"
         #print self.no_of_cells
+
         
 
         self.model['function_spaces'] = self.initialize_function_spaces(mesh_struct)
@@ -392,6 +393,9 @@ class MeshClass():
 
         functions["passive_total_stress"] =passive_total_stress
 
+        Pactive = Function(self.model['function_spaces']['quadrature_space'])
+        functions["Pactive"] = Pactive
+
         functions["Ell"] =Ell
         functions["Ecc"] =Ecc
         functions["Err"] =Err
@@ -627,7 +631,9 @@ class MeshClass():
          
         self.model['functions']['PK2_local'],self.model['functions']['incomp'] = \
             uflforms.passivestress(self.model['functions']["hsl"])
-        self.model['functions']['total_stress'] = Pactive + self.model['functions']["passive_total_stress"]
+        #self.model['functions']['total_stress'] = Pactive + self.model['functions']["passive_total_stress"]
+
+        self.model['functions']['total_stress'] = self.model['functions']['Pactive'] + self.model['functions']["passive_total_stress"]
 
         #self.model['functions']['myofiber_stretch'] = self.model['functions']["hsl"]/self.model['functions']["hsl0"]
         self.model['functions']['alpha_f'] = alpha_f

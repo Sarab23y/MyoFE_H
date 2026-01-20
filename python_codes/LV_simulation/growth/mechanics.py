@@ -274,7 +274,7 @@ class GrowthMechanicsClass():
         functions["hsl_old"] = hsl_old
         functions["y_vec"] = y_vec
         #functions['core_ranks'] = core_ranks
-        
+
         return functions
 
     def initialize_boundary_conditions(self):

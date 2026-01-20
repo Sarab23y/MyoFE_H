@@ -149,15 +149,9 @@ if __name__ == '__main__':
     #50% finere  meshsize= 0.066
     #100% finere  meshsize= 0.06
 
-    ##########MR paper meshes
-    #Original_mesh  meshsize= 0.085 
-    # 2x     meshsize= 0.06     
-    # 3x     meshsize= 0.05   3600cell
-    # 4x     meshsize= 0.039   5338cell  false
-
 
     # Set the path to save the mesh
-    output_folder = 'output_files/MR_paper/4x/'
+    output_folder = 'output_files/thin_apex_ms0.085/'
 
     check_output_directory_folder(path = output_folder)
     vtk_file_str = 'input_files/' + '/' + \
