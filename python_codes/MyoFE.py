@@ -9,6 +9,7 @@ import sys
 import os
 import json
 import time as TIME
+import warnings
 
 from LV_simulation.dependencies.recode_dictionary import recode
 from LV_simulation.LV_simulation import LV_simulation as lvs
@@ -18,6 +19,8 @@ from dolfin import *
 from mpi4py import MPI
 import cProfile
 import pstats
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def MyoFE():
@@ -42,13 +45,15 @@ def MyoFE():
     # get number of arguments
     no_of_arguments = len(sys.argv)
 
+    debug_mpi = False
+
     if no_of_arguments == 1:
         print "No argument is called"
 
     # handle if only simulation type has been called 
     # by running a demo
     elif no_of_arguments == 2:
-        if sys.argv[2] == 'LV_sim':
+        if sys.argv[1] == 'LV_sim':
             instruct_file = ''
 
     # handle if  a simulation has been called with an 
@@ -57,7 +62,11 @@ def MyoFE():
     elif no_of_arguments == 3:
         if sys.argv[1] == 'LV_sim':
             instruct_file = sys.argv[2]
-            execute_MyoFE(instruct_file, comm)
+            try:
+                debug_mpi = execute_MyoFE(instruct_file, comm)
+            except Exception as e:
+                print "Fatal error:", str(e)
+                MPI.COMM_WORLD.Abort(1)
 
             """#SARA ADDED ON 6/25/2025
             try:
@@ -68,13 +77,14 @@ def MyoFE():
                 print "[Core %d] Error: %s" % (rank, str(e))
                 raise  # re-throw the error so MPI terminates properly"""
 
-
-    MPI.Finalize()
-
     stop = TIME.time()
     print 'Batch run time'
     dt = stop-start
-    print dt  
+    print dt
+
+    if debug_mpi:
+        print '[MPI DEBUG] rank=%d comm=%s finalized=%s' % \
+            (rank, str(type(comm)), str(MPI.Is_finalized()))
     
 def execute_MyoFE(instruction_file,comm):
     
@@ -84,6 +94,17 @@ def execute_MyoFE(instruction_file,comm):
 
     # and then run the simulation
     instruction_data = recode(instruction_data)
+    debug_mpi = False
+    if 'debug_mpi' in instruction_data:
+        try:
+            debug_mpi = bool(instruction_data['debug_mpi'][0])
+        except:
+            debug_mpi = bool(instruction_data['debug_mpi'])
+
+    if debug_mpi:
+        print '[MPI DEBUG] rank=%d comm=%s finalized=%s' % \
+            (comm.Get_rank(), str(type(comm)), str(MPI.Is_finalized()))
+
     prot_struct = instruction_data['protocol']
     output_struct = []
     if 'output_handler' in instruction_data:
@@ -92,6 +113,7 @@ def execute_MyoFE(instruction_file,comm):
     LV_sim_object = lvs(comm,instruction_data = instruction_data)
     LV_sim_object.run_simulation(protocol_struct = prot_struct,
                                     output_struct = output_struct)
+    return debug_mpi
 
 
 

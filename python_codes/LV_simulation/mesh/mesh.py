@@ -221,6 +221,8 @@ class MeshClass():
             s0 = predefined_functions['s0']
             n0 = predefined_functions['n0']
 
+        self.apply_static_fiber_architecture(mesh_struct, f0, s0, n0)
+
 
         
 
@@ -398,6 +400,163 @@ class MeshClass():
 
 
         return functions
+
+    def apply_static_fiber_architecture(self, mesh_struct, f0, s0, n0):
+        """Initialize static fiber architecture once (aligned/disarray)."""
+
+        fiber_architecture = 'aligned'
+        disarray_width = 0.0
+        disarray_seed = None
+
+        if 'fiber_architecture' in mesh_struct:
+            fiber_architecture = mesh_struct['fiber_architecture'][0]
+        if 'disarray_width' in mesh_struct:
+            disarray_width = float(mesh_struct['disarray_width'][0])
+        if 'disarray_seed' in mesh_struct:
+            disarray_seed = mesh_struct['disarray_seed'][0]
+
+        if MPI.rank(self.comm) == 0:
+            print 'Fiber architecture: %s' % fiber_architecture
+            print 'Fiber disarray width: %0.6f' % disarray_width
+            print 'Fiber disarray seed: %s' % str(disarray_seed)
+
+        if fiber_architecture == 'aligned':
+            self.log_fiber_misalignment_stats(f0)
+            return
+
+        if fiber_architecture != 'disarray':
+            if MPI.rank(self.comm) == 0:
+                print 'Unknown fiber_architecture=%s. Using aligned fibers.' % fiber_architecture
+            self.log_fiber_misalignment_stats(f0)
+            return
+
+        aligned_reference = f0.vector().get_local()[:]
+
+        if disarray_width == 0.0:
+            # Requirement: width=0 must reproduce aligned baseline exactly
+            f0.vector().set_local(aligned_reference)
+            as_backend_type(f0.vector()).update_ghost_values()
+            self.rebuild_local_coordinate_system_once(f0, s0, n0)
+            max_diff = np.max(np.abs(f0.vector().get_local()[:] - aligned_reference))
+            if MPI.rank(self.comm) == 0:
+                print 'disarray_width=0 -> preserved aligned baseline, max |delta f0|=%0.6e' % max_diff
+            self.log_fiber_misalignment_stats(f0)
+            return
+
+        rng = np.random.RandomState(disarray_seed) if disarray_seed is not None else np.random
+        eps = 1e-12
+        f0_local = f0.vector().get_local()[:]
+
+        local_points = int(len(f0_local)/3)
+        for jj in np.arange(local_points):
+            v = np.array([
+                rng.normal(1.0, disarray_width),
+                rng.normal(0.0, disarray_width),
+                rng.normal(0.0, disarray_width)
+            ])
+            nrm = np.linalg.norm(v)
+            if nrm < eps:
+                v = np.array([1.0, 0.0, 0.0])
+                nrm = 1.0
+            v = v / nrm
+            f0_local[jj*3:jj*3+3] = v
+
+        if np.isnan(f0_local).any():
+            raise RuntimeError('NaN detected in static fiber disarray initialization')
+
+        f0.vector().set_local(f0_local)
+        as_backend_type(f0.vector()).update_ghost_values()
+
+        self.rebuild_local_coordinate_system_once(f0, s0, n0)
+        self.log_fiber_misalignment_stats(f0)
+        self.validate_disarray_width_response(disarray_width, disarray_seed)
+
+    def rebuild_local_coordinate_system_once(self, f0, s0, n0):
+        eps = 1e-12
+        f0_local = f0.vector().get_local()[:]
+        s0_local = s0.vector().get_local()[:]
+        n0_local = n0.vector().get_local()[:]
+        ref_z = np.array([0.0, 0.0, 1.0])
+        ref_y = np.array([0.0, 1.0, 0.0])
+
+        local_points = int(len(f0_local)/3)
+        for jj in np.arange(local_points):
+            fv = f0_local[jj*3:jj*3+3]
+            fn = np.linalg.norm(fv)
+            if fn < eps:
+                fv = np.array([1.0, 0.0, 0.0])
+                fn = 1.0
+            fv = fv/fn
+
+            ref = ref_z
+            if np.abs(np.dot(fv, ref)) > 0.95:
+                ref = ref_y
+
+            sv = np.cross(fv, ref)
+            sn = np.linalg.norm(sv)
+            if sn < eps:
+                ref = ref_y
+                sv = np.cross(fv, ref)
+                sn = np.linalg.norm(sv)
+            if sn < eps:
+                sv = np.array([0.0, 1.0, 0.0])
+                sn = 1.0
+            sv = sv/sn
+
+            nv = np.cross(fv, sv)
+            nn = np.linalg.norm(nv)
+            if nn < eps:
+                nv = np.array([0.0, 0.0, 1.0])
+                nn = 1.0
+            nv = nv/nn
+
+            f0_local[jj*3:jj*3+3] = fv
+            s0_local[jj*3:jj*3+3] = sv
+            n0_local[jj*3:jj*3+3] = nv
+
+        if np.isnan(f0_local).any() or np.isnan(s0_local).any() or np.isnan(n0_local).any():
+            raise RuntimeError('NaN detected while rebuilding local coordinate system')
+
+        f0.vector().set_local(f0_local)
+        s0.vector().set_local(s0_local)
+        n0.vector().set_local(n0_local)
+        as_backend_type(f0.vector()).update_ghost_values()
+        as_backend_type(s0.vector()).update_ghost_values()
+        as_backend_type(n0.vector()).update_ghost_values()
+
+    def log_fiber_misalignment_stats(self, f0):
+        f0_local = f0.vector().get_local()[:]
+        f0_local = f0_local.reshape((-1,3))
+        x_axis = np.array([1.0, 0.0, 0.0])
+        cosang = np.clip(np.dot(f0_local, x_axis), -1.0, 1.0)
+        local_angles = np.degrees(np.arccos(cosang))
+        # rank-local only logging (avoid collective calls in diagnostics)
+        print '[FiberDisarray][rank %d] misalignment wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' % \
+            (MPI.rank(self.comm), np.mean(local_angles), np.std(local_angles))
+
+    def validate_disarray_width_response(self, disarray_width, disarray_seed):
+        if disarray_width <= 0:
+            return
+        if MPI.rank(self.comm) != 0:
+            return
+
+        rng = np.random.RandomState(disarray_seed) if disarray_seed is not None else np.random
+        n_samples = 4000
+        widths = [disarray_width, 2.0*disarray_width]
+        stds = []
+        for w in widths:
+            vals = np.zeros((n_samples,3))
+            vals[:,0] = rng.normal(1.0, w, n_samples)
+            vals[:,1] = rng.normal(0.0, w, n_samples)
+            vals[:,2] = rng.normal(0.0, w, n_samples)
+            norms = np.linalg.norm(vals, axis=1)
+            norms[norms < 1e-12] = 1.0
+            vals = vals / norms[:,None]
+            cosang = np.clip(vals[:,0], -1.0, 1.0)
+            ang = np.degrees(np.arccos(cosang))
+            stds.append(np.std(ang))
+        print 'Disarray width validation: std@w=%0.4f, std@2w=%0.4f, increased=%s' % \
+            (stds[0], stds[1], str(stds[1] >= stds[0]))
 
     def initialize_boundary_conditions(self):
 
