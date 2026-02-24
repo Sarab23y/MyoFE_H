@@ -478,10 +478,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "../demos/fiber/sim_output/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "../demos/fiber/sim_output/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
