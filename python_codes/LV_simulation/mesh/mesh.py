@@ -524,32 +524,15 @@ class MeshClass():
         as_backend_type(s0.vector()).update_ghost_values()
         as_backend_type(n0.vector()).update_ghost_values()
 
-    def _get_mpi4py_comm(self):
-        # Prefer mpi4py communicator passed into LV_simulation
-        if hasattr(self.parent_parameters, 'comm') and                 hasattr(self.parent_parameters.comm, 'gather'):
-            return self.parent_parameters.comm
-        # Fallback for PETSc communicator
-        if hasattr(self.comm, 'tompi4py'):
-            return self.comm.tompi4py()
-        return None
-
     def log_fiber_misalignment_stats(self, f0):
         f0_local = f0.vector().get_local()[:]
         f0_local = f0_local.reshape((-1,3))
         x_axis = np.array([1.0, 0.0, 0.0])
         cosang = np.clip(np.dot(f0_local, x_axis), -1.0, 1.0)
         local_angles = np.degrees(np.arccos(cosang))
-
-        mpi_comm = self._get_mpi4py_comm()
-        if mpi_comm is None:
-            if MPI.rank(self.comm) == 0:
-                print 'Fiber misalignment angle wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' %                     (np.mean(local_angles), np.std(local_angles))
-            return
-
-        all_angles = mpi_comm.gather(local_angles, root=0)
-        if mpi_comm.Get_rank() == 0:
-            angles = np.concatenate(all_angles) if len(all_angles) else np.array([0.0])
-            print 'Fiber misalignment angle wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' %                 (np.mean(angles), np.std(angles))
+        # rank-local only logging (avoid collective calls in diagnostics)
+        print '[FiberDisarray][rank %d] misalignment wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' % \
+            (MPI.rank(self.comm), np.mean(local_angles), np.std(local_angles))
 
     def validate_disarray_width_response(self, disarray_width, disarray_seed):
         if disarray_width <= 0:
