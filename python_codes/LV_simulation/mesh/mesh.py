@@ -530,11 +530,9 @@ class MeshClass():
         x_axis = np.array([1.0, 0.0, 0.0])
         cosang = np.clip(np.dot(f0_local, x_axis), -1.0, 1.0)
         local_angles = np.degrees(np.arccos(cosang))
-        all_angles = self.comm.gather(local_angles, root=0)
-        if MPI.rank(self.comm) == 0:
-            angles = np.concatenate(all_angles) if len(all_angles) else np.array([0.0])
-            print 'Fiber misalignment angle wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' % \
-                (np.mean(angles), np.std(angles))
+        # rank-local only logging (avoid collective calls in diagnostics)
+        print '[FiberDisarray][rank %d] misalignment wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' % \
+            (MPI.rank(self.comm), np.mean(local_angles), np.std(local_angles))
 
     def validate_disarray_width_response(self, disarray_width, disarray_seed):
         if disarray_width <= 0:
