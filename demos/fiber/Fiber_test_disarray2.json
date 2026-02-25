@@ -5,7 +5,19 @@
         ],
         "time_step": [
             0.001
-        ]
+        ],
+        "baroreflex": {
+            "activations": [
+                {
+                    "t_stop_s": [
+                        250
+                    ], 
+                    "t_start_s": [
+                        5
+                    ]
+                }
+            ]
+        }
     },
     "heart_rate": {
         "t_active_period": [
@@ -321,6 +333,164 @@
                         0.15
                     ]
                 }
+            ]
+        },
+        "baroreflex": {
+            "k_recov": [
+                0
+            ], 
+            "b_slope": [
+                0.02
+            ], 
+            "k_drive": [
+                20
+            ], 
+            "controls": {
+                "control": [
+                    {
+                        "level": [
+                            "heart_rate"
+                        ], 
+                        "k_recov": [
+                            0.0
+                        ], 
+                        "k_drive": [
+                            0.03
+                        ], 
+                        "symp_factor": [
+                            0.386
+                        ], 
+                        "para_factor": [
+                            1.753497
+                        ], 
+                        "variable": [
+                            "t_quiescent_period"
+                        ]
+                    }, 
+                    {
+                        "level": [
+                            "membranes"
+                        ], 
+                        "k_recov": [
+                            0.0
+                        ], 
+                        "k_drive": [
+                            0.03
+                        ], 
+                        "symp_factor": [
+                            5.0
+                        ], 
+                        "para_factor": [
+                            0.2
+                        ], 
+                        "variable": [
+                            "k_act"
+                        ]
+                    }, 
+                    {
+                        "level": [
+                            "membranes"
+                        ], 
+                        "k_recov": [
+                            0.0
+                        ], 
+                        "k_drive": [
+                            0.03
+                        ], 
+                        "symp_factor": [
+                            5
+                        ], 
+                        "para_factor": [
+                            0.2
+                        ], 
+                        "variable": [
+                            "k_serca"
+                        ]
+                    }, 
+                    {
+                        "level": [
+                            "myofilaments"
+                        ], 
+                        "k_recov": [
+                            0.0
+                        ], 
+                        "k_drive": [
+                            0.03
+                        ], 
+                        "symp_factor": [
+                            5
+                        ], 
+                        "para_factor": [
+                            0.2
+                        ], 
+                        "variable": [
+                            "k_1"
+                        ]
+                    }, 
+                    {
+                        "level": [
+                            "myofilaments"
+                        ], 
+                        "k_recov": [
+                            0.0
+                        ], 
+                        "k_drive": [
+                            0.03
+                        ], 
+                        "symp_factor": [
+                            0.5
+                        ], 
+                        "para_factor": [
+                            2
+                        ], 
+                        "variable": [
+                            "k_on"
+                        ]
+                    }, 
+                    {
+                        "level": [
+                            "circulation"
+                        ], 
+                        "k_recov": [
+                            0.0
+                        ], 
+                        "k_drive": [
+                            0.03
+                        ], 
+                        "symp_factor": [
+                            5
+                        ], 
+                        "para_factor": [
+                            0.2
+                        ], 
+                        "variable": [
+                            "arterioles_resistance"
+                        ]
+                    }, 
+                    {
+                        "level": [
+                            "circulation"
+                        ], 
+                        "k_recov": [
+                            0.0
+                        ], 
+                        "k_drive": [
+                            0.03
+                        ], 
+                        "symp_factor": [
+                            0.2
+                        ], 
+                        "para_factor": [
+                            5
+                        ], 
+                        "variable": [
+                            "veins_compliance"
+                        ]
+                    }
+                ]
+            }, 
+            "b_setpoint": [
+                90
             ]
         },
         "half_sarcomere": {
