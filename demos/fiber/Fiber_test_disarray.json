@@ -1,6 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
+            5000
             20000
         ],
         "time_step": [
@@ -114,6 +115,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
+                    "semi_structural"
                     "Guccione"
                 ],
                 "c": [
@@ -501,4 +503,5 @@
             10
         ]
     }
+}
 }
