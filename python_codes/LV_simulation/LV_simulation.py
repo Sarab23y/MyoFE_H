@@ -29,7 +29,6 @@ from .output_handler.output_handler import output_handler as oh
 from .baroreflex import baroreflex as br
 from .growth import growth as gr
 from .half_sarcomere import half_sarcomere as hs 
-from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
 
 from mpi4py import MPI
@@ -365,12 +364,10 @@ class LV_simulation():
         self.va = []
 
 
-        """ If requried, create the fiber reorientation"""
-        
-        if ('fiber_reorientation' in instruction_data['model']):
-            self.fr = fr.fiber_reorientation(self)
-        else:
-            self.fr = []
+        """ Fiber reorientation is disabled: fibers are static after initialization """
+        self.fr = []
+        if ('fiber_reorientation' in instruction_data['model']) and self.comm.Get_rank() == 0:
+            print 'fiber_reorientation module is disabled. Using static initialized fiber architecture.'
 
 
 
@@ -796,9 +793,9 @@ class LV_simulation():
                             p.data['increment']
 
                     elif p.data['level'] == 'fiber_reorientation':
-                        self.fr.data[p.data['variable']] += \
-                        p.data['increment']
-
+                        if self.fr:
+                            self.fr.data[p.data['variable']] += \
+                                p.data['increment']
 
                     elif p.data['level'] == 'myofilaments':
                         for j in range(self.local_n_of_int_points):
