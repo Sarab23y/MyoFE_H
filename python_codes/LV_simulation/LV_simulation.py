@@ -29,7 +29,6 @@ from .output_handler.output_handler import output_handler as oh
 from .baroreflex import baroreflex as br
 from .growth import growth as gr
 from .half_sarcomere import half_sarcomere as hs 
-from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
 
 from mpi4py import MPI
@@ -102,6 +101,7 @@ class LV_simulation():
         # Initialize and define mesh objects (finite elements, 
         # function spaces, functions)
         self.mesh = MeshClass(self)
+        self.initialize_frozen_fiber_monitor()
 
         
         # Initialize the solver object 
@@ -365,12 +365,10 @@ class LV_simulation():
         self.va = []
 
 
-        """ If requried, create the fiber reorientation"""
-        
-        if ('fiber_reorientation' in instruction_data['model']):
-            self.fr = fr.fiber_reorientation(self)
-        else:
-            self.fr = []
+        """ Fiber reorientation is disabled: fibers are static after initialization """
+        self.fr = []
+        if ('fiber_reorientation' in instruction_data['model']) and self.comm.Get_rank() == 0:
+            print 'fiber_reorientation module is disabled. Using static initialized fiber architecture.'
 
 
 
@@ -452,6 +450,8 @@ class LV_simulation():
             data_fields = data_fields + list(self.va.data.keys())
         if (self.fr != []):
             data_fields = data_fields + list(self.fr.data.keys())
+        if 'write_mode' not in data_fields:
+            data_fields.append('write_mode')
         # Now start define the data holder
         rows = int(no_of_data_points/frequency) + 1 # 1 for time zero
         #sim_data = pd.DataFrame()
@@ -465,6 +465,53 @@ class LV_simulation():
             #sim_data = pd.concat([sim_data, s], axis=1)
 
         return sim_data
+
+    def _safe_array_from_value(self, value, rows):
+        """Convert an arbitrary object to a 1D float array with fixed row count."""
+        try:
+            arr = np.asarray(value, dtype=float)
+        except Exception:
+            fallback = getattr(value, 'values', None)
+            if fallback is None:
+                fallback = getattr(value, 'to_numpy', lambda: None)()
+            try:
+                arr = np.asarray(fallback, dtype=float)
+            except Exception:
+                arr = np.empty(rows)
+                arr[:] = np.nan
+
+        if arr.ndim == 0:
+            out = np.empty(rows)
+            out[:] = float(arr)
+            return out
+
+        arr = arr.reshape(-1)
+        if len(arr) < rows:
+            out = np.empty(rows)
+            out[:] = np.nan
+            out[:len(arr)] = arr
+            return out
+
+        return arr[:rows].astype(float)
+
+    def _sanitize_sim_data_arrays(self):
+        """Ensure sim_data values are writable 1D ndarrays on every rank."""
+        if not hasattr(self, 'sim_data'):
+            return
+
+        rows = None
+        for _, value in self.sim_data.items():
+            if hasattr(value, '__len__'):
+                try:
+                    rows = len(value)
+                    break
+                except Exception:
+                    pass
+        if rows is None:
+            rows = int(self.write_counter + 2)
+
+        for key in list(self.sim_data.keys()):
+            self.sim_data[key] = self._safe_array_from_value(self.sim_data[key], rows)
 
     def create_data_structure_for_spatial_variables(self,no_of_data_points, 
                                                     num_of_int_points, 
@@ -796,9 +843,9 @@ class LV_simulation():
                             p.data['increment']
 
                     elif p.data['level'] == 'fiber_reorientation':
-                        self.fr.data[p.data['variable']] += \
-                        p.data['increment']
-
+                        if self.fr:
+                            self.fr.data[p.data['variable']] += \
+                                p.data['increment']
 
                     elif p.data['level'] == 'myofilaments':
                         for j in range(self.local_n_of_int_points):
@@ -1614,6 +1661,7 @@ class LV_simulation():
 
 
 
+        self.assert_fibers_frozen()
         self.update_data(time_step)
         if self.t_counter%self.dumping_data_frequency == 0:
             
@@ -1657,6 +1705,21 @@ class LV_simulation():
         
         self.data['new_beat'] = new_beat
 
+
+    def initialize_frozen_fiber_monitor(self):
+        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
+        self._f0_ref_sum = self.comm.allreduce(float(np.sum(f0_local)))
+        self._f0_ref_sumsq = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
+        self._f0_monitor_tol = 1e-10
+        if self.comm.Get_rank() == 0:
+            print 'Initialized frozen fiber monitor (sum=%0.8e, sumsq=%0.8e)' %                 (self._f0_ref_sum, self._f0_ref_sumsq)
+
+    def assert_fibers_frozen(self):
+        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
+        s = self.comm.allreduce(float(np.sum(f0_local)))
+        ss = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
+        if (np.abs(s - self._f0_ref_sum) > self._f0_monitor_tol) or                 (np.abs(ss - self._f0_ref_sumsq) > self._f0_monitor_tol):
+            raise RuntimeError('Fiber field f0 changed after initialization; expected frozen fibers')
 
     def update_data(self, time_step):
         """ Update data after a time step """
@@ -1716,8 +1779,8 @@ class LV_simulation():
 
     def write_complete_data_to_sim_data(self):
         """ Writes full data to data frame """
-        
-    
+        self._sanitize_sim_data_arrays()
+
 
         for f in list(self.data.keys()):
 
@@ -1747,7 +1810,10 @@ class LV_simulation():
                         print("Skipping growth parameter: " + f)
 
     
-        self.sim_data['write_mode'] = 1
+        if ('write_mode' in self.sim_data) and hasattr(self.sim_data['write_mode'], '__len__'):
+            self.sim_data['write_mode'][self.write_counter] = 1
+        else:
+            self.sim_data['write_mode'] = 1
         
 
     def write_complete_data_to_spatial_sim_data(self,rank):
@@ -1762,7 +1828,7 @@ class LV_simulation():
         """ Check output folder"""
         output_dir = os.path.dirname(path)
         print('output_dir %s' % output_dir)
-        if not os.path.isdir(output_dir):
+        if output_dir and (not os.path.isdir(output_dir)):
             print('Making output dir')
             os.makedirs(output_dir)
 
@@ -1810,9 +1876,18 @@ class LV_simulation():
         """Simplified version that only saves main data.csv"""
         if outputstruct and self.comm.Get_rank() == 0:
             if self.output_data_str:
-                # Save main simulation data to data.csv
-                output_sim_data = pd.DataFrame(data=self.sim_data)
-                output_sim_data.to_csv(self.output_data_str)
+                self._sanitize_sim_data_arrays()
+                rows = int(self.write_counter + 1)
+                clean_data = dict()
+                for key, value in self.sim_data.items():
+                    clean_data[key] = self._safe_array_from_value(value, rows)
+                import csv
+                keys = sorted(clean_data.keys())
+                with open(self.output_data_str, 'w') as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerow(keys)
+                    for row_idx in range(rows):
+                        writer.writerow([clean_data[k][row_idx] for k in keys])
         return
 
     def rebuild_from_perturbations(self):
