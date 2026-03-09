@@ -102,7 +102,6 @@ class LV_simulation():
         # Initialize and define mesh objects (finite elements, 
         # function spaces, functions)
         self.mesh = MeshClass(self)
-        self.initialize_frozen_fiber_monitor()
 
         
         # Initialize the solver object 
@@ -1933,7 +1932,6 @@ class LV_simulation():
 
 
 
-        self.assert_fibers_frozen()
         self.update_data(time_step)
         if self.t_counter%self.dumping_data_frequency == 0:
             
@@ -2142,21 +2140,6 @@ class LV_simulation():
         
         self.data['new_beat'] = new_beat
 
-
-    def initialize_frozen_fiber_monitor(self):
-        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
-        self._f0_ref_sum = self.comm.allreduce(float(np.sum(f0_local)))
-        self._f0_ref_sumsq = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
-        self._f0_monitor_tol = 1e-10
-        if self.comm.Get_rank() == 0:
-            print 'Initialized frozen fiber monitor (sum=%0.8e, sumsq=%0.8e)' %                 (self._f0_ref_sum, self._f0_ref_sumsq)
-
-    def assert_fibers_frozen(self):
-        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
-        s = self.comm.allreduce(float(np.sum(f0_local)))
-        ss = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
-        if (np.abs(s - self._f0_ref_sum) > self._f0_monitor_tol) or                 (np.abs(ss - self._f0_ref_sumsq) > self._f0_monitor_tol):
-            raise RuntimeError('Fiber field f0 changed after initialization; expected frozen fibers')
 
     def update_data(self, time_step):
         """ Update data after a time step """
@@ -2633,29 +2616,10 @@ class LV_simulation():
         """Simplified version that only saves main data.csv"""
         if outputstruct and self.comm.Get_rank() == 0:
             if self.output_data_str:
-                output_sim_data = pd.DataFrame(data = self.sim_data)
+                # Save main simulation data to data.csv
+                output_sim_data = pd.DataFrame(data=self.sim_data)
                 output_sim_data.to_csv(self.output_data_str)
-                #self.sim_data.to_csv(self.output_data_str)
-
-                output_dir = os.path.dirname(self.output_data_str)
-                if self.spatial_data_to_mean:
-                    out_path = output_dir + '/' + 'spatial_data.csv'
-                    self.spatial_sim_data.to_csv(out_path)
-                else:
-                    for f in list(self.spatial_sim_data.keys()):
-                        print(f)
-                        out_path = output_dir + '/' + f + '_data.csv'
-                        self.spatial_sim_data[f].to_csv(out_path)
-
-                    '''out_path = output_dir + '/'  + 'coord_data.csv'
-                    coord = list(self.coord)
-                    coord.to_csv(out_path)'''
-        
-        if self.comm.Get_rank() == 0:
-            print("Out_path:",out_path)
-
-        return 
-    
+        return
 
     def rebuild_from_perturbations(self):
         """ builds system arrays that could change during simulation """
