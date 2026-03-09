@@ -102,6 +102,7 @@ class LV_simulation():
         # Initialize and define mesh objects (finite elements, 
         # function spaces, functions)
         self.mesh = MeshClass(self)
+        self.initialize_frozen_fiber_monitor()
 
         
         # Initialize the solver object 
@@ -1932,6 +1933,7 @@ class LV_simulation():
 
 
 
+        self.assert_fibers_frozen()
         self.update_data(time_step)
         if self.t_counter%self.dumping_data_frequency == 0:
             
@@ -2140,6 +2142,21 @@ class LV_simulation():
         
         self.data['new_beat'] = new_beat
 
+
+    def initialize_frozen_fiber_monitor(self):
+        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
+        self._f0_ref_sum = self.comm.allreduce(float(np.sum(f0_local)))
+        self._f0_ref_sumsq = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
+        self._f0_monitor_tol = 1e-10
+        if self.comm.Get_rank() == 0:
+            print 'Initialized frozen fiber monitor (sum=%0.8e, sumsq=%0.8e)' %                 (self._f0_ref_sum, self._f0_ref_sumsq)
+
+    def assert_fibers_frozen(self):
+        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
+        s = self.comm.allreduce(float(np.sum(f0_local)))
+        ss = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
+        if (np.abs(s - self._f0_ref_sum) > self._f0_monitor_tol) or                 (np.abs(ss - self._f0_ref_sumsq) > self._f0_monitor_tol):
+            raise RuntimeError('Fiber field f0 changed after initialization; expected frozen fibers')
 
     def update_data(self, time_step):
         """ Update data after a time step """
