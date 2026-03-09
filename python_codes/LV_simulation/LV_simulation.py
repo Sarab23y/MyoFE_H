@@ -2637,7 +2637,15 @@ class LV_simulation():
                 rows = int(self.write_counter + 1)
                 clean_data = dict()
                 for key, value in self.sim_data.items():
-                    arr = np.asarray(value)
+                    try:
+                        arr = np.asarray(value)
+                    except Exception:
+                        fallback_value = getattr(value, 'values', value)
+                        try:
+                            arr = np.asarray(fallback_value)
+                        except Exception:
+                            arr = np.empty(rows)
+                            arr[:] = np.nan
                     if arr.ndim == 0:
                         scalar_filled = np.empty(rows)
                         scalar_filled[:] = arr.item()
