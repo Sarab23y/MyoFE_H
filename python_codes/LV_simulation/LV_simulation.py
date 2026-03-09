@@ -29,7 +29,6 @@ from .output_handler.output_handler import output_handler as oh
 from .baroreflex import baroreflex as br
 from .growth import growth as gr
 from .half_sarcomere import half_sarcomere as hs 
-from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
 
 from mpi4py import MPI
@@ -102,6 +101,7 @@ class LV_simulation():
         # Initialize and define mesh objects (finite elements, 
         # function spaces, functions)
         self.mesh = MeshClass(self)
+        self.initialize_frozen_fiber_monitor()
 
         
         # Initialize the solver object 
@@ -971,7 +971,6 @@ class LV_simulation():
                         if self.fr:
                             self.fr.data[p.data['variable']] += \
                                 p.data['increment']
-
 
                     elif p.data['level'] == 'myofilaments':
                         for j in range(self.local_n_of_int_points):
@@ -1932,6 +1931,7 @@ class LV_simulation():
 
 
 
+        self.assert_fibers_frozen()
         self.update_data(time_step)
         if self.t_counter%self.dumping_data_frequency == 0:
             
@@ -2141,6 +2141,21 @@ class LV_simulation():
         self.data['new_beat'] = new_beat
 
 
+    def initialize_frozen_fiber_monitor(self):
+        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
+        self._f0_ref_sum = self.comm.allreduce(float(np.sum(f0_local)))
+        self._f0_ref_sumsq = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
+        self._f0_monitor_tol = 1e-10
+        if self.comm.Get_rank() == 0:
+            print 'Initialized frozen fiber monitor (sum=%0.8e, sumsq=%0.8e)' %                 (self._f0_ref_sum, self._f0_ref_sumsq)
+
+    def assert_fibers_frozen(self):
+        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
+        s = self.comm.allreduce(float(np.sum(f0_local)))
+        ss = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
+        if (np.abs(s - self._f0_ref_sum) > self._f0_monitor_tol) or                 (np.abs(ss - self._f0_ref_sumsq) > self._f0_monitor_tol):
+            raise RuntimeError('Fiber field f0 changed after initialization; expected frozen fibers')
+
     def update_data(self, time_step):
         """ Update data after a time step """
 
@@ -2230,7 +2245,10 @@ class LV_simulation():
                         print("Skipping growth parameter: " + f)
 
     
-        self.sim_data['write_mode'] = 1
+        if ('write_mode' in self.sim_data) and hasattr(self.sim_data['write_mode'], '__len__'):
+            self.sim_data['write_mode'][self.write_counter] = 1
+        else:
+            self.sim_data['write_mode'] = 1
         
 
     def write_complete_data_to_spatial_sim_data(self,rank):
@@ -2568,7 +2586,7 @@ class LV_simulation():
         """ Check output folder"""
         output_dir = os.path.dirname(path)
         print('output_dir %s' % output_dir)
-        if not os.path.isdir(output_dir):
+        if output_dir and (not os.path.isdir(output_dir)):
             print('Making output dir')
             os.makedirs(output_dir)
 
@@ -2616,9 +2634,25 @@ class LV_simulation():
         """Simplified version that only saves main data.csv"""
         if outputstruct and self.comm.Get_rank() == 0:
             if self.output_data_str:
-                # Save main simulation data to data.csv
-                output_sim_data = pd.DataFrame(data=self.sim_data)
-                output_sim_data.to_csv(self.output_data_str)
+                rows = int(self.write_counter + 1)
+                clean_data = dict()
+                for key, value in self.sim_data.items():
+                    arr = np.asarray(value)
+                    if arr.ndim == 0:
+                        scalar_filled = np.empty(rows)
+                        scalar_filled[:] = arr.item()
+                        clean_data[key] = scalar_filled
+                    else:
+                        arr = arr.reshape(-1)
+                        if len(arr) < rows:
+                            padded = np.empty(rows)
+                            padded[:] = np.nan
+                            padded[:len(arr)] = arr
+                            clean_data[key] = padded
+                        else:
+                            clean_data[key] = arr[:rows]
+                output_sim_data = pd.DataFrame.from_dict(clean_data)
+                output_sim_data.to_csv(self.output_data_str, index=False)
         return
 
     def rebuild_from_perturbations(self):
