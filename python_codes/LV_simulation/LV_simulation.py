@@ -450,6 +450,8 @@ class LV_simulation():
             data_fields = data_fields + list(self.va.data.keys())
         if (self.fr != []):
             data_fields = data_fields + list(self.fr.data.keys())
+        if 'write_mode' not in data_fields:
+            data_fields.append('write_mode')
         # Now start define the data holder
         rows = int(no_of_data_points/frequency) + 1 # 1 for time zero
         #sim_data = pd.DataFrame()
@@ -463,6 +465,53 @@ class LV_simulation():
             #sim_data = pd.concat([sim_data, s], axis=1)
 
         return sim_data
+
+    def _safe_array_from_value(self, value, rows):
+        """Convert an arbitrary object to a 1D float array with fixed row count."""
+        try:
+            arr = np.asarray(value, dtype=float)
+        except Exception:
+            fallback = getattr(value, 'values', None)
+            if fallback is None:
+                fallback = getattr(value, 'to_numpy', lambda: None)()
+            try:
+                arr = np.asarray(fallback, dtype=float)
+            except Exception:
+                arr = np.empty(rows)
+                arr[:] = np.nan
+
+        if arr.ndim == 0:
+            out = np.empty(rows)
+            out[:] = float(arr)
+            return out
+
+        arr = arr.reshape(-1)
+        if len(arr) < rows:
+            out = np.empty(rows)
+            out[:] = np.nan
+            out[:len(arr)] = arr
+            return out
+
+        return arr[:rows].astype(float)
+
+    def _sanitize_sim_data_arrays(self):
+        """Ensure sim_data values are writable 1D ndarrays on every rank."""
+        if not hasattr(self, 'sim_data'):
+            return
+
+        rows = None
+        for _, value in self.sim_data.items():
+            if hasattr(value, '__len__'):
+                try:
+                    rows = len(value)
+                    break
+                except Exception:
+                    pass
+        if rows is None:
+            rows = int(self.write_counter + 2)
+
+        for key in list(self.sim_data.keys()):
+            self.sim_data[key] = self._safe_array_from_value(self.sim_data[key], rows)
 
     def create_data_structure_for_spatial_variables(self,no_of_data_points, 
                                                     num_of_int_points, 
@@ -2214,8 +2263,8 @@ class LV_simulation():
 
     def write_complete_data_to_sim_data(self):
         """ Writes full data to data frame """
-        
-    
+        self._sanitize_sim_data_arrays()
+
 
         for f in list(self.data.keys()):
 
@@ -2634,31 +2683,11 @@ class LV_simulation():
         """Simplified version that only saves main data.csv"""
         if outputstruct and self.comm.Get_rank() == 0:
             if self.output_data_str:
+                self._sanitize_sim_data_arrays()
                 rows = int(self.write_counter + 1)
                 clean_data = dict()
                 for key, value in self.sim_data.items():
-                    try:
-                        arr = np.asarray(value)
-                    except Exception:
-                        fallback_value = getattr(value, 'values', value)
-                        try:
-                            arr = np.asarray(fallback_value)
-                        except Exception:
-                            arr = np.empty(rows)
-                            arr[:] = np.nan
-                    if arr.ndim == 0:
-                        scalar_filled = np.empty(rows)
-                        scalar_filled[:] = arr.item()
-                        clean_data[key] = scalar_filled
-                    else:
-                        arr = arr.reshape(-1)
-                        if len(arr) < rows:
-                            padded = np.empty(rows)
-                            padded[:] = np.nan
-                            padded[:len(arr)] = arr
-                            clean_data[key] = padded
-                        else:
-                            clean_data[key] = arr[:rows]
+                    clean_data[key] = self._safe_array_from_value(value, rows)
                 import csv
                 keys = sorted(clean_data.keys())
                 with open(self.output_data_str, 'w') as csv_file:
