@@ -205,7 +205,8 @@ class MeshClass():
                 self.f.read(endo_dist,"ellipsoidal/endo_dist")
                 self.f.read(epi_dist,"ellipsoidal/epi_dist")
             except:
-                print("endo_dist not available in the mesh")
+                if self.parent_parameters.comm.Get_rank() == 0:
+                    print("endo_dist not available in the mesh")
 
             ## for the old mesh
             #self.f.read(endo_dist,"ellipsoidal/norm_dist_endo")
