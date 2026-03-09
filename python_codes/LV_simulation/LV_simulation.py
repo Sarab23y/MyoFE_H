@@ -2651,8 +2651,13 @@ class LV_simulation():
                             clean_data[key] = padded
                         else:
                             clean_data[key] = arr[:rows]
-                output_sim_data = pd.DataFrame.from_dict(clean_data)
-                output_sim_data.to_csv(self.output_data_str, index=False)
+                import csv
+                keys = sorted(clean_data.keys())
+                with open(self.output_data_str, 'w') as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerow(keys)
+                    for row_idx in range(rows):
+                        writer.writerow([clean_data[k][row_idx] for k in keys])
         return
 
     def rebuild_from_perturbations(self):
