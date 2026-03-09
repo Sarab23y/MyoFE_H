@@ -221,9 +221,6 @@ class MeshClass():
             s0 = predefined_functions['s0']
             n0 = predefined_functions['n0']
 
-
-        
-
         # Initializing passive parameters as functions, in the case of introducing
         # heterogeneity later
         dolfin_functions = {}
@@ -259,6 +256,8 @@ class MeshClass():
 
         ##MM in the general form there used to be more inputs for below function, but for LV het modeling only below inputs are needed
         dolfin_functions = het_class.assign_heterogeneous_params(dolfin_functions,self.no_of_cells,endo_dist,xq)
+
+        self.apply_static_fiber_architecture(mesh_struct, f0, s0, n0, dolfin_functions=dolfin_functions)
        
         ### infarct note: for chronic infarcts we apply it here as material is alterred but for acute infarcts it is applied fin protocol and uses handle_infarct function in the main code
         # as acute infacrt is like a purtubation and can be applied after few normal cycles
@@ -398,6 +397,270 @@ class MeshClass():
 
 
         return functions
+
+    def _get_mpi4py_comm(self):
+        if hasattr(self.parent_parameters, 'comm') and                 hasattr(self.parent_parameters.comm, 'allreduce'):
+            return self.parent_parameters.comm
+        if hasattr(self.comm, 'tompi4py'):
+            return self.comm.tompi4py()
+        return None
+
+    def _global_mean_std(self, values, mask):
+        mpi_comm = self._get_mpi4py_comm()
+        selected = values[mask]
+        local_n = float(len(selected))
+        local_sum = float(np.sum(selected))
+        local_sumsq = float(np.sum(selected*selected))
+
+        if mpi_comm is not None:
+            global_n = mpi_comm.allreduce(local_n)
+            global_sum = mpi_comm.allreduce(local_sum)
+            global_sumsq = mpi_comm.allreduce(local_sumsq)
+        else:
+            global_n = local_n
+            global_sum = local_sum
+            global_sumsq = local_sumsq
+
+        if global_n <= 0:
+            return 0.0, 0.0
+        mean = global_sum/global_n
+        var = max(global_sumsq/global_n - mean*mean, 0.0)
+        return mean, np.sqrt(var)
+
+    def _build_disarray_mask(self, local_points, mesh_struct, dolfin_functions=None):
+        mask_mode = 'auto'
+        if 'disarray_region_mask' in mesh_struct:
+            mask_mode = mesh_struct['disarray_region_mask'][0]
+
+        if mask_mode == 'all':
+            return np.ones(local_points, dtype=bool)
+
+        if (mask_mode in ['auto', 'active_only']) and dolfin_functions is not None:
+            if 'cb_number_density' in dolfin_functions and                     len(dolfin_functions['cb_number_density']) > 0 and                     isinstance(dolfin_functions['cb_number_density'][-1], Function):
+                cb_local = dolfin_functions['cb_number_density'][-1].vector().get_local()[:]
+                if len(cb_local) >= local_points:
+                    return np.array(cb_local[:local_points] > 0.0, dtype=bool)
+
+        return np.ones(local_points, dtype=bool)
+
+    def _generate_correlated_field(self, ell_c, seed, n_local):
+        rng = np.random.RandomState(seed)
+        cg_space = FunctionSpace(self.model['mesh'], 'CG', 1)
+        xi = Function(cg_space)
+        xi_local = xi.vector().get_local()[:]
+        xi_local[:] = rng.normal(0.0, 1.0, len(xi_local))
+        xi.vector().set_local(xi_local)
+        as_backend_type(xi.vector()).update_ghost_values()
+
+        u = TrialFunction(cg_space)
+        v = TestFunction(cg_space)
+        a = (u*v + (ell_c**2)*dot(grad(u), grad(v)))*dx
+        L = xi*v*dx
+        eps_field = Function(cg_space)
+        solve(a == L, eps_field)
+
+        eps_q = project(eps_field, self.model['function_spaces']['quadrature_space'])
+        local = eps_q.vector().get_local()[:]
+        if len(local) < n_local:
+            out = np.zeros(n_local)
+            out[:len(local)] = local
+            return out
+        return local[:n_local]
+
+    def apply_static_fiber_architecture(self, mesh_struct, f0, s0, n0, dolfin_functions=None):
+        """Initialize static fiber architecture once (aligned/disarray)."""
+
+        fiber_architecture = 'aligned'
+        theta_rms_deg = 0.0
+        ell_c = 0.075
+        disarray_seed = 1
+
+        if 'fiber_architecture' in mesh_struct:
+            fiber_architecture = mesh_struct['fiber_architecture'][0]
+        if 'theta_rms_deg' in mesh_struct:
+            theta_rms_deg = float(mesh_struct['theta_rms_deg'][0])
+        elif 'disarray_width' in mesh_struct:
+            # backward compatibility with older input
+            theta_rms_deg = float(mesh_struct['disarray_width'][0]) * 180.0/np.pi
+        if 'ell_c' in mesh_struct:
+            ec_val = mesh_struct['ell_c'][0]
+            if ec_val is None:
+                ell_c = None
+            else:
+                ell_c = float(ec_val)
+        if 'disarray_seed' in mesh_struct:
+            disarray_seed = int(mesh_struct['disarray_seed'][0])
+
+        if MPI.rank(self.comm) == 0:
+            print 'Fiber architecture: %s' % fiber_architecture
+            print 'theta_rms_deg: %0.6f' % theta_rms_deg
+            print 'ell_c: %s' % str(ell_c)
+            print 'disarray_seed: %s' % str(disarray_seed)
+
+        fbar0_local = f0.vector().get_local()[:].copy()
+        local_points = int(len(fbar0_local)/3)
+
+        if fiber_architecture == 'aligned' or theta_rms_deg <= 0.0:
+            self.log_fiber_misalignment_stats(f0, fbar0_local)
+            return
+
+        if fiber_architecture != 'disarray':
+            if MPI.rank(self.comm) == 0:
+                print 'Unknown fiber_architecture=%s. Using aligned fibers.' % fiber_architecture
+            self.log_fiber_misalignment_stats(f0, fbar0_local)
+            return
+
+        mask = self._build_disarray_mask(local_points, mesh_struct, dolfin_functions=dolfin_functions)
+
+        theta_rms = np.deg2rad(theta_rms_deg)
+        w = theta_rms/np.sqrt(2.0)
+
+        if ell_c is None:
+            eps_s = np.random.RandomState(disarray_seed).normal(0.0, w, local_points)
+            eps_n = np.random.RandomState(disarray_seed+1).normal(0.0, w, local_points)
+        else:
+            eps_s = self._generate_correlated_field(float(ell_c), disarray_seed, local_points)
+            eps_n = self._generate_correlated_field(float(ell_c), disarray_seed+1, local_points)
+            mean_s, std_s = self._global_mean_std(eps_s, mask)
+            mean_n, std_n = self._global_mean_std(eps_n, mask)
+            if std_s > 0:
+                eps_s = (eps_s-mean_s)*(w/std_s)
+            else:
+                eps_s[:] = 0.0
+            if std_n > 0:
+                eps_n = (eps_n-mean_n)*(w/std_n)
+            else:
+                eps_n[:] = 0.0
+
+        eps_s[~mask] = 0.0
+        eps_n[~mask] = 0.0
+
+        f0_local = fbar0_local.copy()
+        s0_local = s0.vector().get_local()[:]
+        n0_local = n0.vector().get_local()[:]
+        eps = 1e-12
+
+        for jj in np.arange(local_points):
+            fbar = fbar0_local[jj*3:jj*3+3]
+            sb = s0_local[jj*3:jj*3+3]
+            nb = n0_local[jj*3:jj*3+3]
+            ftilde = fbar + eps_s[jj]*sb + eps_n[jj]*nb
+            nrm = np.linalg.norm(ftilde)
+            if nrm < eps:
+                ftilde = fbar
+                nrm = max(np.linalg.norm(ftilde), eps)
+            f0_local[jj*3:jj*3+3] = ftilde/nrm
+
+        if np.isnan(f0_local).any():
+            raise RuntimeError('NaN detected in static fiber disarray initialization')
+
+        f0.vector().set_local(f0_local)
+        as_backend_type(f0.vector()).update_ghost_values()
+
+        self.rebuild_local_coordinate_system_once(f0, s0, n0)
+        self.log_fiber_misalignment_stats(f0, fbar0_local)
+        self.report_rms_disarray_angle(f0, fbar0_local, target_deg=theta_rms_deg)
+        self.validate_disarray_width_response(theta_rms_deg, disarray_seed)
+
+    def rebuild_local_coordinate_system_once(self, f0, s0, n0):
+        eps = 1e-12
+        f0_local = f0.vector().get_local()[:]
+        s0_local = s0.vector().get_local()[:]
+        n0_local = n0.vector().get_local()[:]
+        ref_z = np.array([0.0, 0.0, 1.0])
+        ref_y = np.array([0.0, 1.0, 0.0])
+
+        local_points = int(len(f0_local)/3)
+        for jj in np.arange(local_points):
+            fv = f0_local[jj*3:jj*3+3]
+            fn = np.linalg.norm(fv)
+            if fn < eps:
+                fv = np.array([1.0, 0.0, 0.0])
+                fn = 1.0
+            fv = fv/fn
+
+            ref = ref_z
+            if np.abs(np.dot(fv, ref)) > 0.95:
+                ref = ref_y
+
+            sv = np.cross(fv, ref)
+            sn = np.linalg.norm(sv)
+            if sn < eps:
+                ref = ref_y
+                sv = np.cross(fv, ref)
+                sn = np.linalg.norm(sv)
+            if sn < eps:
+                sv = np.array([0.0, 1.0, 0.0])
+                sn = 1.0
+            sv = sv/sn
+
+            nv = np.cross(fv, sv)
+            nn = np.linalg.norm(nv)
+            if nn < eps:
+                nv = np.array([0.0, 0.0, 1.0])
+                nn = 1.0
+            nv = nv/nn
+
+            f0_local[jj*3:jj*3+3] = fv
+            s0_local[jj*3:jj*3+3] = sv
+            n0_local[jj*3:jj*3+3] = nv
+
+        if np.isnan(f0_local).any() or np.isnan(s0_local).any() or np.isnan(n0_local).any():
+            raise RuntimeError('NaN detected while rebuilding local coordinate system')
+
+        f0.vector().set_local(f0_local)
+        s0.vector().set_local(s0_local)
+        n0.vector().set_local(n0_local)
+        as_backend_type(f0.vector()).update_ghost_values()
+        as_backend_type(s0.vector()).update_ghost_values()
+        as_backend_type(n0.vector()).update_ghost_values()
+
+    def log_fiber_misalignment_stats(self, f0, fbar0_local=None):
+        f0_local = f0.vector().get_local()[:].reshape((-1,3))
+        x_axis = np.array([1.0, 0.0, 0.0])
+        cosang = np.clip(np.dot(f0_local, x_axis), -1.0, 1.0)
+        local_angles = np.degrees(np.arccos(cosang))
+        print '[FiberDisarray][rank %d] misalignment wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' %             (MPI.rank(self.comm), np.mean(local_angles), np.std(local_angles))
+
+    def report_rms_disarray_angle(self, f0, fbar0_local, target_deg=0.0):
+        f0_local = f0.vector().get_local()[:].reshape((-1,3))
+        fbar_local = fbar0_local.reshape((-1,3))
+        cosang = np.clip(np.sum(f0_local*fbar_local, axis=1), -1.0, 1.0)
+        theta = np.arccos(cosang)
+        local_sum = float(np.sum(theta*theta))
+        local_n = float(len(theta))
+        mpi_comm = self._get_mpi4py_comm()
+        if mpi_comm is not None:
+            global_sum = mpi_comm.allreduce(local_sum)
+            global_n = mpi_comm.allreduce(local_n)
+        else:
+            global_sum = local_sum
+            global_n = local_n
+        if global_n > 0 and MPI.rank(self.comm) == 0:
+            rms_deg = np.degrees(np.sqrt(global_sum/global_n))
+            print 'Fiber disarray RMS angle: target=%0.4f deg, measured=%0.4f deg' % (target_deg, rms_deg)
+
+    def validate_disarray_width_response(self, theta_rms_deg, disarray_seed):
+        if theta_rms_deg <= 0:
+            return
+        if MPI.rank(self.comm) != 0:
+            return
+
+        theta_rms = np.deg2rad(theta_rms_deg)
+        widths = [theta_rms/np.sqrt(2.0), 2.0*theta_rms/np.sqrt(2.0)]
+        rng = np.random.RandomState(disarray_seed)
+        n_samples = 4000
+        stds = []
+        for w in widths:
+            e1 = rng.normal(0.0, w, n_samples)
+            e2 = rng.normal(0.0, w, n_samples)
+            vals = np.stack([np.ones(n_samples), e1, e2], axis=1)
+            norms = np.linalg.norm(vals, axis=1)
+            norms[norms < 1e-12] = 1.0
+            vals = vals/norms[:,None]
+            ang = np.degrees(np.arccos(np.clip(vals[:,0], -1.0, 1.0)))
+            stds.append(np.std(ang))
+        print 'Disarray theta validation: std@w=%0.4f, std@2w=%0.4f, increased=%s' %             (stds[0], stds[1], str(stds[1] >= stds[0]))
 
     def initialize_boundary_conditions(self):
 
