@@ -115,12 +115,10 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-               
-                    
-                    "Guccione"
+                    "semi_structural"
                 ],
                 "c": [
-                    200
+                    172
                 ],
                 "c2": [
                     250
