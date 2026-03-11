@@ -1,8 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            
-            15000
+            30000
         ],
         "time_step": [
             0.001
@@ -115,12 +114,11 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-               
                     
                     "Guccione"
                 ],
                 "c": [
-                    200
+                    172
                 ],
                 "c2": [
                     250
