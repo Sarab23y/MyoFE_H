@@ -214,13 +214,16 @@
             "disarray"
         ],
         "disarray_seed": [
-            42
+            123
+        ],
+        "theta_rms_deg": [
+            20.0
         ],
         "disarray_region_mask": [
             "mid_ventricle_all_gauss"
         ],
-        "disarray_width": [
-            0.25
+        "ell_c": [
+            0.075
         ]
     },
     "model": {
@@ -651,10 +654,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_outputho/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_outputho/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
