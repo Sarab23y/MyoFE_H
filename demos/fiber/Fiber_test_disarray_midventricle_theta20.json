@@ -1,8 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            
-            15000
+            20000
         ],
         "time_step": [
             0.001
@@ -115,12 +114,10 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-               
-                    
                     "Guccione"
                 ],
                 "c": [
-                    200
+                    172
                 ],
                 "c2": [
                     250
@@ -205,7 +202,7 @@
             "disarray"
         ],
         "disarray_seed": [
-            42
+            123
         ],
         "theta_rms_deg": [
             20.0
@@ -214,7 +211,7 @@
             0.075
         ],
         "disarray_region_mask": [
-            "auto"
+            "mid_ventricle_all_gauss"
         ]
     },
     "model": {
@@ -487,10 +484,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray_midventricle_theta20.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray_midventricle_theta20"
         ],
         "mesh_object_to_save": [
             "displacement",

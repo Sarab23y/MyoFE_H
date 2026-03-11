@@ -436,6 +436,27 @@ class MeshClass():
         if mask_mode == 'all':
             return np.ones(local_points, dtype=bool)
 
+        if mask_mode in ['mid_ventricle', 'mid_ventricle_all_gauss']:
+            qcoords = self.model['function_spaces']['quadrature_space'].tabulate_dof_coordinates().reshape((-1, 3))
+            z_local = qcoords[:local_points, 2]
+            if len(z_local) == 0:
+                return np.zeros(local_points, dtype=bool)
+
+            mpi_comm = self._get_mpi4py_comm()
+            zmin_local = float(np.min(z_local))
+            zmax_local = float(np.max(z_local))
+            if mpi_comm is not None:
+                zmin_global = min(mpi_comm.allgather(zmin_local))
+                zmax_global = max(mpi_comm.allgather(zmax_local))
+            else:
+                zmin_global = zmin_local
+                zmax_global = zmax_local
+
+            zspan = max(zmax_global - zmin_global, 1e-12)
+            zrel = (z_local - zmin_global)/zspan
+            # Keep middle third of LV long axis as mid-ventricle region
+            return np.array((zrel >= (1.0/3.0)) & (zrel <= (2.0/3.0)), dtype=bool)
+
         if (mask_mode in ['auto', 'active_only']) and dolfin_functions is not None:
             if 'cb_number_density' in dolfin_functions and                     len(dolfin_functions['cb_number_density']) > 0 and                     isinstance(dolfin_functions['cb_number_density'][-1], Function):
                 cb_local = dolfin_functions['cb_number_density'][-1].vector().get_local()[:]
@@ -512,6 +533,16 @@ class MeshClass():
             return
 
         mask = self._build_disarray_mask(local_points, mesh_struct, dolfin_functions=dolfin_functions)
+        mpi_comm = self._get_mpi4py_comm()
+        local_mask_n = int(np.sum(mask))
+        if mpi_comm is not None:
+            global_mask_n = int(mpi_comm.allreduce(local_mask_n))
+            global_pts = int(mpi_comm.allreduce(local_points))
+        else:
+            global_mask_n = local_mask_n
+            global_pts = local_points
+        if MPI.rank(self.comm) == 0:
+            print 'Disarray mask selected %d/%d quadrature points' % (global_mask_n, global_pts)
 
         theta_rms = np.deg2rad(theta_rms_deg)
         w = theta_rms/np.sqrt(2.0)
