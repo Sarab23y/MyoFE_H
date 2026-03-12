@@ -1,6 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
+            5000
             
             15000
         ],
@@ -511,4 +512,5 @@
     "debug_mpi": [
         false
     ]
+}
 }

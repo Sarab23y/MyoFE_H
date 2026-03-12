@@ -436,7 +436,7 @@ class MeshClass():
         if mask_mode == 'all':
             return np.ones(local_points, dtype=bool)
 
-        if mask_mode in ['mid_ventricle', 'mid_ventricle_all_gauss']:
+        if mask_mode in ['mid_ventricle', 'mid_ventricle_all_gauss', 'lv_midwall_no_apex_no_base']:
             qcoords = self.model['function_spaces']['quadrature_space'].tabulate_dof_coordinates().reshape((-1, 3))
             z_local = qcoords[:local_points, 2]
             if len(z_local) == 0:
@@ -454,6 +454,9 @@ class MeshClass():
 
             zspan = max(zmax_global - zmin_global, 1e-12)
             zrel = (z_local - zmin_global)/zspan
+            if mask_mode == 'lv_midwall_no_apex_no_base':
+                # Exclude apex (zeta < 0.10) and base (zeta > 0.90)
+                return np.array((zrel >= 0.10) & (zrel <= 0.90), dtype=bool)
             # Keep middle third of LV long axis as mid-ventricle region
             return np.array((zrel >= (1.0/3.0)) & (zrel <= (2.0/3.0)), dtype=bool)
 
@@ -543,6 +546,8 @@ class MeshClass():
             global_pts = local_points
         if MPI.rank(self.comm) == 0:
             print 'Disarray mask selected %d/%d quadrature points' % (global_mask_n, global_pts)
+            if global_pts > 0:
+                print 'Disarray mask coverage fraction: %0.4f' % (float(global_mask_n)/float(global_pts))
 
         theta_rms = np.deg2rad(theta_rms_deg)
         w = theta_rms/np.sqrt(2.0)
@@ -563,6 +568,26 @@ class MeshClass():
                 eps_n = (eps_n-mean_n)*(w/std_n)
             else:
                 eps_n[:] = 0.0
+
+        target_deg = theta_rms_deg
+        # Calibrate disarray intensity inside mask (usually converges in 1-2 passes)
+        for _ in range(2):
+            if np.any(mask):
+                theta_est = np.degrees(np.arccos(np.clip(1.0/np.sqrt(1.0 + eps_s[mask]*eps_s[mask] + eps_n[mask]*eps_n[mask]), -1.0, 1.0)))
+                local_sum = float(np.sum(theta_est*theta_est))
+                local_n = float(len(theta_est))
+                if mpi_comm is not None:
+                    global_sum = mpi_comm.allreduce(local_sum)
+                    global_n = mpi_comm.allreduce(local_n)
+                else:
+                    global_sum = local_sum
+                    global_n = local_n
+                if global_n > 0:
+                    rms_deg = np.sqrt(global_sum/global_n)
+                    if rms_deg > 1e-12:
+                        scale = target_deg/rms_deg
+                        eps_s[mask] *= scale
+                        eps_n[mask] *= scale
 
         eps_s[~mask] = 0.0
         eps_n[~mask] = 0.0
@@ -591,7 +616,7 @@ class MeshClass():
 
         self.rebuild_local_coordinate_system_once(f0, s0, n0)
         self.log_fiber_misalignment_stats(f0, fbar0_local)
-        self.report_rms_disarray_angle(f0, fbar0_local, target_deg=theta_rms_deg)
+        self.report_rms_disarray_angle(f0, fbar0_local, target_deg=theta_rms_deg, mask=mask)
         self.validate_disarray_width_response(theta_rms_deg, disarray_seed)
 
     def rebuild_local_coordinate_system_once(self, f0, s0, n0):
@@ -654,23 +679,36 @@ class MeshClass():
         local_angles = np.degrees(np.arccos(cosang))
         print '[FiberDisarray][rank %d] misalignment wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' %             (MPI.rank(self.comm), np.mean(local_angles), np.std(local_angles))
 
-    def report_rms_disarray_angle(self, f0, fbar0_local, target_deg=0.0):
+    def report_rms_disarray_angle(self, f0, fbar0_local, target_deg=0.0, mask=None):
         f0_local = f0.vector().get_local()[:].reshape((-1,3))
         fbar_local = fbar0_local.reshape((-1,3))
         cosang = np.clip(np.sum(f0_local*fbar_local, axis=1), -1.0, 1.0)
         theta = np.arccos(cosang)
-        local_sum = float(np.sum(theta*theta))
-        local_n = float(len(theta))
+        if mask is None:
+            mask = np.ones(len(theta), dtype=bool)
+        outside = np.logical_not(mask)
+
+        local_sum = float(np.sum(theta[mask]*theta[mask]))
+        local_n = float(np.sum(mask))
+        local_out_sum = float(np.sum(theta[outside]*theta[outside]))
+        local_out_n = float(np.sum(outside))
         mpi_comm = self._get_mpi4py_comm()
         if mpi_comm is not None:
             global_sum = mpi_comm.allreduce(local_sum)
             global_n = mpi_comm.allreduce(local_n)
+            global_out_sum = mpi_comm.allreduce(local_out_sum)
+            global_out_n = mpi_comm.allreduce(local_out_n)
         else:
             global_sum = local_sum
             global_n = local_n
+            global_out_sum = local_out_sum
+            global_out_n = local_out_n
         if global_n > 0 and MPI.rank(self.comm) == 0:
             rms_deg = np.degrees(np.sqrt(global_sum/global_n))
             print 'Fiber disarray RMS angle: target=%0.4f deg, measured=%0.4f deg' % (target_deg, rms_deg)
+            if global_out_n > 0:
+                rms_out_deg = np.degrees(np.sqrt(global_out_sum/global_out_n))
+                print 'Fiber disarray RMS angle outside mask: %0.4f deg' % rms_out_deg
 
     def validate_disarray_width_response(self, theta_rms_deg, disarray_seed):
         if theta_rms_deg <= 0:
