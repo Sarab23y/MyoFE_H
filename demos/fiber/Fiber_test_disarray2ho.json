@@ -27,7 +27,7 @@
             0.92
         ],
         "t_first_activation": [
-            0.2
+            0.1
         ]
     },
     "mesh": {
@@ -126,7 +126,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Guccione"
+                    "Holzapfel"
                 ],
                 "c": [
                     600
@@ -137,14 +137,29 @@
                 "c3": [
                     15.0
                 ],
-                "bf": [
-                    19.0
+                "hbf": [
+                    2.6
                 ],
-                "bt": [
-                    10.0
+                "hbfs": [
+                    0.5
                 ],
-                "bfs": [
-                    5.0
+                "hbs": [
+                    0.54
+                ],
+                "hb": [
+                    0.5
+                ],
+                "a": [
+                    2500.0
+                ],
+                "af": [
+                    1700.0
+                ],
+                "as_": [
+                    650.0
+                ],
+                "afs": [
+                    470.0
                 ],
                 "phi_m": [
                     1.0
@@ -213,17 +228,11 @@
         "fiber_architecture": [
             "disarray"
         ],
+        "disarray_width": [
+            0.25
+        ],
         "disarray_seed": [
-            123
-        ],
-        "theta_rms_deg": [
-            20.0
-        ],
-        "ell_c": [
-            0.075
-        ],
-        "disarray_region_mask": [
-            "mid_ventricle_all_gauss"
+            42
         ]
     },
     "model": {
@@ -240,7 +249,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        16
+                        25
                     ],
                     "compliance": [
                         0.0004
@@ -654,10 +663,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray_guccione.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_outputho/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray_guccione"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_outputho/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -676,8 +685,5 @@
         "frequency_n": [
             10
         ]
-    },
-    "debug_mpi": [
-        false
-    ]
+    }
 }
