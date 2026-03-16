@@ -10,6 +10,7 @@ import os
 import json
 import time as TIME
 import warnings
+import traceback
 
 from LV_simulation.dependencies.recode_dictionary import recode
 from LV_simulation.LV_simulation import LV_simulation as lvs
@@ -66,6 +67,8 @@ def MyoFE():
                 debug_mpi = execute_MyoFE(instruct_file, comm)
             except Exception as e:
                 print "Fatal error:", str(e)
+                print "Fatal rank:", rank
+                traceback.print_exc()
                 MPI.COMM_WORLD.Abort(1)
 
             """#SARA ADDED ON 6/25/2025
