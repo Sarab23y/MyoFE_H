@@ -129,16 +129,16 @@
                     "Guccione"
                 ],
                 "c": [
-                    600
+                    550
                 ],
                 "c2": [
-                    250
+                    400
                 ],
                 "c3": [
-                    15.0
+                    16.0
                 ],
                 "bf": [
-                    19.0
+                    18.0
                 ],
                 "bt": [
                     10.0
@@ -189,10 +189,10 @@
         "solver": {
             "params": {
                 "rel_tol": [
-                    1e-10
+                    1e-8
                 ],
                 "abs_tol": [
-                    1e-10
+                    1e-8
                 ],
                 "max_iter": [
                     100
@@ -243,7 +243,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        20
+                        16
                     ],
                     "compliance": [
                         0.0004
@@ -257,7 +257,7 @@
                         "arteries"
                     ],
                     "resistance": [
-                        20
+                        30
                     ],
                     "compliance": [
                         0.0008
@@ -271,7 +271,7 @@
                         "arterioles"
                     ],
                     "resistance": [
-                        1000
+                        1230
                     ],
                     "compliance": [
                         0.001
@@ -316,7 +316,7 @@
                         50
                     ],
                     "compliance": [
-                        0.1
+                        0.078
                     ],
                     "slack_volume": [
                         2.0
@@ -678,7 +678,8 @@
         ],
         "frequency_n": [
             10
-        ]
+        ],
+        "save_outputs": "all"
     },
     "debug_mpi": [
         false
