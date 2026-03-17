@@ -228,7 +228,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        20
+                        16
                     ],
                     "compliance": [
                         0.0004
@@ -242,7 +242,7 @@
                         "arteries"
                     ],
                     "resistance": [
-                        20
+                        30
                     ],
                     "compliance": [
                         0.0008
@@ -256,7 +256,7 @@
                         "arterioles"
                     ],
                     "resistance": [
-                        1000
+                        1230
                     ],
                     "compliance": [
                         0.001
@@ -301,7 +301,7 @@
                         50
                     ],
                     "compliance": [
-                        0.1
+                        0.078
                     ],
                     "slack_volume": [
                         2.0
@@ -369,7 +369,7 @@
                     0.6
                 ],
                 "k_1": [
-                    4
+                    8.0
                 ],
                 "k_force": [
                     0.001
@@ -378,7 +378,7 @@
                     200
                 ],
                 "k_3": [
-                    120
+                    80
                 ],
                 "k_4_0": [
                     80
@@ -390,10 +390,10 @@
                     0.001
                 ],
                 "x_ps": [
-                    5
+                    5.2
                 ],
                 "k_on": [
-                    200000000.0
+                    160000000.0
                 ],
                 "k_off": [
                     200
@@ -484,10 +484,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray_midventricle_theta20.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray_guccione.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray_midventricle_theta20"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray_guccione"
         ],
         "mesh_object_to_save": [
             "displacement",
