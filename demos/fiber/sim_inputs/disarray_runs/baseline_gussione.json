@@ -211,16 +211,22 @@
             ]
         },
         "fiber_architecture": [
-            "disarray"
+            "aligned"
         ],
         "disarray_seed": [
             42
         ],
         "disarray_region_mask": [
-            "mid_ventricle_all_gauss"
+            "lv_midwall_no_apex_no_base"
         ],
         "disarray_width": [
-            0.25
+            0.0
+        ],
+        "theta_rms_deg": [
+            0.0
+        ],
+        "ell_c": [
+            0.075
         ]
     },
     "model": {
@@ -651,10 +657,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baseline/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baseline/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -672,7 +678,8 @@
         ],
         "frequency_n": [
             10
-        ]
+        ],
+        "save_outputs": "all"
     },
     "debug_mpi": [
         false

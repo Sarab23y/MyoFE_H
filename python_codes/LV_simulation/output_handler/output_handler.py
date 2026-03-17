@@ -54,8 +54,6 @@ class output_handler():
 
         self.configure_output_selection(output_struct)
 
-        self.configure_output_selection(output_struct)
-
     
 
 
