@@ -17,7 +17,6 @@
             "output_handler": {
                 "save_outputs": [
                     "data.csv",
-                    "data.xlsx",
                     "spatial_average.csv"
                 ]
             }
@@ -30,9 +29,7 @@
     },
     "valid_output_names": [
         "data.csv",
-        "data.xlsx",
-        "spatial_average.csv",
-        "spatial_average.xlsx"
+        "spatial_average.csv"
     ],
     "default_when_missing": [
         "data.csv"
