@@ -21,6 +21,9 @@ class output_handler():
         self.total_file_disp = []
         self.sim_data_file_str = []
         self.images_handler_list = []
+        # Central CSV name registry for JSON-controlled output selection.
+        self.available_csv_outputs = {'data.csv': 'Main simulation CSV'}
+        self.selected_csv_outputs = set(['data.csv'])
 
         # Check for output_handler file
         if (output_struct == []):
@@ -35,6 +38,8 @@ class output_handler():
         if 'output_data_path' in output_struct:
             self.output_data_str = output_struct['output_data_path'][0]
             self.check_output_directory_folder(path = self.output_data_str)
+
+        self.configure_output_selection(output_struct)
 
     
 
@@ -63,16 +68,41 @@ class output_handler():
                 print('No simulation data available')
                 return
         # First save data if it is called
-        if self.output_data_str:
+        if self.output_data_str and self.should_save_output('data.csv'):
             sim_data.to_csv(self.output_data_str)
 
         # Then generate figures if any
         
         return
 
+    def configure_output_selection(self, output_struct):
+        requested = None
+        if output_struct and ('save_outputs' in output_struct):
+            requested = output_struct['save_outputs']
 
+        if requested is None:
+            self.selected_csv_outputs = set(['data.csv'])
+            return
 
+        if isinstance(requested, str):
+            if requested == 'all':
+                self.selected_csv_outputs = set(self.available_csv_outputs.keys())
+                return
+            requested = [requested]
 
+        if isinstance(requested, list) and ('all' in requested):
+            self.selected_csv_outputs = set(self.available_csv_outputs.keys())
+            return
 
-    
+        if not isinstance(requested, list):
+            raise ValueError('output_handler.save_outputs must be "all" or a list of output names')
 
+        invalid = [x for x in requested if x not in self.available_csv_outputs]
+        if invalid:
+            valid = sorted(self.available_csv_outputs.keys())
+            raise ValueError('Invalid save_outputs entries: %s. Valid options: %s' % (str(invalid), str(valid)))
+        self.selected_csv_outputs = set(requested)
+
+    def should_save_output(self, output_name, config=None):
+        selected = self.selected_csv_outputs if config is None else set(config)
+        return output_name in selected

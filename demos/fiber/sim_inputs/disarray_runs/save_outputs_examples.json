@@ -1,0 +1,37 @@
+{
+    "description": "Examples for output_handler.save_outputs selection",
+    "examples": {
+        "save_all_outputs": {
+            "output_handler": {
+                "save_outputs": "all"
+            }
+        },
+        "save_one_output_only": {
+            "output_handler": {
+                "save_outputs": [
+                    "data.csv"
+                ]
+            }
+        },
+        "save_selected_subset": {
+            "output_handler": {
+                "save_outputs": [
+                    "data.csv",
+                    "spatial_average.csv"
+                ]
+            }
+        },
+        "save_no_optional_outputs": {
+            "output_handler": {
+                "save_outputs": []
+            }
+        }
+    },
+    "valid_output_names": [
+        "data.csv",
+        "spatial_average.csv"
+    ],
+    "default_when_missing": [
+        "data.csv"
+    ]
+}
