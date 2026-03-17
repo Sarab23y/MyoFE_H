@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+Created on Mon Jan 10 11:15:59 2022
 
-
-@author: Mehri
+@author: Hossein
 """
 
 from ast import operator
@@ -47,13 +47,6 @@ class LV_simulation():
         self.spatial_hs_data_fields = []
         self.spatial_fiber_data_fields = []
         self.spatial_extra = []
-        # Central registry for JSON-controlled CSV outputs.
-        # Keys are logical names used in `output_handler.save_outputs`.
-        self.available_csv_outputs = {
-            'data.csv': 'Main simulation time-series CSV',
-            'spatial_average.csv': 'Spatially averaged fields CSV (when dumping_spatial_in_average=true)'
-        }
-        self.selected_csv_outputs = set(['data.csv'])
         self.f0_values = []
         self.fdiff_values = []
         self.lcoord_values = []
@@ -108,7 +101,6 @@ class LV_simulation():
         # Initialize and define mesh objects (finite elements, 
         # function spaces, functions)
         self.mesh = MeshClass(self)
-        self.initialize_frozen_fiber_monitor()
 
         
         # Initialize the solver object 
@@ -457,8 +449,6 @@ class LV_simulation():
             data_fields = data_fields + list(self.va.data.keys())
         if (self.fr != []):
             data_fields = data_fields + list(self.fr.data.keys())
-        if 'write_mode' not in data_fields:
-            data_fields.append('write_mode')
         # Now start define the data holder
         rows = int(no_of_data_points/frequency) + 1 # 1 for time zero
         #sim_data = pd.DataFrame()
@@ -472,53 +462,6 @@ class LV_simulation():
             #sim_data = pd.concat([sim_data, s], axis=1)
 
         return sim_data
-
-    def _safe_array_from_value(self, value, rows):
-        """Convert an arbitrary object to a 1D float array with fixed row count."""
-        try:
-            arr = np.asarray(value, dtype=float)
-        except Exception:
-            fallback = getattr(value, 'values', None)
-            if fallback is None:
-                fallback = getattr(value, 'to_numpy', lambda: None)()
-            try:
-                arr = np.asarray(fallback, dtype=float)
-            except Exception:
-                arr = np.empty(rows)
-                arr[:] = np.nan
-
-        if arr.ndim == 0:
-            out = np.empty(rows)
-            out[:] = float(arr)
-            return out
-
-        arr = arr.reshape(-1)
-        if len(arr) < rows:
-            out = np.empty(rows)
-            out[:] = np.nan
-            out[:len(arr)] = arr
-            return out
-
-        return arr[:rows].astype(float)
-
-    def _sanitize_sim_data_arrays(self):
-        """Ensure sim_data values are writable 1D ndarrays on every rank."""
-        if not hasattr(self, 'sim_data'):
-            return
-
-        rows = None
-        for _, value in self.sim_data.items():
-            if hasattr(value, '__len__'):
-                try:
-                    rows = len(value)
-                    break
-                except Exception:
-                    pass
-        if rows is None:
-            rows = int(self.write_counter + 2)
-
-        for key in list(self.sim_data.keys()):
-            self.sim_data[key] = self._safe_array_from_value(self.sim_data[key], rows)
 
     def create_data_structure_for_spatial_variables(self,no_of_data_points, 
                                                     num_of_int_points, 
@@ -573,15 +516,9 @@ class LV_simulation():
             '''for f in ['f01','f02','f03','s01','s02','s03','n01','n02','n03','lx','ly','lz','endo_dist',
                       'eccx','eccy','eccz','errx','erry','errz','ellx','elly','ellz', 'fr_angle']:'''
             ##S0 and n0 is not saved for storage efficievy    
-            fiber_defaults = ['f01','f02','f03','lx','ly','lz',
+            for f in ['f01','f02','f03','lx','ly','lz','endo_dist',
                       'eccx','eccy','eccz','errx','erry','errz','ellx','elly','ellz'
-                      ,'fr_angle','dx','dy','dz']
-            if 'endo_dist' in self.mesh.model['functions']:
-                fiber_defaults.insert(6, 'endo_dist')
-            elif self.comm.Get_rank() == 0:
-                print 'endo_dist missing, using zeros'
-
-            for f in fiber_defaults:
+                      ,'fr_angle','dx','dy','dz']:  
 
                 self.spatial_fiber_data_fields.append(f)
 
@@ -649,14 +586,12 @@ class LV_simulation():
         else:
             spatial_data = dict()
             for f in data_field:
-                spatial_data[f] = np.zeros((rows, num_of_int_points), dtype=float)
+                spatial_data[f] = pd.DataFrame(0,index = i,columns=c)
             for f in ['Sff','sff_mean','alpha_f','total_stress_spatial']:
-                spatial_data[f] = np.zeros((rows, num_of_int_points), dtype=float)
+                spatial_data[f] = pd.DataFrame(0,index = i,columns=c)
                 #spatial_data[f]['time'] = pd.Series(0)
         if self.comm.Get_rank() == 0:
             print 'spatial simulation data is created'
-            if not in_average:
-                print 'Spatial numpy storage is active'
 
         return spatial_data
 
@@ -677,7 +612,6 @@ class LV_simulation():
         self.spatial_data_to_mean = False
         self.dumping_data_frequency = 1
         if output_struct:
-            self.configure_output_selection(output_struct)
             if 'spatial_data_fields' in output_struct:
                 spatial_data_fields = output_struct['spatial_data_fields']
             if 'dumping_spatial_in_average' in output_struct:
@@ -697,13 +631,6 @@ class LV_simulation():
 
         # Now define data holder for spatial variables.
         # Create local data holders for spatial varibles on each core
-        self.local_spatial_sim_data = \
-                self.create_data_structure_for_spatial_variables(
-                    self.prot.data['no_of_time_steps'],
-                    self.local_n_of_int_points,
-                    spatial_data_fields=spatial_data_fields,
-                    in_average=self.spatial_data_to_mean,
-                    frequency=self.dumping_data_frequency)
        
         # Step through the simulation
         self.t_counter = 0
@@ -748,167 +675,7 @@ class LV_simulation():
                         xdmf.close()
 
 
-                    for m in self.mesh_obj_to_save:
-                        if m == 'displacement':
-                            temp_obj = self.mesh.model['functions']['w'].sub(0)
-                        if m == 'hs_length':
-                            temp_obj = project(self.mesh.model['functions']['hsl'], 
-                                                self.mesh.model['function_spaces']["scalar"],
-                                                form_compiler_parameters={"representation":"uflacs"})
-                        
-                       
-
-                        if m in ['k_1','k_3','k_on','k_act','k_serca','fiber_strain','Ell','Err','Ecc']:
-                            temp_obj = project(self.mesh.model['functions'][m], 
-                                                self.mesh.model['function_spaces']["scalar"])
-
-                            
-
-                        if m in ['k_1_DG0']:
-                            temp_obj = project(self.mesh.model['functions']["k_1"], 
-                                                FS_DG0)
-                        
-                        if m in ['x_ps_DG0']:
-                            temp_obj = project(self.mesh.model['functions']["x_ps"], 
-                                                FS_DG0)
-                            
-                        if m == 'cb_number_density_DG0':
-                            temp_obj = project(self.mesh.model['functions']["cb_number_density"], 
-                                                FS_DG0)
-
-                        if m == 'cb_number_density':
-                            temp_obj = project(self.mesh.model['functions']["cb_number_density"], 
-                                                self.mesh.model['function_spaces']["scalar"])
-
-
-
-                        if m == 'active_stress':
-                            temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['Pactive']*
-                                        self.mesh.model['functions']['f0']),
-                                        self.mesh.model['function_spaces']["scalar"],
-                                        form_compiler_parameters={"representation":"uflacs"})
-                            
-
-                        if m == 'active_stress_DG0':
-                            temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['Pactive']*
-                                        self.mesh.model['functions']['f0']),
-                                        FS_DG0,form_compiler_parameters={"representation":"uflacs"})
-                            
-
-                        if m == 'reorienting_angle':
-
-                            fdiff_ang= Function(Quad)   
-                            finite_element_R0 = FiniteElement("DG",self.mesh.model['mesh'].ufl_cell(),0)
-                            finite_elemet_R00 = FunctionSpace(self.mesh.model['mesh'],finite_element_R0)
-
-                            temp_obj = project(fdiff_ang,finite_elemet_R00)
-
-    
-                        if m == 'c_param_DG0':
-
-                            temp_obj = project(self.mesh.model['functions']['dolfin_functions']["passive_params"]["c"][-1],FS_DG0)
-                            #File(self.instruction_data["output_handler"]['mesh_output_path'][0] + "c_param.pvd") << project(self.mesh.model['functions']['dolfin_functions']["passive_params"]["c"][-1],FunctionSpace(self.mesh.model['mesh'],"DG",0))
-
-                        if m == 'bt_param_DG0':
-
-                            temp_obj = project(self.mesh.model['solver_params']['bt'][-1],FS_DG0)
-
-                        if m == 'c2_param_DG0':
-
-                            temp_obj = project(self.mesh.model['solver_params']['c2'][-1],FS_DG0)
-
-
-                        if m == 'c_param':
-                            temp_obj = project(self.mesh.model['functions']['dolfin_functions']["passive_params"]["c"][-1],self.mesh.model['function_spaces']["scalar_CG"])
-                        
-  
-                        if m == 'fiber_direction':
-                            
-                            Velem0 = VectorElement("CG",self.mesh.model['mesh'].ufl_cell(), 1, quad_scheme="default")
-                            Velem0._quad_scheme = 'default'
-                            Velem_FS = FunctionSpace(self.mesh.model['mesh'],Velem0)
-                            temp_obj = project(self.mesh.model['functions']['f0'],Velem_FS)
-
-
-                        if m == 'endo_distance':
-
-                            temp_obj =  project(self.mesh.model['functions']['endo_dist'],self.mesh.model['function_spaces']["scalar"])
-
-                        if m == 'Transverse_Angle':
-
-                            self.TA= Function(Quad) 
-                            temp = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ell'].vector().array().reshape((-1,3)))
-                            temp2 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ecc'].vector().array().reshape((-1,3)))
-                            temp3 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['err'].vector().array().reshape((-1,3)))
-                            self.TA.vector()[:] = (180/np.pi)*(np.arctan(temp3/temp2))
-
-                            temp_obj =  project(self.TA,FS_DG0)
-
-
-                
-                        if m == 'Helical_Angle':
-
-                            self.HA= Function(Quad) 
-                            temp = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ell'].vector().array().reshape((-1,3)))
-                            temp2 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ecc'].vector().array().reshape((-1,3)))
-                            temp3 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['err'].vector().array().reshape((-1,3)))
-                            self.HA.vector()[:]  = (180/np.pi)*(np.arctan(temp/temp2))
-
-                            temp_obj =  project(self.HA,FS_DG0)
-                        
-
-                        if m == 'total_stress':
-                            temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['total_stress']*
-                                        self.mesh.model['functions']['f0']),
-                                        self.mesh.model['function_spaces']["scalar"],
-                                        form_compiler_parameters={"representation":"uflacs"})
-                            
-                        if m == 'total_stress_vector':
-
-                            Velem0 = VectorElement("CG",self.mesh.model['mesh'].ufl_cell(), 1, quad_scheme="default")
-                            Velem0._quad_scheme = 'default'
-                            Velem_FS = FunctionSpace(self.mesh.model['mesh'],Velem0)
-
-                            temp_obj = project((self.mesh.model['functions']['total_stress']*self.mesh.model['functions']['f0']),Velem_FS,
-                                        form_compiler_parameters={"representation":"uflacs"})
-                            
-                        if m == 'total_passive':
-                            temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['passive_total_stress']*
-                                        self.mesh.model['functions']['f0']),
-                                        self.mesh.model['function_spaces']["scalar_for_active"],
-                                        form_compiler_parameters={"representation":"uflacs"})
-                        if m == 'myofiber_passive':
-                            temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['Sff']*
-                                        self.mesh.model['functions']['f0']),
-                                        self.mesh.model['function_spaces']["scalar_for_active"],
-                                        form_compiler_parameters={"representation":"uflacs"})
-
-
-                        if m in ['local_theta_vis_fiber','local_theta_vis_sheet','local_theta_vis_sheet_normal',
-                                'global_theta_vis_fiber','global_theta_vis_sheet','global_theta_vis_sheet_normal'
-                                'stimulus_fiber', 'stimulus_sheet', 'stimulus_sheet_normal',
-                                'deviation_fiber', 'deviation_sheet','deviation_sheet_normal',
-                                'setpoint_fiber','setpoint_sheet','setpoint_sheet_normal'] and \
-                                    'growth' in self.instruction_data['model']:
-
-                                temp_obj = project(self.mesh.model['functions'][m],
-                                                self.mesh.model['function_spaces']["scalar_for_growth"],
-                                                form_compiler_parameters={"representation":"uflacs"})
-
-                        
-
-                        if m == 'facetboundaries':
-                            xdmf = XDMFFile(mesh_out_path+"/facet_boundaries" + ".xdmf")
-                            xdmf.write(self.mesh.model['functions']['facetboundaries'])
-                            xdmf.close()
-                        else:
-                            temp_obj.rename(m,'')
-                            self.solution_mesh.write(temp_obj,0)
+                    
 
             if 'growth_mesh_path' in output_struct:
                 # create mesh object and visualize the growth of reference config
@@ -1234,6 +1001,12 @@ class LV_simulation():
         #self.data['hsl0'] = hsl0
         self.data['hsl'] = new_hs_length_list
         self.data['alpha_f'] = myo_stretch
+        # Project I1 and I4f and store to self.data
+        """self.data['I1'] = project(self.mesh.model['functions']['I1'],
+                                self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+        self.data['I4f'] = project(self.mesh.model['functions']['I4f'],
+                                self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]"""
+
         """if self.comm.Get_rank() == 0:
             print 'Checking myofiber stretch'
             print 'hsl:'
@@ -1743,157 +1516,6 @@ class LV_simulation():
                         
                         self.gr.initial_gr_cycle_counter += 1
 
-
-#############  FR class
-  # Check for fiber reorientation and implement  (data addressing should be checked)
-        if (self.fr):
-            self.data['fr_active'] = 0
-            for f in self.prot.fiber_re_activations:
-
-                if ((self.t_counter >= f.data['t_start_ind']) and
-                        (self.t_counter < f.data['t_stop_ind'])):
-                    self.data['fr_active'] = 1
-                    if self.comm.Get_rank() == 0:
-                        print("fiber reorientation active")
-
-
-                '''if ((self.t_counter >= f.data['t_start_ind1']) and
-                        (self.t_counter < f.data['t_stop_ind1'])):
-                    self.data['fr_active'] = 1
-                    if self.comm.Get_rank() == 0:
-                        print("fiber reorientation active1")
-
-
-                if ((self.t_counter >= f.data['t_start_ind2']) and
-                        (self.t_counter < f.data['t_stop_ind2'])):
-                    self.data['fr_active'] = 1
-                    if self.comm.Get_rank() == 0:
-                        print("fiber reorientation active2")'''
-
-
-
-
-            if self.data['fr_active'] == 1:
-
-                if self.comm.Get_rank() == 0:
-                    print "updating fiber orientation"
-                #deg = 2
-                #VQuadelem = VectorElement("Quadrature", self.mesh.ufl_cell(), degree=deg, quad_scheme="default")
-                #VQuadelem._quad_scheme = 'default'
-                #fiberFS = FunctionSpace(self.mesh, VQuadelem)
-    
-
-                #PK2_passive = self.mesh.model['functions']['total_passive_PK2']
-                #Pactive = self.mesh.model['functions']['Pactive']
-                #total_stress = PK2_passive + Pactive
-                #kappa = self.fr.data['time_constant']
-
-
-          
-                fdiff = self.fr.stress_law(self.fr.data['signal'],time_step,self.mesh.model['function_spaces']['fiber_FS'])
-                
-                temp_fiber = self.mesh.model['functions']['f0'].vector().get_local()[:]
-                
-            
-
-                local_fdiff = fdiff.vector().get_local()[:]
-
-                
-                gdim2 = self.mesh.model['mesh'].geometry().dim()
-                self.lcoord = self.mesh.model['function_spaces']['quadrature_space'].\
-                tabulate_dof_coordinates().reshape((-1, gdim2))
-                ### Below not active now. since stress might not be realisic in base, we can exclude some basal points from fiber reoriantaion
-                #print('point n', np.shape(self.lcoord[:,2]))  
-                
-                
-                cnt =0 
-                cnt2 =0 
-                l1 = -0.02
-                l2 = -0.1
-
-                
-                
-                for i in np.arange(self.local_n_of_int_points):
-                    if self.lcoord[i][2]< l2:  # normal FR
-                        # wrong way: temp_fiber[i] += local_fdiff[i]
-                        temp_fiber[i*3:i*3+3]+= local_fdiff[i*3:i*3+3]
-                        cnt = cnt +1
-                    
-                    if self.lcoord[i][2]< l1 and self.lcoord[i][2]> l2:  # transition region
-                        # wrong way: temp_fiber[i] += local_fdiff[i]
-
-                        coef = (l1-self.lcoord[i][2])/(l1-l2)
-                        temp_fiber[i*3:i*3+3]+= local_fdiff[i*3:i*3+3] * coef * coef 
-                        cnt2 = cnt2 +1
-                #print ("cnt",cnt)  
-                #print ("cnt2",cnt2)  
-                        
-                
-
-                ### all point FR
-                #temp_fiber += fdiff.vector().get_local()[:]
-                self.mesh.model['functions']['f0'].vector()[:] = temp_fiber 
-
-                
-
-                s1 , n1 ,f1= self.fr.update_local_coordinate_system(self.mesh.model['functions']['f0'])
-                
-                self.mesh.model['functions']['s0'].vector()[:]=s1   ### on the left hand side get local is not needed as it can find the right place of the data in global function
-                self.mesh.model['functions']['n0'].vector()[:]=n1
-                self.mesh.model['functions']['f0'].vector()[:]=f1   ### f0  is being renormalized here after reorientation
-
-                ##MM below parameters are calculated for post processing purposes
-                #self.mesh.model['functions']["fdiff_mag"] = (sqrt((inner(fdiff,fdiff))))
-                l_f0 = self.mesh.model['functions']['f0'].vector().get_local()[:] 
-                ## important note: if we localize fiber data here as initial fiber it does not contain inital fiber as it is also updated automatically. initial fiber sould be localized out of time loop
-                
-                l_fdiff_ang = self.mesh.model['functions']["fdiff_ang"].vector().get_local()[:] 
-
-                
-                for ii in np.arange(self.local_n_of_int_points):
-                    
-                    l_f0_holder = l_f0[ii*3:ii*3+3]
-                    l_f00_holder = self.l_f00[ii*3:ii*3+3]
-                    
-                    cos = (np.inner(l_f0_holder,l_f00_holder))/(sqrt(np.inner(l_f0_holder,l_f0_holder))*sqrt(np.inner(l_f00_holder,l_f00_holder)))
-                    cos = np.clip(cos, -1, 1)  #MM here avoids values abouve 1 cause nan results
-                    rad = np.arccos(cos) 
-                    theta = math.degrees(rad)
-                    l_fdiff_ang[ii] = theta
-                    
-                
-                self.mesh.model['functions']["fdiff_ang"].vector()[:] = l_fdiff_ang
-                
-
-                if self.comm.Get_rank() == 0:
-
-                    print "CHECKING NUMBER OF FIBER VECTORS"
-                    print np.shape(self.mesh.model['functions']['f0'].vector().get_local())
-                    print "Fiber orientation updated"
-                
-                
-       
-
-
-                ##MM to save the fiber even before fiber remodleing this apart needs to be out of if FR = 1
-                #f0_vs_time_array = np.zeros((self.global_n_of_int_points,3,self.prot.data['no_of_time_steps']))
-            
-        #MM in old code here f0 is being projected on fiber_FS. question: why is this needed as f0 is already on the fiber FS space
-        #f0_vs_time_temp = project(self.mesh.model['functions']['f0'],self.mesh.model['function_spaces']['fiber_FS']).vector().get_local()[:]
-             
-#### below is one way of saving fiber data, which for now is not needed as we are saving fiber data in excell files as other params
-
-        '''f0_vs_time_temp = self.mesh.model['functions']['f0'].vector().get_local()[:]
-        f0_vs_time_temp2_global = self.comm.gather(f0_vs_time_temp)                    
-        if self.comm.Get_rank() == 0:
-            f0_vs_time_temp2_global = np.concatenate(f0_vs_time_temp2_global).ravel()
-            f0_vs_time_temp2_global = np.reshape(f0_vs_time_temp2_global,(self.global_n_of_int_points,3))
-            self.f0_vs_time_array[:,:,self.t_counter] = f0_vs_time_temp2_global
-            print "SAVING F0 VS TIME ARRAY"
-            np.save(self.instruction_data["output_handler"]['mesh_output_path'][0]+"/f0_vs_time.npy",self.f0_vs_time_array)'''
-
-###################################
-
         
 
         ###MM below if is just for checking progression of F tensor
@@ -1989,7 +1611,6 @@ class LV_simulation():
 
 
 
-        self.assert_fibers_frozen()
         self.update_data(time_step)
         if self.t_counter%self.dumping_data_frequency == 0:
             
@@ -2013,171 +1634,6 @@ class LV_simulation():
                 if self.comm.Get_rank() == 0:
                     print 'Saving to 3d mesh'
                     
-                for m in self.mesh_obj_to_save:
-                    if m == 'displacement':
-                        temp_obj = self.mesh.model['functions']['w'].sub(0)
-                        
-
-                    if m == 'hs_length':
-                        
-                        temp_obj = project(self.mesh.model['functions']['hsl'], 
-
-                                                self.mesh.model['function_spaces']["scalar"])
-                        
-
-                    if m in ['k_1','k_3','k_on','k_act','k_serca','cb_number_density','fiber_strain','Ell','Err','Ecc']:
-                            temp_obj = project(self.mesh.model['functions'][m], 
-                                                self.mesh.model['function_spaces']["scalar"])
-                            
-
-                    if m in ['k_1_DG0']:
-                            temp_obj = project(self.mesh.model['functions']["k_1"], 
-                                                FS_DG0)
-                    
-                    if m in ['x_ps_DG0']:
-                            temp_obj = project(self.mesh.model['functions']["x_ps"], 
-                                                FS_DG0)
-                            
-                            
-                    if m == 'cb_number_density_DG0':
-                            temp_obj = project(self.mesh.model['functions']["cb_number_density"], 
-                                                FS_DG0)
-
-                    if m == 'cb_number_density':
-                            temp_obj = project(self.mesh.model['functions']["cb_number_density"], 
-                                                self.mesh.model['function_spaces']["scalar"])
-
-
-                    if m == 'active_stress':
-                        #inner_p = self.mesh.model['functions']['Pactive']
-                        #temp_obj= project(inner_p,Vq,form_compiler_parameters={"representation":"uflacs"})
-                        temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['Pactive']*
-                                        self.mesh.model['functions']['f0']),self.mesh.model['function_spaces']["scalar"],
-                                        form_compiler_parameters={"representation":"uflacs"})
-                        
-                    if m == 'active_stress_DG0':
-                        temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['Pactive']*
-                                        self.mesh.model['functions']['f0']),
-                                        FS_DG0,form_compiler_parameters={"representation":"uflacs"})
-
-                    if m == 'reorienting_angle':
-
-                        #temp_obj = project(self.mesh.model['functions']['f0'],self.mesh.model['function_spaces']['fiber_FS'])  # should be checked: .vector().get_local()[:]   just added
-                        finite_element_R0 = FiniteElement("DG",self.mesh.model['mesh'].ufl_cell(),0)
-                        finite_elemet_R00 = FunctionSpace(self.mesh.model['mesh'],finite_element_R0)
-                        temp_obj = project(self.mesh.model['functions']["fdiff_ang"],finite_elemet_R00)
-
-
-                        
-    
-                    if m == 'c_param_DG0':
-
-
-
-                        temp_obj = project(self.mesh.model['functions']['dolfin_functions']["passive_params"]["c"][-1],FS_DG0)
-                        #File(self.instruction_data["output_handler"]['mesh_output_path'][0] + "c_param.pvd") << project(self.mesh.model['functions']['dolfin_functions']["passive_params"]["c"][-1],FunctionSpace(self.mesh.model['mesh'],"DG",0))
-
-                    if m == 'c_param':
-
-
-                        temp_obj = project(self.mesh.model['functions']['dolfin_functions']["passive_params"]["c"][-1],self.mesh.model['function_spaces']["scalar_CG"])
-                        #File(self.instruction_data["output_handler"]['mesh_output_path'][0] + "c_param.pvd") << project(self.mesh.model['functions']['dolfin_functions']["passive_params"]["c"][-1],FunctionSpace(self.mesh.model['mesh'],"DG",0))
-
-                    if m == 'bt_param_DG0':
-
-                            temp_obj = project(self.mesh.model['solver_params']['bt'][-1],FS_DG0)
-
-                    
-                    if m == 'c2_param_DG0':
-
-                            temp_obj = project(self.mesh.model['solver_params']['c2'][-1],FS_DG0)
-
-
-                    if m == 'fiber_direction':
-                        
-                        Velem0 = VectorElement("CG", self.mesh.model['mesh'].ufl_cell(), 1, quad_scheme="default")
-                        Velem0._quad_scheme = 'default'
-                        Velem_FS = FunctionSpace(self.mesh.model['mesh'],Velem0)
-                        temp_obj = project(self.mesh.model['functions']['f0'],Velem_FS)
-
-                    if m == 'endo_distance':
-
-                        
-                        temp_obj =  project(self.mesh.model['functions']['endo_dist'],self.mesh.model['function_spaces']["scalar"])
-                               
-                    if m == 'Transverse_Angle':
-
-                        
-                        temp = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ell'].vector().array().reshape((-1,3)))
-                        temp2 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ecc'].vector().array().reshape((-1,3)))
-                        temp3 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['err'].vector().array().reshape((-1,3)))
-                        self.TA.vector()[:] = (180/np.pi)*(np.arctan(temp3/temp2))
-
-                        temp_obj =  project(self.TA,FS_DG0)
-
-
-            
-                    if m == 'Helical_Angle':
-
-                        
-                        temp = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ell'].vector().array().reshape((-1,3)))
-                        temp2 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['ecc'].vector().array().reshape((-1,3)))
-                        temp3 = np.einsum('ij,ij->i',self.mesh.model['functions']['f0'].vector().array().reshape((-1,3)),self.mesh.model['functions']['err'].vector().array().reshape((-1,3)))
-                        self.HA.vector()[:]  = (180/np.pi)*(np.arctan(temp/temp2))
-
-                        temp_obj =  project(self.HA,FS_DG0)
-
-
-
-                        #dolfin.parameters["form_compiler"]["representation"] = "quadrature"
-                    if m == 'total_stress':
-                        temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['total_stress']*
-                                        self.mesh.model['functions']['f0']),
-                                        self.mesh.model['function_spaces']["scalar"],
-                                        form_compiler_parameters={"representation":"uflacs"})
-
-                    if m == 'total_stress_vector':
-
-                            Velem0 = VectorElement("CG",self.mesh.model['mesh'].ufl_cell(), 1, quad_scheme="default")
-                            Velem0._quad_scheme = 'default'
-                            Velem_FS = FunctionSpace(self.mesh.model['mesh'],Velem0)
-                            
-                            temp_obj = project((self.mesh.model['functions']['total_stress']*self.mesh.model['functions']['f0']),Velem_FS,
-                                        form_compiler_parameters={"representation":"uflacs"})
-                            
-                    if m == 'total_passive':
-                        temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['passive_total_stress']*
-                                        self.mesh.model['functions']['f0']),
-                                        self.mesh.model['function_spaces']["scalar_for_active"],
-                                        form_compiler_parameters={"representation":"uflacs"})
-                    if m == 'myofiber_passive':
-                        temp_obj = project(inner(self.mesh.model['functions']['f0'],
-                                        self.mesh.model['functions']['Sff']*
-                                        self.mesh.model['functions']['f0']),
-                                        self.mesh.model['function_spaces']["scalar_for_active"],
-                                        form_compiler_parameters={"representation":"uflacs"})                    
-
-                    
-                            
-                    if m in ['local_theta_vis_fiber','local_theta_vis_sheet','local_theta_vis_sheet_normal',
-                                'global_theta_vis_fiber','global_theta_vis_sheet','global_theta_vis_sheet_normal',
-                                'stimulus_fiber', 'stimulus_sheet', 'stimulus_sheet_normal',
-                                'deviation_fiber', 'deviation_sheet','deviation_sheet_normal',
-                                'setpoint_fiber','setpoint_sheet','setpoint_sheet_normal'] and \
-                                    'growth' in self.instruction_data['model']:
-
-                            temp_obj = project(self.mesh.model['functions'][m],
-                                                self.mesh.model['function_spaces']["scalar_for_growth"],
-                                                form_compiler_parameters={"representation":"uflacs"})
-
-
-                    temp_obj.rename(m,'')
-                    
-                    self.solution_mesh.write(temp_obj,self.data['time'])
                     
 
         # Update the t counter for the next step
@@ -2198,21 +1654,6 @@ class LV_simulation():
         
         self.data['new_beat'] = new_beat
 
-
-    def initialize_frozen_fiber_monitor(self):
-        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
-        self._f0_ref_sum = self.comm.allreduce(float(np.sum(f0_local)))
-        self._f0_ref_sumsq = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
-        self._f0_monitor_tol = 1e-10
-        if self.comm.Get_rank() == 0:
-            print 'Initialized frozen fiber monitor (sum=%0.8e, sumsq=%0.8e)' %                 (self._f0_ref_sum, self._f0_ref_sumsq)
-
-    def assert_fibers_frozen(self):
-        f0_local = self.mesh.model['functions']['f0'].vector().get_local()[:]
-        s = self.comm.allreduce(float(np.sum(f0_local)))
-        ss = self.comm.allreduce(float(np.sum(f0_local*f0_local)))
-        if (np.abs(s - self._f0_ref_sum) > self._f0_monitor_tol) or                 (np.abs(ss - self._f0_ref_sumsq) > self._f0_monitor_tol):
-            raise RuntimeError('Fiber field f0 changed after initialization; expected frozen fibers')
 
     def update_data(self, time_step):
         """ Update data after a time step """
@@ -2272,8 +1713,8 @@ class LV_simulation():
 
     def write_complete_data_to_sim_data(self):
         """ Writes full data to data frame """
-        self._sanitize_sim_data_arrays()
-
+        
+    
 
         for f in list(self.data.keys()):
 
@@ -2303,120 +1744,22 @@ class LV_simulation():
                         print("Skipping growth parameter: " + f)
 
     
-        if ('write_mode' in self.sim_data) and hasattr(self.sim_data['write_mode'], '__len__'):
-            self.sim_data['write_mode'][self.write_counter] = 1
-        else:
-            self.sim_data['write_mode'] = 1
+        self.sim_data['write_mode'] = 1
         
 
     def write_complete_data_to_spatial_sim_data(self,rank):
         if self.comm.Get_rank() == 0:
 
             print 'Writing spatial variables on core id: %0.0f' %rank
-        if not hasattr(self, 'local_spatial_sim_data'):
-            return
 
-        if self.spatial_data_to_mean:
-            if hasattr(self.local_spatial_sim_data, 'at'):
-                self.local_spatial_sim_data.at[self.write_counter,'time'] = self.data['time']
 
-                for f in self.spatial_hs_data_fields:
-                    data_field = [h.data[f] for h in self.hs_objs_list]
-                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
-
-                for f in self.spatial_myof_data_fields:
-                    data_field = [h.myof.data[f] for h in self.hs_objs_list]
-                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
-
-                for f in self.spatial_memb_data_fields:
-                    data_field = [h.memb.data[f] for h in self.hs_objs_list]
-                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
-
-                if self.gr:
-                    for f in self.spatial_gr_data_fields:
-                        data_field = self.gr.data[f]
-                        self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
-
-                for f in ['Sff','sff_mean','alpha_f','total_stress_spatial']:
-                    if f in self.data:
-                        self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(self.data[f])
-            return
-
-        for f in self.spatial_hs_data_fields:
-            data_field = np.array([h.data[f] for h in self.hs_objs_list], dtype=float)
-            self.local_spatial_sim_data[f][self.write_counter, :] = data_field
-
-        for f in self.spatial_myof_data_fields:
-            data_field = np.array([h.myof.data[f] for h in self.hs_objs_list], dtype=float)
-            self.local_spatial_sim_data[f][self.write_counter, :] = data_field
-
-        for f in self.spatial_memb_data_fields:
-            data_field = np.array([h.memb.data[f] for h in self.hs_objs_list], dtype=float)
-            self.local_spatial_sim_data[f][self.write_counter, :] = data_field
-
-        f0_temp = self.mesh.model['functions']['f0'].vector().get_local()[:]
-        f0_temp_3n = np.reshape(f0_temp, (self.local_n_of_int_points, 3))
-
-        d_temp0 = project(self.mesh.model['functions']['w'].sub(0),
-                          self.mesh.model['function_spaces']['fiber_FS'])
-        d_temp = d_temp0.vector().get_local()[:]
-        d_temp_3n = np.reshape(d_temp, (self.local_n_of_int_points, 3))
-
-        gdim2 = self.mesh.model['mesh'].geometry().dim()
-        self.lcoord = self.mesh.model['function_spaces']['quadrature_space'].\
-            tabulate_dof_coordinates().reshape((-1, gdim2))
-
-        ecc_temp = self.mesh.model['functions']['ecc'].vector().get_local()[:]
-        err_temp = self.mesh.model['functions']['err'].vector().get_local()[:]
-        ell_temp = self.mesh.model['functions']['ell'].vector().get_local()[:]
-        ecc_temp_3n = np.reshape(ecc_temp, (self.local_n_of_int_points, 3))
-        err_temp_3n = np.reshape(err_temp, (self.local_n_of_int_points, 3))
-        ell_temp_3n = np.reshape(ell_temp, (self.local_n_of_int_points, 3))
-
-        fr_angle = self.get_mesh_field_or_zeros('fdiff_ang', self.local_n_of_int_points)
-        endo_dist = self.get_mesh_field_or_zeros('endo_dist', self.local_n_of_int_points)
-
-        data_mapping = {
-            'f01': f0_temp_3n[:, 0], 'f02': f0_temp_3n[:, 1], 'f03': f0_temp_3n[:, 2],
-            'dx': d_temp_3n[:, 0], 'dy': d_temp_3n[:, 1], 'dz': d_temp_3n[:, 2],
-            'lx': self.lcoord[:, 0], 'ly': self.lcoord[:, 1], 'lz': self.lcoord[:, 2],
-            'endo_dist': endo_dist, 'fr_angle': fr_angle,
-            'eccx': ecc_temp_3n[:, 0], 'eccy': ecc_temp_3n[:, 1], 'eccz': ecc_temp_3n[:, 2],
-            'errx': err_temp_3n[:, 0], 'erry': err_temp_3n[:, 1], 'errz': err_temp_3n[:, 2],
-            'ellx': ell_temp_3n[:, 0], 'elly': ell_temp_3n[:, 1], 'ellz': ell_temp_3n[:, 2]
-        }
-
-        for f in self.spatial_fiber_data_fields:
-            if f in data_mapping:
-                self.local_spatial_sim_data[f][self.write_counter, :] = \
-                    np.asarray(data_mapping[f], dtype=float)
-
-        for f in ['Sff','sff_mean','alpha_f','total_stress_spatial']:
-            if (f in self.local_spatial_sim_data) and (f in self.data):
-                self.local_spatial_sim_data[f][self.write_counter, :] = \
-                    np.asarray(self.data[f], dtype=float)
-                assert self.local_spatial_sim_data[f].shape[1] == self.local_n_of_int_points
-
-        return
-
-    def get_mesh_field_or_zeros(self, name, size):
-        functions = self.mesh.model['functions']
-        if name in functions:
-            try:
-                return np.asarray(functions[name].vector().get_local()[:], dtype=float)
-            except Exception:
-                pass
-        if (name == 'endo_dist') and (not hasattr(self, '_warned_missing_endo_dist_once')):
-            if self.comm.Get_rank() == 0:
-                print 'endo_dist missing, using zeros'
-            self._warned_missing_endo_dist_once = True
-        return np.zeros(size, dtype=float)
+        return  
 
     def check_output_directory_folder(self, path=""):
         """ Check output folder"""
         output_dir = os.path.dirname(path)
         print('output_dir %s' % output_dir)
-        if output_dir and (not os.path.isdir(output_dir)):
+        if not os.path.isdir(output_dir):
             print('Making output dir')
             os.makedirs(output_dir)
 
@@ -2459,93 +1802,14 @@ class LV_simulation():
 
 
         return data_dict
-
-    def configure_output_selection(self, outputstruct):
-        """
-        Parse/validate JSON-controlled CSV save selection.
-
-        output_handler.save_outputs supports:
-            - "all"
-            - ["data.csv"]
-            - ["data.csv", "spatial_average.csv"]
-            - []
-
-        Default when missing: save only "data.csv" (backward-compatible behavior).
-        """
-        requested = None
-        if outputstruct and ('save_outputs' in outputstruct):
-            requested = outputstruct['save_outputs']
-
-        if requested is None:
-            self.selected_csv_outputs = set(['data.csv'])
-            if self.comm.Get_rank() == 0:
-                print 'save_outputs missing; defaulting to ["data.csv"]'
-            return
-
-        if isinstance(requested, basestring):
-            if requested == 'all':
-                self.selected_csv_outputs = set(self.available_csv_outputs.keys())
-                return
-            requested = [requested]
-
-        if isinstance(requested, list) and ('all' in requested):
-            self.selected_csv_outputs = set(self.available_csv_outputs.keys())
-            return
-
-        if not isinstance(requested, list):
-            raise ValueError('output_handler.save_outputs must be "all" or a list of output names')
-
-        invalid = [x for x in requested if x not in self.available_csv_outputs]
-        if invalid:
-            valid = sorted(self.available_csv_outputs.keys())
-            raise ValueError('Invalid save_outputs entries: %s. Valid options: %s' % (str(invalid), str(valid)))
-
-        self.selected_csv_outputs = set(requested)
-
-    def should_save_output(self, output_name, config=None):
-        """Return True if logical output name is selected for saving."""
-        selected = self.selected_csv_outputs if config is None else set(config)
-        return output_name in selected
     
     def handle_output(self, outputstruct):
-        """JSON-controlled CSV save handler."""
+        """Simplified version that only saves main data.csv"""
         if outputstruct and self.comm.Get_rank() == 0:
-            if self.output_data_str and self.should_save_output('data.csv'):
             if self.output_data_str:
-                self._sanitize_sim_data_arrays()
-                rows = int(self.write_counter + 1)
-                clean_data = dict()
-                for key, value in self.sim_data.items():
-                    clean_data[key] = self._safe_array_from_value(value, rows)
-                import csv
-                keys = sorted(clean_data.keys())
-                with open(self.output_data_str, 'w') as csv_file:
-                    writer = csv.writer(csv_file)
-                    writer.writerow(keys)
-                    for row_idx in range(rows):
-                        writer.writerow([clean_data[k][row_idx] for k in keys])
-
-            if self.should_save_output('spatial_average.csv'):
-                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data') and hasattr(self.local_spatial_sim_data, 'to_csv'):
-                    rows = int(self.write_counter + 1)
-                    out_dir = os.path.dirname(self.output_data_str) if self.output_data_str else ''
-                    out_path = os.path.join(out_dir, 'spatial_average.csv') if out_dir else 'spatial_average.csv'
-                    self.local_spatial_sim_data.iloc[:rows].to_csv(out_path, index=False)
-                elif self.comm.Get_rank() == 0:
-                    print 'Skipping spatial_average.csv because dumping_spatial_in_average is false'
-
-            if hasattr(self, 'local_spatial_sim_data') and (not self.spatial_data_to_mean):
-                output_dir = os.path.dirname(self.output_data_str)
-                if output_dir:
-                    rank_path = os.path.join(output_dir,
-                                             'spatial_rank_%d.npz' % self.comm.Get_rank())
-                    np.savez(rank_path, **self.local_spatial_sim_data)
-                if hasattr(self, 'local_spatial_sim_data') and (not self.spatial_data_to_mean):
-                    output_dir = os.path.dirname(self.output_data_str)
-                    if output_dir:
-                        rank_path = os.path.join(output_dir,
-                                                 'spatial_rank_%d.npz' % self.comm.Get_rank())
-                        np.savez(rank_path, **self.local_spatial_sim_data)
+                # Save main simulation data to data.csv
+                output_sim_data = pd.DataFrame(data=self.sim_data)
+                output_sim_data.to_csv(self.output_data_str)
         return
 
     def rebuild_from_perturbations(self):
