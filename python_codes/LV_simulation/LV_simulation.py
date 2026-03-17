@@ -47,6 +47,13 @@ class LV_simulation():
         self.spatial_hs_data_fields = []
         self.spatial_fiber_data_fields = []
         self.spatial_extra = []
+        # Central registry for JSON-controlled CSV outputs.
+        # Keys are logical names used in `output_handler.save_outputs`.
+        self.available_csv_outputs = {
+            'data.csv': 'Main simulation time-series CSV',
+            'spatial_average.csv': 'Spatially averaged fields CSV (when dumping_spatial_in_average=true)'
+        }
+        self.selected_csv_outputs = set(['data.csv'])
         self.f0_values = []
         self.fdiff_values = []
         self.lcoord_values = []
@@ -670,6 +677,7 @@ class LV_simulation():
         self.spatial_data_to_mean = False
         self.dumping_data_frequency = 1
         if output_struct:
+            self.configure_output_selection(output_struct)
             if 'spatial_data_fields' in output_struct:
                 spatial_data_fields = output_struct['spatial_data_fields']
             if 'dumping_spatial_in_average' in output_struct:
@@ -2309,6 +2317,29 @@ class LV_simulation():
             return
 
         if self.spatial_data_to_mean:
+            if hasattr(self.local_spatial_sim_data, 'at'):
+                self.local_spatial_sim_data.at[self.write_counter,'time'] = self.data['time']
+
+                for f in self.spatial_hs_data_fields:
+                    data_field = [h.data[f] for h in self.hs_objs_list]
+                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+
+                for f in self.spatial_myof_data_fields:
+                    data_field = [h.myof.data[f] for h in self.hs_objs_list]
+                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+
+                for f in self.spatial_memb_data_fields:
+                    data_field = [h.memb.data[f] for h in self.hs_objs_list]
+                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+
+                if self.gr:
+                    for f in self.spatial_gr_data_fields:
+                        data_field = self.gr.data[f]
+                        self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+
+                for f in ['Sff','sff_mean','alpha_f','total_stress_spatial']:
+                    if f in self.data:
+                        self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(self.data[f])
             return
 
         for f in self.spatial_hs_data_fields:
@@ -2428,10 +2459,58 @@ class LV_simulation():
 
 
         return data_dict
+
+    def configure_output_selection(self, outputstruct):
+        """
+        Parse/validate JSON-controlled CSV save selection.
+
+        output_handler.save_outputs supports:
+            - "all"
+            - ["data.csv"]
+            - ["data.csv", "spatial_average.csv"]
+            - []
+
+        Default when missing: save only "data.csv" (backward-compatible behavior).
+        """
+        requested = None
+        if outputstruct and ('save_outputs' in outputstruct):
+            requested = outputstruct['save_outputs']
+
+        if requested is None:
+            self.selected_csv_outputs = set(['data.csv'])
+            if self.comm.Get_rank() == 0:
+                print 'save_outputs missing; defaulting to ["data.csv"]'
+            return
+
+        if isinstance(requested, basestring):
+            if requested == 'all':
+                self.selected_csv_outputs = set(self.available_csv_outputs.keys())
+                return
+            requested = [requested]
+
+        if isinstance(requested, list) and ('all' in requested):
+            self.selected_csv_outputs = set(self.available_csv_outputs.keys())
+            return
+
+        if not isinstance(requested, list):
+            raise ValueError('output_handler.save_outputs must be "all" or a list of output names')
+
+        invalid = [x for x in requested if x not in self.available_csv_outputs]
+        if invalid:
+            valid = sorted(self.available_csv_outputs.keys())
+            raise ValueError('Invalid save_outputs entries: %s. Valid options: %s' % (str(invalid), str(valid)))
+
+        self.selected_csv_outputs = set(requested)
+
+    def should_save_output(self, output_name, config=None):
+        """Return True if logical output name is selected for saving."""
+        selected = self.selected_csv_outputs if config is None else set(config)
+        return output_name in selected
     
     def handle_output(self, outputstruct):
-        """Simplified version that only saves main data.csv"""
+        """JSON-controlled CSV save handler."""
         if outputstruct and self.comm.Get_rank() == 0:
+            if self.output_data_str and self.should_save_output('data.csv'):
             if self.output_data_str:
                 self._sanitize_sim_data_arrays()
                 rows = int(self.write_counter + 1)
@@ -2446,6 +2525,21 @@ class LV_simulation():
                     for row_idx in range(rows):
                         writer.writerow([clean_data[k][row_idx] for k in keys])
 
+            if self.should_save_output('spatial_average.csv'):
+                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data') and hasattr(self.local_spatial_sim_data, 'to_csv'):
+                    rows = int(self.write_counter + 1)
+                    out_dir = os.path.dirname(self.output_data_str) if self.output_data_str else ''
+                    out_path = os.path.join(out_dir, 'spatial_average.csv') if out_dir else 'spatial_average.csv'
+                    self.local_spatial_sim_data.iloc[:rows].to_csv(out_path, index=False)
+                elif self.comm.Get_rank() == 0:
+                    print 'Skipping spatial_average.csv because dumping_spatial_in_average is false'
+
+            if hasattr(self, 'local_spatial_sim_data') and (not self.spatial_data_to_mean):
+                output_dir = os.path.dirname(self.output_data_str)
+                if output_dir:
+                    rank_path = os.path.join(output_dir,
+                                             'spatial_rank_%d.npz' % self.comm.Get_rank())
+                    np.savez(rank_path, **self.local_spatial_sim_data)
                 if hasattr(self, 'local_spatial_sim_data') and (not self.spatial_data_to_mean):
                     output_dir = os.path.dirname(self.output_data_str)
                     if output_dir:
