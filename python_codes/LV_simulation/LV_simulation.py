@@ -2532,6 +2532,18 @@ class LV_simulation():
         selected = self.selected_csv_outputs if config is None else set(config)
         return output_name in selected
     
+    def _write_dataframe_excel_safe(self, df, excel_path, label):
+        """Write DataFrame to Excel without aborting when optional engines are missing."""
+        try:
+            df.to_excel(excel_path, index=False)
+            return True
+        except ImportError as err:
+            print 'Warning: could not write %s (%s). Missing Excel dependency: %s' % (label, excel_path, str(err))
+            fallback_csv = os.path.splitext(excel_path)[0] + '.csv'
+            df.to_csv(fallback_csv, index=False)
+            print 'Wrote fallback CSV for %s to %s' % (label, fallback_csv)
+            return False
+
     def handle_output(self, outputstruct):
         """JSON-controlled CSV save handler."""
         if outputstruct and self.comm.Get_rank() == 0:
@@ -2556,7 +2568,8 @@ class LV_simulation():
                 for key, value in self.sim_data.items():
                     clean_data[key] = self._safe_array_from_value(value, rows)
                 keys = sorted(clean_data.keys())
-                pd.DataFrame({k: clean_data[k] for k in keys}).to_excel(self.output_excel_str, index=False)
+                data_df = pd.DataFrame({k: clean_data[k] for k in keys})
+                self._write_dataframe_excel_safe(data_df, self.output_excel_str, 'data.xlsx')
 
             if self.should_save_output('spatial_average.csv'):
                 if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data'):
@@ -2574,11 +2587,12 @@ class LV_simulation():
                 if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data'):
                     rows = int(self.write_counter + 1)
                     if hasattr(self.local_spatial_sim_data, 'to_excel'):
-                        self.local_spatial_sim_data.iloc[:rows].to_excel(self.spatial_average_excel_str, index=False)
+                        avg_df = self.local_spatial_sim_data.iloc[:rows]
+                        self._write_dataframe_excel_safe(avg_df, self.spatial_average_excel_str, 'spatial_average.xlsx')
                     elif isinstance(self.local_spatial_sim_data, dict):
                         cols = sorted(self.local_spatial_sim_data.keys())
                         avg_df = pd.DataFrame({k: np.asarray(self.local_spatial_sim_data[k])[:rows] for k in cols})
-                        avg_df.to_excel(self.spatial_average_excel_str, index=False)
+                        self._write_dataframe_excel_safe(avg_df, self.spatial_average_excel_str, 'spatial_average.xlsx')
                 elif self.comm.Get_rank() == 0:
                     print 'Skipping spatial_average.xlsx because dumping_spatial_in_average is false'
 
