@@ -4,7 +4,7 @@
             0.001
         ],
         "no_of_time_steps": [
-            20000
+            35000
         ],
         "baroreflex": {
             "activations": [
@@ -18,19 +18,7 @@
                 }
             ]
         },
-        "fiber_reorientation": {
-            "activations": [
-                {
-                    "t_start_s": [
-                        20
-                    ],
-                    "t_stop_s": [
-                        200
-                    ]
-                }
-            ]
-        }
-    },
+        
     "model": {
         "half_sarcomere": {
             "myofilaments": {
@@ -506,10 +494,8 @@
         ],
         "frequency_n": [
             10
-        ],
-        "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/final_models/baselineHO/mesh_output/"
         ]
+        
     },
     "mesh": {
         "solver": {

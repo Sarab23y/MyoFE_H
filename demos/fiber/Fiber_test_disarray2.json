@@ -1,23 +1,11 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            35000
+            30000
         ],
         "time_step": [
             0.001
-        ],
-        "baroreflex": {
-            "activations": [
-                {
-                    "t_stop_s": [
-                        250
-                    ],
-                    "t_start_s": [
-                        5
-                    ]
-                }
-            ]
-        }
+        ]
     },
     "heart_rate": {
         "t_active_period": [
@@ -27,7 +15,7 @@
             0.92
         ],
         "t_first_activation": [
-            0.1
+            0.2
         ]
     },
     "mesh": {
@@ -126,25 +114,26 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
+                    
                     "Guccione"
                 ],
                 "c": [
-                    550
+                    172
                 ],
                 "c2": [
-                    400
+                    250
                 ],
                 "c3": [
-                    16.0
+                    15.0
                 ],
                 "bf": [
-                    18.0
+                    8.0
                 ],
                 "bt": [
-                    10.0
+                    3.58
                 ],
                 "bfs": [
-                    5.0
+                    1.627
                 ],
                 "phi_m": [
                     1.0
@@ -189,10 +178,10 @@
         "solver": {
             "params": {
                 "rel_tol": [
-                    1e-8
+                    1e-10
                 ],
                 "abs_tol": [
-                    1e-8
+                    1e-10
                 ],
                 "max_iter": [
                     100
@@ -216,17 +205,14 @@
         "disarray_seed": [
             42
         ],
-        "disarray_region_mask": [
-            "lv_midwall_no_apex_no_base"
-        ],
-        "disarray_width": [
-            0.25
-        ],
         "theta_rms_deg": [
-            30.0
+            20.0
         ],
         "ell_c": [
             0.075
+        ],
+        "disarray_region_mask": [
+            "auto"
         ]
     },
     "model": {
@@ -243,7 +229,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        16
+                        20
                     ],
                     "compliance": [
                         0.0004
@@ -257,7 +243,7 @@
                         "arteries"
                     ],
                     "resistance": [
-                        30
+                        20
                     ],
                     "compliance": [
                         0.0008
@@ -271,7 +257,7 @@
                         "arterioles"
                     ],
                     "resistance": [
-                        1230
+                        1000
                     ],
                     "compliance": [
                         0.001
@@ -316,7 +302,7 @@
                         50
                     ],
                     "compliance": [
-                        0.078
+                        0.1
                     ],
                     "slack_volume": [
                         2.0
@@ -359,10 +345,10 @@
                     0.0006
                 ],
                 "k_act": [
-                    0.13
+                    0.082
                 ],
                 "k_serca": [
-                    12.3
+                    8
                 ],
                 "t_open": [
                     0.01
@@ -384,7 +370,7 @@
                     0.6
                 ],
                 "k_1": [
-                    8.0
+                    4
                 ],
                 "k_force": [
                     0.001
@@ -393,7 +379,7 @@
                     200
                 ],
                 "k_3": [
-                    80
+                    120
                 ],
                 "k_4_0": [
                     80
@@ -405,10 +391,10 @@
                     0.001
                 ],
                 "x_ps": [
-                    5.2
+                    5
                 ],
                 "k_on": [
-                    160000000.0
+                    200000000.0
                 ],
                 "k_off": [
                     200
@@ -482,164 +468,6 @@
                     ]
                 }
             }
-        },
-        "baroreflex": {
-            "k_recov": [
-                0
-            ],
-            "b_slope": [
-                0.02
-            ],
-            "k_drive": [
-                20
-            ],
-            "controls": {
-                "control": [
-                    {
-                        "level": [
-                            "heart_rate"
-                        ],
-                        "k_recov": [
-                            0.0
-                        ],
-                        "k_drive": [
-                            0.03
-                        ],
-                        "symp_factor": [
-                            0.386
-                        ],
-                        "para_factor": [
-                            1.753497
-                        ],
-                        "variable": [
-                            "t_quiescent_period"
-                        ]
-                    },
-                    {
-                        "level": [
-                            "membranes"
-                        ],
-                        "k_recov": [
-                            0.0
-                        ],
-                        "k_drive": [
-                            0.03
-                        ],
-                        "symp_factor": [
-                            5.0
-                        ],
-                        "para_factor": [
-                            0.2
-                        ],
-                        "variable": [
-                            "k_act"
-                        ]
-                    },
-                    {
-                        "level": [
-                            "membranes"
-                        ],
-                        "k_recov": [
-                            0.0
-                        ],
-                        "k_drive": [
-                            0.03
-                        ],
-                        "symp_factor": [
-                            5
-                        ],
-                        "para_factor": [
-                            0.2
-                        ],
-                        "variable": [
-                            "k_serca"
-                        ]
-                    },
-                    {
-                        "level": [
-                            "myofilaments"
-                        ],
-                        "k_recov": [
-                            0.0
-                        ],
-                        "k_drive": [
-                            0.03
-                        ],
-                        "symp_factor": [
-                            5
-                        ],
-                        "para_factor": [
-                            0.2
-                        ],
-                        "variable": [
-                            "k_1"
-                        ]
-                    },
-                    {
-                        "level": [
-                            "myofilaments"
-                        ],
-                        "k_recov": [
-                            0.0
-                        ],
-                        "k_drive": [
-                            0.03
-                        ],
-                        "symp_factor": [
-                            0.5
-                        ],
-                        "para_factor": [
-                            2
-                        ],
-                        "variable": [
-                            "k_on"
-                        ]
-                    },
-                    {
-                        "level": [
-                            "circulation"
-                        ],
-                        "k_recov": [
-                            0.0
-                        ],
-                        "k_drive": [
-                            0.03
-                        ],
-                        "symp_factor": [
-                            5
-                        ],
-                        "para_factor": [
-                            0.2
-                        ],
-                        "variable": [
-                            "arterioles_resistance"
-                        ]
-                    },
-                    {
-                        "level": [
-                            "circulation"
-                        ],
-                        "k_recov": [
-                            0.0
-                        ],
-                        "k_drive": [
-                            0.03
-                        ],
-                        "symp_factor": [
-                            0.2
-                        ],
-                        "para_factor": [
-                            5
-                        ],
-                        "variable": [
-                            "veins_compliance"
-                        ]
-                    }
-                ]
-            },
-            "b_setpoint": [
-                90
-            ]
         }
     },
     "growth_and_remodeling": {
@@ -657,10 +485,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta30/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta30/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -678,8 +506,7 @@
         ],
         "frequency_n": [
             10
-        ],
-        "save_outputs": "all"
+        ]
     },
     "debug_mpi": [
         false
