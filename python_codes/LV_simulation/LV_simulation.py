@@ -639,14 +639,14 @@ class LV_simulation():
                             self.spatial_extra'''
 
         if in_average:
-            spatial_data = pd.DataFrame()
+            # Keep averaged spatial storage as plain NumPy arrays to avoid
+            # pandas BlockManager assignment issues in older pandas versions.
+            spatial_data = dict()
             data_field.append('time')
             data_field = data_field + ['Sff','sff_mean','alpha_f','total_stress_spatial']
 
             for f in data_field:
-                s = pd.Series(data=np.zeros(rows), name=f)
-                spatial_data = pd.concat([spatial_data, s], axis=1)
-                #spatial_data[f]['time'] = pd.Series()
+                spatial_data[f] = np.zeros(rows, dtype=float)
             
         else:
             spatial_data = dict()
@@ -2342,29 +2342,29 @@ class LV_simulation():
             return
 
         if self.spatial_data_to_mean:
-            if hasattr(self.local_spatial_sim_data, 'at'):
-                self.local_spatial_sim_data.at[self.write_counter,'time'] = self.data['time']
+            if isinstance(self.local_spatial_sim_data, dict):
+                self.local_spatial_sim_data['time'][self.write_counter] = self.data['time']
 
                 for f in self.spatial_hs_data_fields:
                     data_field = [h.data[f] for h in self.hs_objs_list]
-                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+                    self.local_spatial_sim_data[f][self.write_counter] = np.mean(data_field)
 
                 for f in self.spatial_myof_data_fields:
                     data_field = [h.myof.data[f] for h in self.hs_objs_list]
-                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+                    self.local_spatial_sim_data[f][self.write_counter] = np.mean(data_field)
 
                 for f in self.spatial_memb_data_fields:
                     data_field = [h.memb.data[f] for h in self.hs_objs_list]
-                    self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+                    self.local_spatial_sim_data[f][self.write_counter] = np.mean(data_field)
 
                 if self.gr:
                     for f in self.spatial_gr_data_fields:
                         data_field = self.gr.data[f]
-                        self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+                        self.local_spatial_sim_data[f][self.write_counter] = np.mean(data_field)
 
                 for f in ['Sff','sff_mean','alpha_f','total_stress_spatial']:
                     if f in self.data:
-                        self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(self.data[f])
+                        self.local_spatial_sim_data[f][self.write_counter] = np.mean(self.data[f])
             return
 
         for f in self.spatial_hs_data_fields:
@@ -2559,16 +2559,26 @@ class LV_simulation():
                 pd.DataFrame({k: clean_data[k] for k in keys}).to_excel(self.output_excel_str, index=False)
 
             if self.should_save_output('spatial_average.csv'):
-                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data') and hasattr(self.local_spatial_sim_data, 'to_csv'):
+                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data'):
                     rows = int(self.write_counter + 1)
-                    self.local_spatial_sim_data.iloc[:rows].to_csv(self.spatial_average_csv_str, index=False)
+                    if hasattr(self.local_spatial_sim_data, 'to_csv'):
+                        self.local_spatial_sim_data.iloc[:rows].to_csv(self.spatial_average_csv_str, index=False)
+                    elif isinstance(self.local_spatial_sim_data, dict):
+                        cols = sorted(self.local_spatial_sim_data.keys())
+                        avg_df = pd.DataFrame({k: np.asarray(self.local_spatial_sim_data[k])[:rows] for k in cols})
+                        avg_df.to_csv(self.spatial_average_csv_str, index=False)
                 elif self.comm.Get_rank() == 0:
                     print 'Skipping spatial_average.csv because dumping_spatial_in_average is false'
 
             if self.should_save_output('spatial_average.xlsx'):
-                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data') and hasattr(self.local_spatial_sim_data, 'to_excel'):
+                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data'):
                     rows = int(self.write_counter + 1)
-                    self.local_spatial_sim_data.iloc[:rows].to_excel(self.spatial_average_excel_str, index=False)
+                    if hasattr(self.local_spatial_sim_data, 'to_excel'):
+                        self.local_spatial_sim_data.iloc[:rows].to_excel(self.spatial_average_excel_str, index=False)
+                    elif isinstance(self.local_spatial_sim_data, dict):
+                        cols = sorted(self.local_spatial_sim_data.keys())
+                        avg_df = pd.DataFrame({k: np.asarray(self.local_spatial_sim_data[k])[:rows] for k in cols})
+                        avg_df.to_excel(self.spatial_average_excel_str, index=False)
                 elif self.comm.Get_rank() == 0:
                     print 'Skipping spatial_average.xlsx because dumping_spatial_in_average is false'
 
