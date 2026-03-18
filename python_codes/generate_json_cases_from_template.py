@@ -34,9 +34,9 @@ def _ensure_output_handler(data):
         oh['dumping_spatial_in_average'] = [True]
     if 'frequency_n' not in oh:
         oh['frequency_n'] = [10]
-    # Keep CSV enabled by default and add Excel outputs.
+    # Keep CSV-only outputs enabled by default.
     if 'save_outputs' not in oh:
-        oh['save_outputs'] = ['data.csv', 'data.xlsx', 'spatial_average.csv', 'spatial_average.xlsx']
+        oh['save_outputs'] = ['data.csv', 'spatial_average.csv']
 
 
 def _derive_case_output_paths(data, case_tag):
@@ -64,16 +64,12 @@ def _derive_case_output_paths(data, case_tag):
         new_mesh_dir = os.path.join(mesh_dir, case_tag) if mesh_dir else case_tag
 
     oh['output_data_path'] = [os.path.join(new_data_dir, data_name)]
+    # Preserve the mesh output basename/format exactly as provided; only the
+    # directory is adjusted per generated case.
     oh['mesh_output_path'] = [os.path.join(new_mesh_dir, mesh_name)]
 
-    # Explicit Excel/spatial-average paths for consistency.
-    if data_name.endswith('.csv'):
-        xlsx_name = data_name[:-4] + '.xlsx'
-    else:
-        xlsx_name = data_name + '.xlsx'
-    oh['output_excel_path'] = [os.path.join(new_data_dir, xlsx_name)]
+    # Explicit CSV/spatial-average paths for consistency.
     oh['spatial_average_output_path'] = [os.path.join(new_data_dir, 'spatial_average.csv')]
-    oh['spatial_average_excel_path'] = [os.path.join(new_data_dir, 'spatial_average.xlsx')]
 
 
 def _apply_baseline_settings(data):

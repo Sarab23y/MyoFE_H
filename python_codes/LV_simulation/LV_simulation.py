@@ -47,13 +47,13 @@ class LV_simulation():
         self.spatial_hs_data_fields = []
         self.spatial_fiber_data_fields = []
         self.spatial_extra = []
-        # Central registry for JSON-controlled CSV outputs.
+        # Central registry for JSON-controlled tabular outputs.
+        # CSV-only policy applies to tabular data outputs; mesh outputs remain
+        # on their existing XDMF/HDF5 paths and are handled separately below.
         # Keys are logical names used in `output_handler.save_outputs`.
         self.available_csv_outputs = {
             'data.csv': 'Main simulation time-series CSV',
-            'data.xlsx': 'Main simulation time-series Excel file',
-            'spatial_average.csv': 'Spatially averaged fields CSV (when dumping_spatial_in_average=true)',
-            'spatial_average.xlsx': 'Spatially averaged fields Excel file (when dumping_spatial_in_average=true)'
+            'spatial_average.csv': 'Spatially averaged fields CSV (when dumping_spatial_in_average=true)'
         }
         self.selected_csv_outputs = set(['data.csv'])
         self.f0_values = []
@@ -715,9 +715,7 @@ class LV_simulation():
         # Initilize the output mesh files if any
         self.total_disp_file = [] 
         self.output_data_str = [] 
-        self.output_excel_str = []
         self.spatial_average_csv_str = []
-        self.spatial_average_excel_str = []
         self.mesh_obj_to_save = []
         if output_struct:
             if 'mesh_output_path' in output_struct:
@@ -933,26 +931,19 @@ class LV_simulation():
                 self.output_data_str = output_struct['output_data_path'][0]
                 if self.comm.Get_rank() == 0: 
                     self.check_output_directory_folder(path = self.output_data_str)
-                if 'output_excel_path' in output_struct:
-                    self.output_excel_str = output_struct['output_excel_path'][0]
-                else:
-                    if str(self.output_data_str).endswith('.csv'):
-                        self.output_excel_str = self.output_data_str[:-4] + '.xlsx'
-                    else:
-                        self.output_excel_str = self.output_data_str + '.xlsx'
-                if self.comm.Get_rank() == 0:
-                    self.check_output_directory_folder(path=self.output_excel_str)
+                # CSV-only enforcement here is limited to tabular outputs.
+                # Mesh/growth outputs continue to use their native formats.
+                if ('output_excel_path' in output_struct) and (self.comm.Get_rank() == 0):
+                    print 'Ignoring output_excel_path; CSV-only output mode is enforced.'
 
                 out_dir = os.path.dirname(self.output_data_str)
                 self.spatial_average_csv_str = os.path.join(out_dir, 'spatial_average.csv') if out_dir else 'spatial_average.csv'
-                self.spatial_average_excel_str = os.path.join(out_dir, 'spatial_average.xlsx') if out_dir else 'spatial_average.xlsx'
                 if 'spatial_average_output_path' in output_struct:
                     self.spatial_average_csv_str = output_struct['spatial_average_output_path'][0]
-                if 'spatial_average_excel_path' in output_struct:
-                    self.spatial_average_excel_str = output_struct['spatial_average_excel_path'][0]
                 if self.comm.Get_rank() == 0:
                     self.check_output_directory_folder(path=self.spatial_average_csv_str)
-                    self.check_output_directory_folder(path=self.spatial_average_excel_str)
+                    if 'spatial_average_excel_path' in output_struct:
+                        print 'Ignoring spatial_average_excel_path; CSV-only output mode is enforced.'
         
         self.cnt = 0  #### out of time loop
 
@@ -2492,7 +2483,7 @@ class LV_simulation():
         output_handler.save_outputs supports:
             - "all"
             - ["data.csv"]
-            - ["data.csv", "data.xlsx", "spatial_average.csv", "spatial_average.xlsx"]
+            - ["data.csv", "spatial_average.csv"]
             - []
 
         Default when missing: save only "data.csv" (backward-compatible behavior).
@@ -2507,15 +2498,33 @@ class LV_simulation():
                 print 'save_outputs missing; defaulting to ["data.csv"]'
             return
 
+        legacy_map = {
+            'data.xlsx': 'data.csv',
+            'spatial_average.xlsx': 'spatial_average.csv'
+        }
+
         if isinstance(requested, basestring):
             if requested == 'all':
                 self.selected_csv_outputs = set(self.available_csv_outputs.keys())
                 return
+            if requested in legacy_map:
+                if self.comm.Get_rank() == 0:
+                    print 'Mapping legacy save_outputs entry "%s" to "%s" (CSV-only mode).' % (requested, legacy_map[requested])
+                requested = legacy_map[requested]
             requested = [requested]
 
         if isinstance(requested, list) and ('all' in requested):
             self.selected_csv_outputs = set(self.available_csv_outputs.keys())
             return
+
+        if isinstance(requested, list):
+            remapped = []
+            for entry in requested:
+                mapped = legacy_map[entry] if entry in legacy_map else entry
+                if (mapped != entry) and (self.comm.Get_rank() == 0):
+                    print 'Mapping legacy save_outputs entry "%s" to "%s" (CSV-only mode).' % (entry, mapped)
+                remapped.append(mapped)
+            requested = remapped
 
         if not isinstance(requested, list):
             raise ValueError('output_handler.save_outputs must be "all" or a list of output names')
@@ -2532,17 +2541,30 @@ class LV_simulation():
         selected = self.selected_csv_outputs if config is None else set(config)
         return output_name in selected
     
-    def _write_dataframe_excel_safe(self, df, excel_path, label):
-        """Write DataFrame to Excel without aborting when optional engines are missing."""
-        try:
-            df.to_excel(excel_path, index=False)
-            return True
-        except ImportError as err:
-            print 'Warning: could not write %s (%s). Missing Excel dependency: %s' % (label, excel_path, str(err))
-            fallback_csv = os.path.splitext(excel_path)[0] + '.csv'
-            df.to_csv(fallback_csv, index=False)
-            print 'Wrote fallback CSV for %s to %s' % (label, fallback_csv)
-            return False
+    def _write_spatial_rank_csv(self, spatial_data, csv_path):
+        """Write non-averaged per-rank spatial arrays to CSV."""
+        import csv
+        flat_cols = []
+        rows = 0
+        for key in sorted(spatial_data.keys()):
+            arr = np.asarray(spatial_data[key])
+            if arr.ndim == 1:
+                flat_cols.append((key, arr))
+            elif arr.ndim >= 2:
+                reshaped = arr.reshape((arr.shape[0], -1))
+                for idx in range(reshaped.shape[1]):
+                    flat_cols.append(('%s_%d' % (key, idx), reshaped[:, idx]))
+            if arr.shape:
+                rows = max(rows, int(arr.shape[0]))
+
+        with open(csv_path, 'w') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow([name for name, _ in flat_cols])
+            for row_idx in range(rows):
+                row_vals = []
+                for _, col in flat_cols:
+                    row_vals.append(col[row_idx] if row_idx < len(col) else '')
+                writer.writerow(row_vals)
 
     def handle_output(self, outputstruct):
         """JSON-controlled CSV save handler."""
@@ -2561,16 +2583,6 @@ class LV_simulation():
                     for row_idx in range(rows):
                         writer.writerow([clean_data[k][row_idx] for k in keys])
 
-            if self.output_excel_str and self.should_save_output('data.xlsx'):
-                self._sanitize_sim_data_arrays()
-                rows = int(self.write_counter + 1)
-                clean_data = dict()
-                for key, value in self.sim_data.items():
-                    clean_data[key] = self._safe_array_from_value(value, rows)
-                keys = sorted(clean_data.keys())
-                data_df = pd.DataFrame({k: clean_data[k] for k in keys})
-                self._write_dataframe_excel_safe(data_df, self.output_excel_str, 'data.xlsx')
-
             if self.should_save_output('spatial_average.csv'):
                 if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data'):
                     rows = int(self.write_counter + 1)
@@ -2583,25 +2595,12 @@ class LV_simulation():
                 elif self.comm.Get_rank() == 0:
                     print 'Skipping spatial_average.csv because dumping_spatial_in_average is false'
 
-            if self.should_save_output('spatial_average.xlsx'):
-                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data'):
-                    rows = int(self.write_counter + 1)
-                    if hasattr(self.local_spatial_sim_data, 'to_excel'):
-                        avg_df = self.local_spatial_sim_data.iloc[:rows]
-                        self._write_dataframe_excel_safe(avg_df, self.spatial_average_excel_str, 'spatial_average.xlsx')
-                    elif isinstance(self.local_spatial_sim_data, dict):
-                        cols = sorted(self.local_spatial_sim_data.keys())
-                        avg_df = pd.DataFrame({k: np.asarray(self.local_spatial_sim_data[k])[:rows] for k in cols})
-                        self._write_dataframe_excel_safe(avg_df, self.spatial_average_excel_str, 'spatial_average.xlsx')
-                elif self.comm.Get_rank() == 0:
-                    print 'Skipping spatial_average.xlsx because dumping_spatial_in_average is false'
-
             if hasattr(self, 'local_spatial_sim_data') and (not self.spatial_data_to_mean):
                 output_dir = os.path.dirname(self.output_data_str)
                 if output_dir:
                     rank_path = os.path.join(output_dir,
-                                             'spatial_rank_%d.npz' % self.comm.Get_rank())
-                    np.savez(rank_path, **self.local_spatial_sim_data)
+                                             'spatial_rank_%d.csv' % self.comm.Get_rank())
+                    self._write_spatial_rank_csv(self.local_spatial_sim_data, rank_path)
         return
 
     def rebuild_from_perturbations(self):
