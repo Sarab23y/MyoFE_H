@@ -64,6 +64,8 @@ def _derive_case_output_paths(data, case_tag):
         new_mesh_dir = os.path.join(mesh_dir, case_tag) if mesh_dir else case_tag
 
     oh['output_data_path'] = [os.path.join(new_data_dir, data_name)]
+    # Preserve the mesh output basename/format exactly as provided; only the
+    # directory is adjusted per generated case.
     oh['mesh_output_path'] = [os.path.join(new_mesh_dir, mesh_name)]
 
     # Explicit CSV/spatial-average paths for consistency.

@@ -47,7 +47,9 @@ class LV_simulation():
         self.spatial_hs_data_fields = []
         self.spatial_fiber_data_fields = []
         self.spatial_extra = []
-        # Central registry for JSON-controlled CSV outputs.
+        # Central registry for JSON-controlled tabular outputs.
+        # CSV-only policy applies to tabular data outputs; mesh outputs remain
+        # on their existing XDMF/HDF5 paths and are handled separately below.
         # Keys are logical names used in `output_handler.save_outputs`.
         self.available_csv_outputs = {
             'data.csv': 'Main simulation time-series CSV',
@@ -769,6 +771,8 @@ class LV_simulation():
                 self.output_data_str = output_struct['output_data_path'][0]
                 if self.comm.Get_rank() == 0: 
                     self.check_output_directory_folder(path = self.output_data_str)
+                # CSV-only enforcement here is limited to tabular outputs.
+                # Mesh/growth outputs continue to use their native formats.
                 if ('output_excel_path' in output_struct) and (self.comm.Get_rank() == 0):
                     print 'Ignoring output_excel_path; CSV-only output mode is enforced.'
 

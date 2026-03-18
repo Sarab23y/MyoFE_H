@@ -22,7 +22,8 @@ class output_handler():
         self.sim_data_file_str = []
         self.images_handler_list = []
         self.output_data_str = []
-        # Central CSV name registry for JSON-controlled output selection.
+        # Central CSV name registry for JSON-controlled tabular output selection.
+        # This does not alter mesh outputs, which keep their native formats.
         self.available_csv_outputs = {
             'data.csv': 'Main simulation CSV'
         }
