@@ -76,6 +76,8 @@ class output_handler():
         # First save data if it is called
         if self.output_data_str and self.should_save_output('data.csv'):
             sim_data.to_csv(self.output_data_str)
+        if self.output_excel_str and self.should_save_output('data.xlsx'):
+            sim_data.to_excel(self.output_excel_str, index=False)
 
         # Then generate figures if any
         
