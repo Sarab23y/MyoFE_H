@@ -34,9 +34,9 @@ def _ensure_output_handler(data):
         oh['dumping_spatial_in_average'] = [True]
     if 'frequency_n' not in oh:
         oh['frequency_n'] = [10]
-    # Keep CSV-only outputs enabled by default.
+    # Default tabular output selection is only the main time-series CSV.
     if 'save_outputs' not in oh:
-        oh['save_outputs'] = ['data.csv', 'spatial_average.csv']
+        oh['save_outputs'] = ['data.csv']
 
 
 def _derive_case_output_paths(data, case_tag):
@@ -69,7 +69,7 @@ def _derive_case_output_paths(data, case_tag):
     oh['mesh_output_path'] = [os.path.join(new_mesh_dir, mesh_name)]
 
     # Explicit CSV/spatial-average paths for consistency.
-    oh['spatial_average_output_path'] = [os.path.join(new_data_dir, 'spatial_average.csv')]
+    oh['spatial_average_output_path'] = [os.path.join(new_data_dir, 'spatialdata.csv')]
 
 
 def _apply_baseline_settings(data):

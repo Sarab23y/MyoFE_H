@@ -242,7 +242,7 @@
                         "arteries"
                     ],
                     "resistance": [
-                        30
+                        20
                     ],
                     "compliance": [
                         0.0008
@@ -301,7 +301,7 @@
                         50
                     ],
                     "compliance": [
-                        0.078
+                        0.1
                     ],
                     "slack_volume": [
                         2.0

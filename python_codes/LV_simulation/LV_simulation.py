@@ -47,15 +47,61 @@ class LV_simulation():
         self.spatial_hs_data_fields = []
         self.spatial_fiber_data_fields = []
         self.spatial_extra = []
-        # Central registry for JSON-controlled tabular outputs.
-        # CSV-only policy applies to tabular data outputs; mesh outputs remain
-        # on their existing XDMF/HDF5 paths and are handled separately below.
-        # Keys are logical names used in `output_handler.save_outputs`.
         self.available_csv_outputs = {
-            'data.csv': 'Main simulation time-series CSV',
-            'spatial_average.csv': 'Spatially averaged fields CSV (when dumping_spatial_in_average=true)'
+            # ── Core ──────────────────────────────────────────────────
+            'data.csv':                      'Main simulation time-series',
+            # ── Averaged spatial (dumping_spatial_in_average=true) ────
+            'spatialdata.csv':               'All spatial fields averaged across integration points',
+            # ── Fiber geometry (per integration point) ────────────────
+            'f01data.csv':                   'Fiber direction x-component',
+            'f02data.csv':                   'Fiber direction y-component',
+            'f03data.csv':                   'Fiber direction z-component',
+            'lxdata.csv':                    'Local coordinate x',
+            'lydata.csv':                    'Local coordinate y',
+            'lzdata.csv':                    'Local coordinate z',
+            'endodistdata.csv':              'Endocardial distance',
+            'eccxdata.csv':                  'Circumferential direction x',
+            'eccydata.csv':                  'Circumferential direction y',
+            'ecczdata.csv':                  'Circumferential direction z',
+            'errxdata.csv':                  'Radial direction x',
+            'errydata.csv':                  'Radial direction y',
+            'errzdata.csv':                  'Radial direction z',
+            'ellxdata.csv':                  'Longitudinal direction x',
+            'ellydata.csv':                  'Longitudinal direction y',
+            'ellzdata.csv':                  'Longitudinal direction z',
+            'frangledata.csv':               'Fiber reorientation angle',
+            'dxdata.csv':                    'Displacement x',
+            'dydata.csv':                    'Displacement y',
+            'dzdata.csv':                    'Displacement z',
+            # ── Extra mechanical fields ───────────────────────────────
+            'activestressdata.csv':          'Active stress at integration points',
+            'totalpassivedata.csv':          'Total passive stress',
+            'myofiberpassivedata.csv':       'Myofiber passive stress',
+            'Sffmeshdata.csv':               'Myofiber Sff projected on mesh',
+            'bulkpassivedata.csv':           'Bulk passive stress',
+            'incompstressdata.csv':          'Incompressibility stress',
+            'cbnumberdensitydata.csv':       'Cross-bridge number density',
+            'k1data.csv':                    'Myofilament k1 parameter',
+            'hslengthdata.csv':              'Half-sarcomere length',
+            'fiberstraindata.csv':           'Fiber strain',
+            'Elldata.csv':                   'Green-Lagrange strain Ell (longitudinal)',
+            'Errdata.csv':                   'Green-Lagrange strain Err (radial)',
+            'Eccdata.csv':                   'Green-Lagrange strain Ecc (circumferential)',
+            # ── Averaged sarcomere scalars ────────────────────────────
+            'Sffdata.csv':                   'Spatially resolved Sff',
+            'sffmeandata.csv':               'Cycle-averaged Sff',
+            'alphafdata.csv':                'Myofiber stretch alphaf',
+            'totalstressspatialdata.csv':    'Total stress spatial field',
+            # ── Growth fields (only when growth module is on) ─────────
+            'gr_local_theta_fiberdata.csv':  'Growth local theta - fiber direction',
+            'gr_global_theta_fiberdata.csv': 'Growth global theta - fiber direction',
+            'gr_stimulus_fiberdata.csv':     'Growth stimulus - fiber direction',
+            'gr_setpoint_fiberdata.csv':     'Growth setpoint - fiber direction',
+            'gr_deviation_fiberdata.csv':    'Growth deviation - fiber direction',
+            # ── Coordinate file ───────────────────────────────────────
+            'coorddata.csv':                 'Integration point coordinates (x, y, z)',
         }
-        self.selected_csv_outputs = set(['data.csv'])
+        self.selected_csv_outputs = set(['data.csv'])   # default: only data.csv
         self.f0_values = []
         self.fdiff_values = []
         self.lcoord_values = []
@@ -706,6 +752,7 @@ class LV_simulation():
                     spatial_data_fields=spatial_data_fields,
                     in_average=self.spatial_data_to_mean,
                     frequency=self.dumping_data_frequency)
+        self.spatial_sim_data = self.local_spatial_sim_data
        
         # Step through the simulation
         self.t_counter = 0
@@ -937,7 +984,7 @@ class LV_simulation():
                     print 'Ignoring output_excel_path; CSV-only output mode is enforced.'
 
                 out_dir = os.path.dirname(self.output_data_str)
-                self.spatial_average_csv_str = os.path.join(out_dir, 'spatial_average.csv') if out_dir else 'spatial_average.csv'
+                self.spatial_average_csv_str = os.path.join(out_dir, 'spatialdata.csv') if out_dir else 'spatialdata.csv'
                 if 'spatial_average_output_path' in output_struct:
                     self.spatial_average_csv_str = output_struct['spatial_average_output_path'][0]
                 if self.comm.Get_rank() == 0:
@@ -2478,130 +2525,184 @@ class LV_simulation():
 
     def configure_output_selection(self, outputstruct):
         """
-        Parse/validate JSON-controlled CSV save selection.
+        Reads output_handler -> save_outputs from JSON.
+        Populates self.selected_csv_outputs.
 
-        output_handler.save_outputs supports:
-            - "all"
-            - ["data.csv"]
-            - ["data.csv", "spatial_average.csv"]
-            - []
-
-        Default when missing: save only "data.csv" (backward-compatible behavior).
+        Accepted forms:
+          "all"                        -> every key in available_csv_outputs
+          ["data.csv"]                 -> only data.csv  (also the DEFAULT)
+          ["data.csv", "Sffdata.csv"]  -> two specific files
+          [] or key missing            -> default: only data.csv
         """
         requested = None
         if outputstruct and ('save_outputs' in outputstruct):
             requested = outputstruct['save_outputs']
 
-        if requested is None:
+        # default
+        if requested is None or requested == []:
             self.selected_csv_outputs = set(['data.csv'])
             if self.comm.Get_rank() == 0:
-                print 'save_outputs missing; defaulting to ["data.csv"]'
+                print '[output] save_outputs not set — defaulting to ["data.csv"]'
             return
 
         legacy_map = {
             'data.xlsx': 'data.csv',
-            'spatial_average.xlsx': 'spatial_average.csv'
+            'spatialdata.xlsx': 'spatialdata.csv',
+            'spatialaverage.xlsx': 'spatialdata.csv',
         }
 
+        # "all" shortcut — string form
+        if isinstance(requested, basestring) and requested == 'all':
+            self.selected_csv_outputs = set(self.available_csv_outputs.keys())
+            if self.comm.Get_rank() == 0:
+                print '[output] save_outputs="all" — saving all %d CSV files' \
+                      % len(self.selected_csv_outputs)
+            return
+
+        # single legacy string
         if isinstance(requested, basestring):
-            if requested == 'all':
-                self.selected_csv_outputs = set(self.available_csv_outputs.keys())
-                return
-            if requested in legacy_map:
-                if self.comm.Get_rank() == 0:
-                    print 'Mapping legacy save_outputs entry "%s" to "%s" (CSV-only mode).' % (requested, legacy_map[requested])
-                requested = legacy_map[requested]
-            requested = [requested]
+            requested = [legacy_map.get(requested, requested)]
 
         if isinstance(requested, list) and ('all' in requested):
             self.selected_csv_outputs = set(self.available_csv_outputs.keys())
             return
 
+        # remap legacy names inside a list
         if isinstance(requested, list):
             remapped = []
             for entry in requested:
-                mapped = legacy_map[entry] if entry in legacy_map else entry
+                mapped = legacy_map.get(entry, entry)
                 if (mapped != entry) and (self.comm.Get_rank() == 0):
-                    print 'Mapping legacy save_outputs entry "%s" to "%s" (CSV-only mode).' % (entry, mapped)
+                    print '[output] Remapping legacy name "%s" -> "%s"' % (entry, mapped)
                 remapped.append(mapped)
             requested = remapped
 
         if not isinstance(requested, list):
-            raise ValueError('output_handler.save_outputs must be "all" or a list of output names')
+            raise ValueError(
+                'output_handler.save_outputs must be "all" or a list. Got: %s'
+                % str(requested))
 
         invalid = [x for x in requested if x not in self.available_csv_outputs]
         if invalid:
-            valid = sorted(self.available_csv_outputs.keys())
-            raise ValueError('Invalid save_outputs entries: %s. Valid options: %s' % (str(invalid), str(valid)))
+            raise ValueError(
+                'Invalid save_outputs entries: %s\nValid options are:\n  %s'
+                % (str(invalid),
+                   '\n  '.join(sorted(self.available_csv_outputs.keys()))))
 
         self.selected_csv_outputs = set(requested)
+        if self.comm.Get_rank() == 0:
+            print '[output] save_outputs -> %s' % sorted(self.selected_csv_outputs)
 
-    def should_save_output(self, output_name, config=None):
-        """Return True if logical output name is selected for saving."""
-        selected = self.selected_csv_outputs if config is None else set(config)
-        return output_name in selected
-    
-    def _write_spatial_rank_csv(self, spatial_data, csv_path):
-        """Write non-averaged per-rank spatial arrays to CSV."""
-        import csv
-        flat_cols = []
-        rows = 0
-        for key in sorted(spatial_data.keys()):
-            arr = np.asarray(spatial_data[key])
-            if arr.ndim == 1:
-                flat_cols.append((key, arr))
-            elif arr.ndim >= 2:
-                reshaped = arr.reshape((arr.shape[0], -1))
-                for idx in range(reshaped.shape[1]):
-                    flat_cols.append(('%s_%d' % (key, idx), reshaped[:, idx]))
-            if arr.shape:
-                rows = max(rows, int(arr.shape[0]))
+    def should_save_output(self, output_name):
+        """Return True if output_name is in the selected CSV outputs set."""
+        return output_name in self.selected_csv_outputs
 
-        with open(csv_path, 'w') as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow([name for name, _ in flat_cols])
-            for row_idx in range(rows):
-                row_vals = []
-                for _, col in flat_cols:
-                    row_vals.append(col[row_idx] if row_idx < len(col) else '')
-                writer.writerow(row_vals)
+    def _spatial_field_output_name(self, field_name):
+        output_map = {
+            'f01': 'f01data.csv',
+            'f02': 'f02data.csv',
+            'f03': 'f03data.csv',
+            'lx': 'lxdata.csv',
+            'ly': 'lydata.csv',
+            'lz': 'lzdata.csv',
+            'endo_dist': 'endodistdata.csv',
+            'eccx': 'eccxdata.csv',
+            'eccy': 'eccydata.csv',
+            'eccz': 'ecczdata.csv',
+            'errx': 'errxdata.csv',
+            'erry': 'errydata.csv',
+            'errz': 'errzdata.csv',
+            'ellx': 'ellxdata.csv',
+            'elly': 'ellydata.csv',
+            'ellz': 'ellzdata.csv',
+            'fr_angle': 'frangledata.csv',
+            'dx': 'dxdata.csv',
+            'dy': 'dydata.csv',
+            'dz': 'dzdata.csv',
+            'active_stress': 'activestressdata.csv',
+            'total_passive': 'totalpassivedata.csv',
+            'myofiber_passive': 'myofiberpassivedata.csv',
+            'Sff_mesh': 'Sffmeshdata.csv',
+            'bulk_passive': 'bulkpassivedata.csv',
+            'incomp_stress': 'incompstressdata.csv',
+            'cb_number_density': 'cbnumberdensitydata.csv',
+            'k_1': 'k1data.csv',
+            'hs_length': 'hslengthdata.csv',
+            'fiber_strain': 'fiberstraindata.csv',
+            'Ell': 'Elldata.csv',
+            'Err': 'Errdata.csv',
+            'Ecc': 'Eccdata.csv',
+            'Sff': 'Sffdata.csv',
+            'sff_mean': 'sffmeandata.csv',
+            'alpha_f': 'alphafdata.csv',
+            'total_stress_spatial': 'totalstressspatialdata.csv',
+            'gr_local_theta_fiber': 'gr_local_theta_fiberdata.csv',
+            'gr_global_theta_fiber': 'gr_global_theta_fiberdata.csv',
+            'gr_stimulus_fiber': 'gr_stimulus_fiberdata.csv',
+            'gr_setpoint_fiber': 'gr_setpoint_fiberdata.csv',
+            'gr_deviation_fiber': 'gr_deviation_fiberdata.csv',
+        }
+        return output_map.get(field_name)
 
     def handle_output(self, outputstruct):
-        """JSON-controlled CSV save handler."""
-        if outputstruct and self.comm.Get_rank() == 0:
-            if self.output_data_str and self.should_save_output('data.csv'):
-                self._sanitize_sim_data_arrays()
+        """JSON-controlled CSV save handler (rank-0 only)."""
+        if not (outputstruct and self.comm.Get_rank() == 0):
+            return
+
+        output_dir = (os.path.dirname(self.output_data_str)
+                      if self.output_data_str else '')
+
+        # ── 1. data.csv ───────────────────────────────────────────
+        if self.output_data_str and self.should_save_output('data.csv'):
+            self._sanitize_sim_data_arrays()
+            rows = int(self.write_counter + 1)
+            clean = {k: self._safe_array_from_value(v, rows)
+                     for k, v in self.sim_data.items()}
+            import csv
+            keys = sorted(clean.keys())
+            with open(self.output_data_str, 'w') as f:
+                w = csv.writer(f)
+                w.writerow(keys)
+                for r in range(rows):
+                    w.writerow([clean[k][r] for k in keys])
+
+        # ── 2. spatialdata.csv (averaged) ────────────────────────
+        if self.should_save_output('spatialdata.csv'):
+            if self.spatial_data_to_mean and hasattr(self, 'spatial_sim_data'):
+                outpath = (os.path.join(output_dir, 'spatialdata.csv')
+                           if output_dir else 'spatialdata.csv')
                 rows = int(self.write_counter + 1)
-                clean_data = dict()
-                for key, value in self.sim_data.items():
-                    clean_data[key] = self._safe_array_from_value(value, rows)
-                import csv
-                keys = sorted(clean_data.keys())
-                with open(self.output_data_str, 'w') as csv_file:
-                    writer = csv.writer(csv_file)
-                    writer.writerow(keys)
-                    for row_idx in range(rows):
-                        writer.writerow([clean_data[k][row_idx] for k in keys])
+                if isinstance(self.spatial_sim_data, dict):
+                    cols = sorted(self.spatial_sim_data.keys())
+                    pd.DataFrame({k: np.asarray(self.spatial_sim_data[k])[:rows]
+                                  for k in cols}).to_csv(outpath, index=False)
+                else:
+                    self.spatial_sim_data.iloc[:rows].to_csv(outpath, index=False)
+            else:
+                print '[output] Skipping spatialdata.csv: ' \
+                      'dumping_spatial_in_average must be true'
 
-            if self.should_save_output('spatial_average.csv'):
-                if self.spatial_data_to_mean and hasattr(self, 'local_spatial_sim_data'):
-                    rows = int(self.write_counter + 1)
-                    if hasattr(self.local_spatial_sim_data, 'to_csv'):
-                        self.local_spatial_sim_data.iloc[:rows].to_csv(self.spatial_average_csv_str, index=False)
-                    elif isinstance(self.local_spatial_sim_data, dict):
-                        cols = sorted(self.local_spatial_sim_data.keys())
-                        avg_df = pd.DataFrame({k: np.asarray(self.local_spatial_sim_data[k])[:rows] for k in cols})
-                        avg_df.to_csv(self.spatial_average_csv_str, index=False)
-                elif self.comm.Get_rank() == 0:
-                    print 'Skipping spatial_average.csv because dumping_spatial_in_average is false'
+        # ── 3. Per-field {f}data.csv (non-averaged) ───────────────
+        if (not self.spatial_data_to_mean) and hasattr(self, 'spatial_sim_data'):
+            rows = int(self.write_counter + 1)
+            for f in list(self.spatial_sim_data.keys()):
+                fname = self._spatial_field_output_name(f)
+                if fname and self.should_save_output(fname):
+                    outpath = (os.path.join(output_dir, fname)
+                               if output_dir else fname)
+                    pd.DataFrame(np.asarray(self.spatial_sim_data[f])[:rows]).to_csv(
+                        outpath, index=False)
 
-            if hasattr(self, 'local_spatial_sim_data') and (not self.spatial_data_to_mean):
-                output_dir = os.path.dirname(self.output_data_str)
-                if output_dir:
-                    rank_path = os.path.join(output_dir,
-                                             'spatial_rank_%d.csv' % self.comm.Get_rank())
-                    self._write_spatial_rank_csv(self.local_spatial_sim_data, rank_path)
-        return
+        # ── 4. coorddata.csv ──────────────────────────────────────
+        if self.should_save_output('coorddata.csv'):
+            if (not self.spatial_data_to_mean) and hasattr(self, 'coord'):
+                outpath = (os.path.join(output_dir, 'coorddata.csv')
+                           if output_dir else 'coorddata.csv')
+                pd.DataFrame(self.coord,
+                             columns=['x', 'y', 'z']).to_csv(outpath, index=False)
+            else:
+                print '[output] Skipping coorddata.csv: ' \
+                      'only available when dumping_spatial_in_average is false'
 
     def rebuild_from_perturbations(self):
         """ builds system arrays that could change during simulation """
