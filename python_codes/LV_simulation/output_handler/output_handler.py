@@ -22,11 +22,10 @@ class output_handler():
         self.sim_data_file_str = []
         self.images_handler_list = []
         self.output_data_str = []
-        self.output_excel_str = []
-        # Central CSV name registry for JSON-controlled output selection.
+        # Central CSV name registry for JSON-controlled tabular output selection.
+        # This does not alter mesh outputs, which keep their native formats.
         self.available_csv_outputs = {
-            'data.csv': 'Main simulation CSV',
-            'data.xlsx': 'Main simulation Excel'
+            'data.csv': 'Main simulation CSV'
         }
         self.selected_csv_outputs = set(['data.csv'])
 
@@ -44,13 +43,7 @@ class output_handler():
             self.output_data_str = output_struct['output_data_path'][0]
             self.check_output_directory_folder(path = self.output_data_str)
             if 'output_excel_path' in output_struct:
-                self.output_excel_str = output_struct['output_excel_path'][0]
-            else:
-                if str(self.output_data_str).endswith('.csv'):
-                    self.output_excel_str = self.output_data_str[:-4] + '.xlsx'
-                else:
-                    self.output_excel_str = self.output_data_str + '.xlsx'
-            self.check_output_directory_folder(path = self.output_excel_str)
+                print('Ignoring output_excel_path; CSV-only output mode is enforced.')
 
         self.configure_output_selection(output_struct)
 
@@ -103,11 +96,24 @@ class output_handler():
             if requested == 'all':
                 self.selected_csv_outputs = set(self.available_csv_outputs.keys())
                 return
+            if requested == 'data.xlsx':
+                print('Mapping legacy save_outputs entry "data.xlsx" to "data.csv" (CSV-only mode).')
+                requested = 'data.csv'
             requested = [requested]
 
         if isinstance(requested, list) and ('all' in requested):
             self.selected_csv_outputs = set(self.available_csv_outputs.keys())
             return
+
+        if isinstance(requested, list):
+            remapped = []
+            for entry in requested:
+                if entry == 'data.xlsx':
+                    print('Mapping legacy save_outputs entry "data.xlsx" to "data.csv" (CSV-only mode).')
+                    remapped.append('data.csv')
+                else:
+                    remapped.append(entry)
+            requested = remapped
 
         if not isinstance(requested, list):
             raise ValueError('output_handler.save_outputs must be "all" or a list of output names')
