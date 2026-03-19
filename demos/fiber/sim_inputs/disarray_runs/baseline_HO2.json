@@ -126,7 +126,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Guccione"
+                    "Holzapfel"
                 ],
                 "c": [
                     600
@@ -137,14 +137,29 @@
                 "c3": [
                     15.0
                 ],
-                "bf": [
-                    19.0
+                "hbf": [
+                    2.6
                 ],
-                "bt": [
-                    10.0
+                "hbfs": [
+                    0.5
                 ],
-                "bfs": [
-                    5.0
+                "hbs": [
+                    0.54
+                ],
+                "hb": [
+                    0.5
+                ],
+                "a": [
+                    2500.0
+                ],
+                "af": [
+                    1700.0
+                ],
+                "as_": [
+                    650.0
+                ],
+                "afs": [
+                    470.0
                 ],
                 "phi_m": [
                     1.0
@@ -657,10 +672,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baseline/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/baseline/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baseline/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/baseline/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
