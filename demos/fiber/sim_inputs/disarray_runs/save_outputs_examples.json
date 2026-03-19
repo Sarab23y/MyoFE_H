@@ -17,7 +17,8 @@
             "output_handler": {
                 "save_outputs": [
                     "data.csv",
-                    "spatial_average.csv"
+                    "Sffdata.csv",
+                    "k1data.csv"
                 ]
             }
         },
@@ -29,7 +30,10 @@
     },
     "valid_output_names": [
         "data.csv",
-        "spatial_average.csv"
+        "spatialdata.csv",
+        "Sffdata.csv",
+        "k1data.csv",
+        "coorddata.csv"
     ],
     "default_when_missing": [
         "data.csv"

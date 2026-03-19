@@ -84,12 +84,17 @@ class output_handler():
         return
 
     def configure_output_selection(self, output_struct):
+        """
+        Reads output_handler -> save_outputs from JSON.
+        [] or missing defaults to ["data.csv"].
+        """
         requested = None
         if output_struct and ('save_outputs' in output_struct):
             requested = output_struct['save_outputs']
 
-        if requested is None:
+        if requested is None or requested == []:
             self.selected_csv_outputs = set(['data.csv'])
+            print('[output] save_outputs not set — defaulting to ["data.csv"]')
             return
 
         if isinstance(requested, str):
