@@ -214,7 +214,7 @@
             "disarray"
         ],
         "disarray_seed": [
-            42
+            123
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
@@ -223,7 +223,7 @@
             0.25
         ],
         "theta_rms_deg": [
-            30.0
+            10.0
         ],
         "ell_c": [
             0.075
@@ -657,10 +657,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta30/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta101/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta30/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta101/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",

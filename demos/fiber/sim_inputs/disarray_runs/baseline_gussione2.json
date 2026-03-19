@@ -129,16 +129,16 @@
                     "Guccione"
                 ],
                 "c": [
-                    550
+                    600
                 ],
                 "c2": [
-                    400
+                    250
                 ],
                 "c3": [
-                    16.0
+                    15.0
                 ],
                 "bf": [
-                    18.0
+                    19.0
                 ],
                 "bt": [
                     10.0
@@ -211,7 +211,7 @@
             ]
         },
         "fiber_architecture": [
-            "disarray"
+            "aligned"
         ],
         "disarray_seed": [
             42
@@ -220,10 +220,10 @@
             "lv_midwall_no_apex_no_base"
         ],
         "disarray_width": [
-            0.25
+            0.0
         ],
         "theta_rms_deg": [
-            30.0
+            0.0
         ],
         "ell_c": [
             0.075
@@ -243,7 +243,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        16
+                        20
                     ],
                     "compliance": [
                         0.0004
@@ -657,10 +657,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta30/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baseline/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta30/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baseline/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
