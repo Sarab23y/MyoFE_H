@@ -226,22 +226,19 @@
             ]
         },
         "fiber_architecture": [
-            "aligned"
+            "disarray"
         ],
         "disarray_seed": [
-            42
+            11
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
         ],
-        "disarray_width": [
-            0.0
-        ],
         "theta_rms_deg": [
-            0.0
+            10.0
         ],
         "ell_c": [
-            0.075
+            null
         ]
     },
     "model": {
@@ -258,7 +255,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        25
+                        20
                     ],
                     "compliance": [
                         0.0004
@@ -672,10 +669,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/baseline/data_disarray.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta10/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/baseline/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta10/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -689,7 +686,7 @@
             "k_serca"
         ],
         "dumping_spatial_in_average": [
-            true
+            false
         ],
         "frequency_n": [
             10

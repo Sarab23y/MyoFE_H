@@ -204,10 +204,10 @@
         "solver": {
             "params": {
                 "rel_tol": [
-                    1e-10
+                    1e-8
                 ],
                 "abs_tol": [
-                    1e-10
+                    1e-8
                 ],
                 "max_iter": [
                     100
@@ -229,19 +229,16 @@
             "disarray"
         ],
         "disarray_seed": [
-            42
+            44
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
         ],
-        "disarray_width": [
-            0.25
-        ],
         "theta_rms_deg": [
-            20.0
+            10.0
         ],
         "ell_c": [
-            0.075
+            null
         ]
     },
     "model": {
@@ -272,7 +269,7 @@
                         "arteries"
                     ],
                     "resistance": [
-                        20
+                        30
                     ],
                     "compliance": [
                         0.0008
@@ -286,7 +283,7 @@
                         "arterioles"
                     ],
                     "resistance": [
-                        1000
+                        1230
                     ],
                     "compliance": [
                         0.001
@@ -331,7 +328,7 @@
                         50
                     ],
                     "compliance": [
-                        0.1
+                        0.078
                     ],
                     "slack_volume": [
                         2.0
@@ -672,10 +669,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta20/data_disarrayg.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta103/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta20/mesh_output_disarrayg"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta103/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -689,11 +686,12 @@
             "k_serca"
         ],
         "dumping_spatial_in_average": [
-            true
+            false
         ],
         "frequency_n": [
             10
-        ]
+        ],
+        "save_outputs": "all"
     },
     "debug_mpi": [
         false
