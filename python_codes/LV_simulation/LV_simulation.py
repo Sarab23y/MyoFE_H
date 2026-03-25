@@ -30,6 +30,7 @@ from .baroreflex import baroreflex as br
 from .growth import growth as gr
 from .half_sarcomere import half_sarcomere as hs 
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
+from .output_csv_registry import get_available_csv_outputs, get_output_alias_map, normalize_output_name
 
 from mpi4py import MPI
 
@@ -47,61 +48,10 @@ class LV_simulation():
         self.spatial_hs_data_fields = []
         self.spatial_fiber_data_fields = []
         self.spatial_extra = []
-        self.available_csv_outputs = {
-            # ── Core ──────────────────────────────────────────────────
-            'data.csv':                      'Main simulation time-series',
-            # ── Averaged spatial (dumping_spatial_in_average=true) ────
-            'spatialdata.csv':               'All spatial fields averaged across integration points',
-            # ── Fiber geometry (per integration point) ────────────────
-            'f01data.csv':                   'Fiber direction x-component',
-            'f02data.csv':                   'Fiber direction y-component',
-            'f03data.csv':                   'Fiber direction z-component',
-            'lxdata.csv':                    'Local coordinate x',
-            'lydata.csv':                    'Local coordinate y',
-            'lzdata.csv':                    'Local coordinate z',
-            'endodistdata.csv':              'Endocardial distance',
-            'eccxdata.csv':                  'Circumferential direction x',
-            'eccydata.csv':                  'Circumferential direction y',
-            'ecczdata.csv':                  'Circumferential direction z',
-            'errxdata.csv':                  'Radial direction x',
-            'errydata.csv':                  'Radial direction y',
-            'errzdata.csv':                  'Radial direction z',
-            'ellxdata.csv':                  'Longitudinal direction x',
-            'ellydata.csv':                  'Longitudinal direction y',
-            'ellzdata.csv':                  'Longitudinal direction z',
-            'frangledata.csv':               'Fiber reorientation angle',
-            'dxdata.csv':                    'Displacement x',
-            'dydata.csv':                    'Displacement y',
-            'dzdata.csv':                    'Displacement z',
-            # ── Extra mechanical fields ───────────────────────────────
-            'activestressdata.csv':          'Active stress at integration points',
-            'totalpassivedata.csv':          'Total passive stress',
-            'myofiberpassivedata.csv':       'Myofiber passive stress',
-            'Sffmeshdata.csv':               'Myofiber Sff projected on mesh',
-            'bulkpassivedata.csv':           'Bulk passive stress',
-            'incompstressdata.csv':          'Incompressibility stress',
-            'cbnumberdensitydata.csv':       'Cross-bridge number density',
-            'k1data.csv':                    'Myofilament k1 parameter',
-            'hslengthdata.csv':              'Half-sarcomere length',
-            'fiberstraindata.csv':           'Fiber strain',
-            'Elldata.csv':                   'Green-Lagrange strain Ell (longitudinal)',
-            'Errdata.csv':                   'Green-Lagrange strain Err (radial)',
-            'Eccdata.csv':                   'Green-Lagrange strain Ecc (circumferential)',
-            # ── Averaged sarcomere scalars ────────────────────────────
-            'Sffdata.csv':                   'Spatially resolved Sff',
-            'sffmeandata.csv':               'Cycle-averaged Sff',
-            'alphafdata.csv':                'Myofiber stretch alphaf',
-            'totalstressspatialdata.csv':    'Total stress spatial field',
-            # ── Growth fields (only when growth module is on) ─────────
-            'gr_local_theta_fiberdata.csv':  'Growth local theta - fiber direction',
-            'gr_global_theta_fiberdata.csv': 'Growth global theta - fiber direction',
-            'gr_stimulus_fiberdata.csv':     'Growth stimulus - fiber direction',
-            'gr_setpoint_fiberdata.csv':     'Growth setpoint - fiber direction',
-            'gr_deviation_fiberdata.csv':    'Growth deviation - fiber direction',
-            # ── Coordinate file ───────────────────────────────────────
-            'coorddata.csv':                 'Integration point coordinates (x, y, z)',
-        }
+        self.available_csv_outputs = get_available_csv_outputs()
+        self.output_alias_map = get_output_alias_map()
         self.selected_csv_outputs = set(['data.csv'])   # default: only data.csv
+        self._unavailable_output_warned = set()
         self.f0_values = []
         self.fdiff_values = []
         self.lcoord_values = []
@@ -2545,12 +2495,6 @@ class LV_simulation():
                 print '[output] save_outputs not set — defaulting to ["data.csv"]'
             return
 
-        legacy_map = {
-            'data.xlsx': 'data.csv',
-            'spatialdata.xlsx': 'spatialdata.csv',
-            'spatialaverage.xlsx': 'spatialdata.csv',
-        }
-
         # "all" shortcut — string form
         if isinstance(requested, basestring) and requested == 'all':
             self.selected_csv_outputs = set(self.available_csv_outputs.keys())
@@ -2561,7 +2505,7 @@ class LV_simulation():
 
         # single legacy string
         if isinstance(requested, basestring):
-            requested = [legacy_map.get(requested, requested)]
+            requested = [normalize_output_name(requested)]
 
         if isinstance(requested, list) and ('all' in requested):
             self.selected_csv_outputs = set(self.available_csv_outputs.keys())
@@ -2571,7 +2515,7 @@ class LV_simulation():
         if isinstance(requested, list):
             remapped = []
             for entry in requested:
-                mapped = legacy_map.get(entry, entry)
+                mapped = normalize_output_name(entry)
                 if (mapped != entry) and (self.comm.Get_rank() == 0):
                     print '[output] Remapping legacy name "%s" -> "%s"' % (entry, mapped)
                 remapped.append(mapped)
@@ -2597,63 +2541,88 @@ class LV_simulation():
         """Return True if output_name is in the selected CSV outputs set."""
         return output_name in self.selected_csv_outputs
 
+    def get_output_csv_path(self, output_name):
+        output_dir = os.path.dirname(self.output_data_str) if self.output_data_str else ''
+        return os.path.join(output_dir, output_name) if output_dir else output_name
+
+    def _warn_output_unavailable_once(self, output_name, reason):
+        if output_name in self._unavailable_output_warned:
+            return
+        self._unavailable_output_warned.add(output_name)
+        if self.comm.Get_rank() == 0:
+            print '[output] Requested "%s" but unavailable (%s). Skipping.' % (output_name, reason)
+
     def _spatial_field_output_name(self, field_name):
         output_map = {
-            'f01': 'f01data.csv',
-            'f02': 'f02data.csv',
-            'f03': 'f03data.csv',
-            'lx': 'lxdata.csv',
-            'ly': 'lydata.csv',
-            'lz': 'lzdata.csv',
-            'endo_dist': 'endodistdata.csv',
-            'eccx': 'eccxdata.csv',
-            'eccy': 'eccydata.csv',
-            'eccz': 'ecczdata.csv',
-            'errx': 'errxdata.csv',
-            'erry': 'errydata.csv',
-            'errz': 'errzdata.csv',
-            'ellx': 'ellxdata.csv',
-            'elly': 'ellydata.csv',
-            'ellz': 'ellzdata.csv',
-            'fr_angle': 'frangledata.csv',
-            'dx': 'dxdata.csv',
-            'dy': 'dydata.csv',
-            'dz': 'dzdata.csv',
-            'active_stress': 'activestressdata.csv',
-            'total_passive': 'totalpassivedata.csv',
-            'myofiber_passive': 'myofiberpassivedata.csv',
-            'Sff_mesh': 'Sffmeshdata.csv',
-            'bulk_passive': 'bulkpassivedata.csv',
-            'incomp_stress': 'incompstressdata.csv',
-            'cb_number_density': 'cbnumberdensitydata.csv',
-            'k_1': 'k1data.csv',
-            'hs_length': 'hslengthdata.csv',
-            'fiber_strain': 'fiberstraindata.csv',
-            'Ell': 'Elldata.csv',
-            'Err': 'Errdata.csv',
-            'Ecc': 'Eccdata.csv',
-            'Sff': 'Sffdata.csv',
-            'sff_mean': 'sffmeandata.csv',
-            'alpha_f': 'alphafdata.csv',
-            'total_stress_spatial': 'totalstressspatialdata.csv',
-            'gr_local_theta_fiber': 'gr_local_theta_fiberdata.csv',
-            'gr_global_theta_fiber': 'gr_global_theta_fiberdata.csv',
-            'gr_stimulus_fiber': 'gr_stimulus_fiberdata.csv',
-            'gr_setpoint_fiber': 'gr_setpoint_fiberdata.csv',
-            'gr_deviation_fiber': 'gr_deviation_fiberdata.csv',
+            'f01': 'f01_data.csv',
+            'f02': 'f02_data.csv',
+            'f03': 'f03_data.csv',
+            'lx': 'lx_data.csv',
+            'ly': 'ly_data.csv',
+            'lz': 'lz_data.csv',
+            'endo_dist': 'endo_dist_data.csv',
+            'eccx': 'eccx_data.csv',
+            'eccy': 'eccy_data.csv',
+            'eccz': 'eccz_data.csv',
+            'errx': 'errx_data.csv',
+            'erry': 'erry_data.csv',
+            'errz': 'errz_data.csv',
+            'ellx': 'ellx_data.csv',
+            'elly': 'elly_data.csv',
+            'ellz': 'ellz_data.csv',
+            'fr_angle': 'fr_angle_data.csv',
+            'dx': 'dx_data.csv',
+            'dy': 'dy_data.csv',
+            'dz': 'dz_data.csv',
+            'active_stress': 'active_stress_data.csv',
+            'total_passive': 'total_passive_data.csv',
+            'myofiber_passive': 'myofiber_passive_data.csv',
+            'Sff_mesh': 'Sff_mesh_data.csv',
+            'bulk_passive': 'bulk_passive_data.csv',
+            'incomp_stress': 'incomp_stress_data.csv',
+            'cb_number_density': 'cb_number_density_data.csv',
+            'k_1': 'k_1_data.csv',
+            'hs_length': 'hs_length_data.csv',
+            'fiber_strain': 'fiber_strain_data.csv',
+            'Ell': 'Ell_data.csv',
+            'Err': 'Err_data.csv',
+            'Ecc': 'Ecc_data.csv',
+            'Sff': 'Sff_data.csv',
+            'sff_mean': 'sff_mean_data.csv',
+            'alpha_f': 'alpha_f_data.csv',
+            'total_stress_spatial': 'total_stress_spatial_data.csv',
+            'gr_local_theta_fiber': 'gr_local_theta_fiber_data.csv',
+            'gr_global_theta_fiber': 'gr_global_theta_fiber_data.csv',
+            'gr_stimulus_fiber': 'gr_stimulus_fiber_data.csv',
+            'gr_setpoint_fiber': 'gr_setpoint_fiber_data.csv',
+            'gr_deviation_fiber': 'gr_deviation_fiber_data.csv',
+            'gr_local_theta_sheet': 'gr_local_theta_sheet_data.csv',
+            'gr_global_theta_sheet': 'gr_global_theta_sheet_data.csv',
+            'gr_stimulus_sheet': 'gr_stimulus_sheet_data.csv',
+            'gr_setpoint_sheet': 'gr_setpoint_sheet_data.csv',
+            'gr_deviation_sheet': 'gr_deviation_sheet_data.csv',
+            'gr_local_theta_sheet_normal': 'gr_local_theta_sheet_normal_data.csv',
+            'gr_global_theta_sheet_normal': 'gr_global_theta_sheet_normal_data.csv',
+            'gr_stimulus_sheet_normal': 'gr_stimulus_sheet_normal_data.csv',
+            'gr_setpoint_sheet_normal': 'gr_setpoint_sheet_normal_data.csv',
+            'gr_deviation_sheet_normal': 'gr_deviation_sheet_normal_data.csv',
         }
-        return output_map.get(field_name)
+        if field_name in output_map:
+            return output_map[field_name]
+        candidate = '%s_data.csv' % field_name
+        if candidate in self.available_csv_outputs:
+            return candidate
+        return None
 
     def handle_output(self, outputstruct):
         """JSON-controlled CSV save handler (rank-0 only)."""
         if not (outputstruct and self.comm.Get_rank() == 0):
             return
 
-        output_dir = (os.path.dirname(self.output_data_str)
-                      if self.output_data_str else '')
+        selected = set(self.selected_csv_outputs)
 
         # ── 1. data.csv ───────────────────────────────────────────
-        if self.output_data_str and self.should_save_output('data.csv'):
+        if self.output_data_str and ('data.csv' in selected):
             self._sanitize_sim_data_arrays()
             rows = int(self.write_counter + 1)
             clean = {k: self._safe_array_from_value(v, rows)
@@ -2667,10 +2636,9 @@ class LV_simulation():
                     w.writerow([clean[k][r] for k in keys])
 
         # ── 2. spatialdata.csv (averaged) ────────────────────────
-        if self.should_save_output('spatialdata.csv'):
+        if 'spatialdata.csv' in selected:
             if self.spatial_data_to_mean and hasattr(self, 'spatial_sim_data'):
-                outpath = (os.path.join(output_dir, 'spatialdata.csv')
-                           if output_dir else 'spatialdata.csv')
+                outpath = self.get_output_csv_path('spatialdata.csv')
                 rows = int(self.write_counter + 1)
                 if isinstance(self.spatial_sim_data, dict):
                     cols = sorted(self.spatial_sim_data.keys())
@@ -2679,30 +2647,39 @@ class LV_simulation():
                 else:
                     self.spatial_sim_data.iloc[:rows].to_csv(outpath, index=False)
             else:
-                print '[output] Skipping spatialdata.csv: ' \
-                      'dumping_spatial_in_average must be true'
+                self._warn_output_unavailable_once(
+                    'spatialdata.csv', 'dumping_spatial_in_average must be true')
 
         # ── 3. Per-field {f}data.csv (non-averaged) ───────────────
+        written_outputs = set(['data.csv'])
+        if 'spatialdata.csv' in selected and self.spatial_data_to_mean:
+            written_outputs.add('spatialdata.csv')
         if (not self.spatial_data_to_mean) and hasattr(self, 'spatial_sim_data'):
             rows = int(self.write_counter + 1)
             for f in list(self.spatial_sim_data.keys()):
                 fname = self._spatial_field_output_name(f)
-                if fname and self.should_save_output(fname):
-                    outpath = (os.path.join(output_dir, fname)
-                               if output_dir else fname)
+                if fname and (fname in selected):
+                    outpath = self.get_output_csv_path(fname)
                     pd.DataFrame(np.asarray(self.spatial_sim_data[f])[:rows]).to_csv(
                         outpath, index=False)
+                    written_outputs.add(fname)
 
         # ── 4. coorddata.csv ──────────────────────────────────────
-        if self.should_save_output('coorddata.csv'):
+        if 'coorddata.csv' in selected:
             if (not self.spatial_data_to_mean) and hasattr(self, 'coord'):
-                outpath = (os.path.join(output_dir, 'coorddata.csv')
-                           if output_dir else 'coorddata.csv')
+                outpath = self.get_output_csv_path('coorddata.csv')
                 pd.DataFrame(self.coord,
                              columns=['x', 'y', 'z']).to_csv(outpath, index=False)
+                written_outputs.add('coorddata.csv')
             else:
-                print '[output] Skipping coorddata.csv: ' \
-                      'only available when dumping_spatial_in_average is false'
+                self._warn_output_unavailable_once(
+                    'coorddata.csv', 'only available when dumping_spatial_in_average is false')
+
+        unavailable = sorted(selected - written_outputs)
+        for name in unavailable:
+            if name == 'data.csv':
+                continue
+            self._warn_output_unavailable_once(name, 'no runtime source field found')
 
     def rebuild_from_perturbations(self):
         """ builds system arrays that could change during simulation """

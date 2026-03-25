@@ -11,6 +11,7 @@ import os
 import numpy as np
 import pandas as pd
 
+from ..output_csv_registry import get_available_csv_outputs, normalize_output_name
 
 class output_handler():
     """ Class for handling simulation output """
@@ -24,9 +25,7 @@ class output_handler():
         self.output_data_str = []
         # Central CSV name registry for JSON-controlled tabular output selection.
         # This does not alter mesh outputs, which keep their native formats.
-        self.available_csv_outputs = {
-            'data.csv': 'Main simulation CSV'
-        }
+        self.available_csv_outputs = get_available_csv_outputs()
         self.selected_csv_outputs = set(['data.csv'])
 
         # Check for output_handler file
@@ -101,23 +100,16 @@ class output_handler():
             if requested == 'all':
                 self.selected_csv_outputs = set(self.available_csv_outputs.keys())
                 return
-            if requested == 'data.xlsx':
-                print('Mapping legacy save_outputs entry "data.xlsx" to "data.csv" (CSV-only mode).')
-                requested = 'data.csv'
-            requested = [requested]
+            requested = [normalize_output_name(requested)]
 
         if isinstance(requested, list) and ('all' in requested):
-            self.selected_csv_outputs = set(self.available_csv_outputs.keys())
-            return
+                self.selected_csv_outputs = set(self.available_csv_outputs.keys())
+                return
 
         if isinstance(requested, list):
             remapped = []
             for entry in requested:
-                if entry == 'data.xlsx':
-                    print('Mapping legacy save_outputs entry "data.xlsx" to "data.csv" (CSV-only mode).')
-                    remapped.append('data.csv')
-                else:
-                    remapped.append(entry)
+                remapped.append(normalize_output_name(entry))
             requested = remapped
 
         if not isinstance(requested, list):
