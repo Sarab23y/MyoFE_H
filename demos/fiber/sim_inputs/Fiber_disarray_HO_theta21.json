@@ -126,7 +126,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Guccione"
+                    "Holzapfel"
                 ],
                 "c": [
                     600
@@ -137,14 +137,29 @@
                 "c3": [
                     15.0
                 ],
-                "bf": [
-                    19.0
+                "hbf": [
+                    2.6
                 ],
-                "bt": [
-                    10.0
+                "hbfs": [
+                    0.5
                 ],
-                "bfs": [
-                    5.0
+                "hbs": [
+                    0.54
+                ],
+                "hb": [
+                    0.5
+                ],
+                "a": [
+                    2500.0
+                ],
+                "af": [
+                    1700.0
+                ],
+                "as_": [
+                    650.0
+                ],
+                "afs": [
+                    470.0
                 ],
                 "phi_m": [
                     1.0
@@ -189,10 +204,10 @@
         "solver": {
             "params": {
                 "rel_tol": [
-                    1e-8
+                    1e-10
                 ],
                 "abs_tol": [
-                    1e-8
+                    1e-10
                 ],
                 "max_iter": [
                     100
@@ -211,7 +226,7 @@
             ]
         },
         "fiber_architecture": [
-            "aligned"
+            "disarray"
         ],
         "disarray_seed": [
             42
@@ -220,10 +235,10 @@
             "lv_midwall_no_apex_no_base"
         ],
         "disarray_width": [
-            0.0
+            0.25
         ],
         "theta_rms_deg": [
-            0.0
+            20.0
         ],
         "ell_c": [
             0.075
@@ -257,7 +272,7 @@
                         "arteries"
                     ],
                     "resistance": [
-                        30
+                        20
                     ],
                     "compliance": [
                         0.0008
@@ -271,7 +286,7 @@
                         "arterioles"
                     ],
                     "resistance": [
-                        1230
+                        1000
                     ],
                     "compliance": [
                         0.001
@@ -316,7 +331,7 @@
                         50
                     ],
                     "compliance": [
-                        0.078
+                        0.1
                     ],
                     "slack_volume": [
                         2.0
@@ -657,10 +672,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baselineg/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta20/data_disarrayg.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baselineg/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_ho/theta20/mesh_output_disarrayg"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -674,12 +689,11 @@
             "k_serca"
         ],
         "dumping_spatial_in_average": [
-            false
+            true
         ],
         "frequency_n": [
             10
-        ],
-        "save_outputs": "all"
+        ]
     },
     "debug_mpi": [
         false

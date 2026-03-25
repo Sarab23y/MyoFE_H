@@ -129,16 +129,16 @@
                     "Guccione"
                 ],
                 "c": [
-                    600
+                    550
                 ],
                 "c2": [
-                    250
+                    400
                 ],
                 "c3": [
-                    15.0
+                    16.0
                 ],
                 "bf": [
-                    19.0
+                    18.0
                 ],
                 "bt": [
                     10.0
@@ -211,19 +211,19 @@
             ]
         },
         "fiber_architecture": [
-            "aligned"
+            "disarray"
         ],
         "disarray_seed": [
-            42
+            123
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
         ],
         "disarray_width": [
-            0.0
+            0.25
         ],
         "theta_rms_deg": [
-            0.0
+            10.0
         ],
         "ell_c": [
             0.075
@@ -243,7 +243,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        20
+                        16
                     ],
                     "compliance": [
                         0.0004
@@ -657,10 +657,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baselineg/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta101/data_disarray.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/baselineg/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta101/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -674,7 +674,7 @@
             "k_serca"
         ],
         "dumping_spatial_in_average": [
-            false
+            true
         ],
         "frequency_n": [
             10
