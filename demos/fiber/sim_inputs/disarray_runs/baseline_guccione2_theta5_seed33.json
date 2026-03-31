@@ -220,7 +220,7 @@
             "lv_midwall_no_apex_no_base"
         ],
         "theta_rms_deg": [
-            5.0
+            50.0
         ],
         "ell_c": [
             null
@@ -654,10 +654,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber5/sim_output_guccione/theta102/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta152/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber5/sim_output_guccione/theta102/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output_guccione/theta152/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
