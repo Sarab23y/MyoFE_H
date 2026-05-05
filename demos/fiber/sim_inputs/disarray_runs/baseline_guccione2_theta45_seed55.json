@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            35000
+            150000
         ],
         "time_step": [
             0.001
@@ -10,7 +10,7 @@
             "activations": [
                 {
                     "t_stop_s": [
-                        250
+                        150
                     ],
                     "t_start_s": [
                         5
@@ -654,10 +654,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber45/sim_output_guccione/theta104/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta45/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber45/sim_output_guccione/theta104/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta45/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -674,7 +674,7 @@
             false
         ],
         "frequency_n": [
-            10
+            20
         ],
         "save_outputs": "all"
     },

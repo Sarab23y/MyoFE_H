@@ -5,19 +5,8 @@
         ],
         "time_step": [
             0.001
-        ],
-        "baroreflex": {
-            "activations": [
-                {
-                    "t_stop_s": [
-                        150
-                    ],
-                    "t_start_s": [
-                        5
-                    ]
-                }
-            ]
-        }
+        ]
+        
     },
     "heart_rate": {
         "t_active_period": [
@@ -211,22 +200,19 @@
             ]
         },
         "fiber_architecture": [
-            "aligned"
+            "disarray"
         ],
         "disarray_seed": [
-            42
+            55
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
         ],
-        "disarray_width": [
-            0.0
-        ],
         "theta_rms_deg": [
-            0.0
+            45.0
         ],
         "ell_c": [
-            0.075
+            null
         ]
     },
     "model": {
@@ -657,10 +643,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baselineg/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta45N/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baselineg/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta45N/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
