@@ -674,9 +674,9 @@
             false
         ],
         "frequency_n": [
-            20
+            1
         ],
-        "save_outputs": "all"
+        "save_outputs": "data.csv"
     },
     "debug_mpi": [
         false
