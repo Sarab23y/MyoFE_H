@@ -1,26 +1,43 @@
-# Finer-mesh baseline LV setup
+# Finer mesh baseline setup
 
-- Mesh file: `demos/finer_mesh/ellipsoidal.hdf5`
-- Baseline JSON: `demos/finer_mesh/baseline_15_cycles_no_baroreflex_no_disarray.json`
-
-## Mesh generation source
-This setup uses the repository's finer ellipsoidal mesh artifact produced by the mesh-generation workflow under:
-`python_codes_org/mesh_generation/output_files/HCM_paper/finer_100%/ellipsoidal.hdf5`.
-
-The file is placed at `demos/finer_mesh/ellipsoidal.hdf5` for this demo.
-
-## Run command
-From repository root:
+## 1) Generate the mesh (required)
+Run from repository root:
 
 ```bash
-python MyoFE.py LV_sim demos/finer_mesh/baseline_15_cycles_no_baroreflex_no_disarray.json
+cd python_codes/mesh_generation
+python2 generate_finer_mesh_demo.py
 ```
 
-or:
+This generates:
+
+`demos/finer_mesh/ellipsoidal.hdf5`
+
+using the mesh-generation workflow in `python_codes/mesh_generation` and validates that DOLFIN can read dataset `ellipsoidal`.
+
+## 2) Path checks from launch directory
+If launching from `python_codes`, the JSON path resolves to:
+
+```bash
+cd python_codes
+realpath ../demos/finer_mesh/ellipsoidal.hdf5
+ls -lh ../demos/finer_mesh/ellipsoidal.hdf5
+head -c 8 ../demos/finer_mesh/ellipsoidal.hdf5 | od -An -tx1
+```
+
+Expected HDF5 signature bytes:
+
+`89 48 44 46 0d 0a 1a 0a`
+
+## 3) Validate mesh readable by DOLFIN
+From `python_codes`:
+
+```bash
+python2 ../demos/finer_mesh/validate_finer_mesh.py
+```
+
+## 4) Run baseline simulation
+From repository root:
 
 ```bash
 ./demos/finer_mesh/run_baseline_15_cycles.sh
 ```
-
-## Smoke test
-Create a temporary copy and reduce `protocol.no_of_time_steps` to `10`, then run the same command against that temporary JSON.
