@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            200000
+            20000
         ], 
         "baroreflex": {
             "activations": [
@@ -46,7 +46,7 @@
                         250
                     ], 
                     "t_start_s": [
-                        5
+                        50
                     ]
                 }
             ]
@@ -55,7 +55,7 @@
             "activations": [
                 {
                     "t_start_s": [
-                        20
+                        25
                     ],
                     "t_stop_s": [
                         200000
@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    4.92
+                    0.492
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -531,19 +531,16 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/mme250/gr_paper/final_models/MR_growth_baro_FR/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/finer/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             true
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/mme250/gr_paper/final_models/MR_growth_baro_FR/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/finer/sim_output/data.csv"
         ], 
         "frequency_n": [
             1
-        ], 
-        "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/mme250/gr_paper/final_models/MR_growth_baro_FR/mesh_output/"
         ]
     }, 
     "mesh": {
@@ -757,15 +754,15 @@
         ], 
         "forms_parameters": {
             "passive_law_parameters": {
+                "passive_law": [
+                    "Guccione"
+                ],
                 "bt": [
                     3.58
                 ], 
                 "c": [
                     200
-                ], 
-                "passive_law": [
-                    "semi_structural"
-                ], 
+                ],  
                 "bf": [
                     8.0
                 ], 

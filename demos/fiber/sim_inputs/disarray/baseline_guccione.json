@@ -1,23 +1,12 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            80000
+            15000
         ],
         "time_step": [
             0.001
-        ],
-        "baroreflex": {
-            "activations": [
-                {
-                    "t_stop_s": [
-                        250
-                    ],
-                    "t_start_s": [
-                        5
-                    ]
-                }
-            ]
-        }
+        ]
+        
     },
     "heart_rate": {
         "t_active_period": [
