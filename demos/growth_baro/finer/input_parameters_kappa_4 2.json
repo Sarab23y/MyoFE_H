@@ -540,7 +540,7 @@
             "/mnt/gpfs2_4m/scratch/sba431/demos/finer/sim_output/data.csv"
         ], 
         "frequency_n": [
-            1
+            20
         ]
     }, 
     "mesh": {
