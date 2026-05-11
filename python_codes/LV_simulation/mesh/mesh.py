@@ -37,7 +37,17 @@ class MeshClass():
             
             # Read the mesh into the mesh object
             self.f = HDF5File(mpi_comm_world(), mesh_str, 'r')
-            self.f.read(self.model['mesh'],"ellipsoidal",False)
+            self.mesh_dataset_name = 'ellipsoidal'
+            if ('mesh_dataset_name' in mesh_struct):
+                self.mesh_dataset_name = mesh_struct['mesh_dataset_name'][0]
+            try:
+                self.f.read(self.model['mesh'],self.mesh_dataset_name,False)
+            except RuntimeError:
+                if (self.mesh_dataset_name != 'mesh'):
+                    self.mesh_dataset_name = 'mesh'
+                    self.f.read(self.model['mesh'],self.mesh_dataset_name,False)
+                else:
+                    raise
 
            
         else: 
@@ -192,18 +202,18 @@ class MeshClass():
 
 
 
-            self.f.read(facetboundaries, "ellipsoidal"+"/"+"facetboundaries")
+            self.f.read(facetboundaries, self.mesh_dataset_name+"/"+"facetboundaries")
             # Load these in from f
-            self.f.read(f0,"ellipsoidal/eF")
-            self.f.read(s0,"ellipsoidal/eS")
-            self.f.read(n0,"ellipsoidal/eN")
+            self.f.read(f0,self.mesh_dataset_name+"/eF")
+            self.f.read(s0,self.mesh_dataset_name+"/eS")
+            self.f.read(n0,self.mesh_dataset_name+"/eN")
 
                 #MM for post processing purpusses here we save more data from the mesh
             
 
             try:
-                self.f.read(endo_dist,"ellipsoidal/endo_dist")
-                self.f.read(epi_dist,"ellipsoidal/epi_dist")
+                self.f.read(endo_dist,self.mesh_dataset_name+"/endo_dist")
+                self.f.read(epi_dist,self.mesh_dataset_name+"/epi_dist")
             except:
                 if self.parent_parameters.comm.Get_rank() == 0:
                     print("endo_dist not available in the mesh")
@@ -211,9 +221,9 @@ class MeshClass():
             ## for the old mesh
             #self.f.read(endo_dist,"ellipsoidal/norm_dist_endo")
             
-            self.f.read(ell,"ellipsoidal/eL")
-            self.f.read(err,"ellipsoidal/eR")
-            self.f.read(ecc,"ellipsoidal/eC")
+            self.f.read(ell,self.mesh_dataset_name+"/eL")
+            self.f.read(err,self.mesh_dataset_name+"/eR")
+            self.f.read(ecc,self.mesh_dataset_name+"/eC")
 
             
         else: 
@@ -303,7 +313,7 @@ class MeshClass():
 
         if not predefined_functions:
             try:
-                self.f.read(hsl0, "ellipsoidal" + "/" + "hsl0")
+                self.f.read(hsl0, self.mesh_dataset_name + "/" + "hsl0")
                 # close f
                 self.f.close()
             except:
