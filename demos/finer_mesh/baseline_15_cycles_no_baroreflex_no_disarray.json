@@ -35,7 +35,7 @@
             true
         ],
         "mesh_path": [
-            "demos/finer_mesh/ellipsoidal.hdf5"
+            "../demos/finer_mesh/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -528,10 +528,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "demos/finer_mesh/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/finer/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "demos/finer_mesh/sim_output"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/finer/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
