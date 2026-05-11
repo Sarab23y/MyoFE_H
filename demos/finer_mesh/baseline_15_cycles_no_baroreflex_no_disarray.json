@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            14055
+            15000
         ],
         "time_step": [
             0.001
@@ -35,7 +35,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/finer_mesh/ellipsoidal.hdf5"
+            "../demos/finer_mesh/finer_50%/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
