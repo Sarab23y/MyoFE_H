@@ -32,7 +32,7 @@ Expected HDF5 signature bytes:
 From `python_codes`:
 
 ```bash
-python2 ../demos/finer_mesh/validate_finer_mesh.py
+python2 ../demos/finer_mesh/validate_ellipsoidal_mesh.py
 ```
 
 ## 4) Run baseline simulation
