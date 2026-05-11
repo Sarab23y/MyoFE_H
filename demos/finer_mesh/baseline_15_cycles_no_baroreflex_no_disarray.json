@@ -257,10 +257,7 @@
                     false
                 ]
             }
-        },
-        "mesh_dataset_name": [
-            "ellipsoidal"
-        ]
+        }
     },
     "model": {
         "circulation": {
