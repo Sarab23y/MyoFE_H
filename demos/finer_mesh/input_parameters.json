@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            150000
+            15000
         ],
         "time_step": [
             0.001
@@ -10,7 +10,7 @@
             "activations": [
                 {
                     "t_start_s": [
-                        5
+                        50
                     ],
                     "t_stop_s": [
                         150000
@@ -35,7 +35,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/HCM_paper/simulations_baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
+            "../demos/finer_mesh/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -182,7 +182,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "semi_structural"
+                    "Guccione"
                 ],
                 "c": [
                     200
@@ -411,7 +411,7 @@
                     0.6
                 ],
                 "k_1": [
-                    3.7
+                    0.4
                 ],
                 "k_force": [
                     0.001
@@ -528,28 +528,16 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/mme250/HCM_paper/baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/finer/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/mme250/HCM_paper/baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/finer/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
             "active_stress",
             "active_stress_DG0",
-            "hs_length",
-            "reorienting_angle",
-            "c_param",
-            "c_param_DG0",
-            "fiber_direction",
-            "endo_distance",
-            "cb_number_density_DG0",
-            "cb_number_density",
-            "k_1",
-            "k_1_DG0",
-            "total_stress_vector",
-            "Transverse_Angle",
-            "Helical_Angle"
+            "hs_length"
         ],
         "dumping_spatial_in_average": [
             false
