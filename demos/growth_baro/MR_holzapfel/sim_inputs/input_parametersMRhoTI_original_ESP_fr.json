@@ -531,19 +531,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HO_TI_org/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO_TI_org/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HO_TI_org/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO_TI_org/sim_output/data.csv"
         ], 
         "frequency_n": [
             10
         ],
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/HO_TI_org/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO_TI_org/mesh_output/"
         ]  
     }, 
     "mesh": {
