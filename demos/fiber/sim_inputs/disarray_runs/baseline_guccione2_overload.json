@@ -708,8 +708,7 @@
         ],
         "frequency_n": [
             1
-        ],
-        "save_outputs": "all"
+        ]
     },
     "debug_mpi": [
         false
