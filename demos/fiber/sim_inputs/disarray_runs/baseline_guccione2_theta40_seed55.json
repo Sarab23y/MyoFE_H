@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            150000
+            100000
         ],
         "time_step": [
             0.001
@@ -214,7 +214,7 @@
             "disarray"
         ],
         "disarray_seed": [
-            55
+            11
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
@@ -600,13 +600,13 @@
                             0.0
                         ],
                         "k_drive": [
-                            0.03
+                            0
                         ],
                         "symp_factor": [
-                            5
+                            1
                         ],
                         "para_factor": [
-                            0.2
+                            1
                         ],
                         "variable": [
                             "arterioles_resistance"
