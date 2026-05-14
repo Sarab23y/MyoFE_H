@@ -1,12 +1,56 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            100000
+            50000
         ],
         "time_step": [
             0.001
-        ]
-        
+        ],
+        "perturbation": {
+            "perturbations": [
+                {
+                    "variable": [
+                        "mitral_insufficiency_conductance"
+                    ], 
+                    "t_stop_s": [
+                        30
+                    ], 
+                    "total_change": [
+                        0.005
+                    ], 
+                    "t_start_s": [
+                        20
+                    ], 
+                    "level": [
+                        "circulation"
+                    ]
+                }
+            ]
+        }, 
+        "growth": {
+            "activations": [
+                {
+                    "t_stop_s": [
+                        400
+                    ], 
+                    "t_start_s": [
+                        400
+                    ]
+                }
+            ]
+        },  
+        "baroreflex": {
+            "activations": [
+                {
+                    "t_stop_s": [
+                        250
+                    ], 
+                    "t_start_s": [
+                        5
+                    ]
+                }
+            ]
+        }
     },
     "heart_rate": {
         "t_active_period": [
@@ -24,7 +68,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/fiber/sim_inputs/ellipsoidal_correct_fiber.hdf5"
+            "../demos/HCM_paper/simulations_baseline_final/baseline_final_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -115,7 +159,7 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Guccione"
+                    "Holzapfel"
                 ],
                 "c": [
                     600
@@ -126,19 +170,31 @@
                 "c3": [
                     15.0
                 ],
-                "bf": [
-                    19.0
+                "hbf": [
+                    2.6
                 ],
-                "bt": [
-                    10.0
+                "hbfs": [
+                    0.5
                 ],
-                "bfs": [
-                    5.0
+                "hbs": [
+                    0.54
+                ],
+                "hb": [
+                    0.5
+                ],
+                "a": [
+                    2500.0
+                ],
+                "af": [
+                    1700.0
+                ],
+                "as_": [
+                    0.0
+                ],
+                "afs": [
+                    0.0
                 ],
                 "phi_m": [
-                    1.0
-                ],
-                "phi_g": [
                     1.0
                 ]
             }
@@ -200,7 +256,7 @@
             ]
         },
         "fiber_architecture": [
-            "disarray"
+            "aligned"
         ],
         "disarray_seed": [
             11
@@ -209,7 +265,7 @@
             "lv_midwall_no_apex_no_base"
         ],
         "theta_rms_deg": [
-            50.0
+            0.0
         ],
         "ell_c": [
             null
@@ -229,7 +285,7 @@
                         "aorta"
                     ],
                     "resistance": [
-                        20
+                        25
                     ],
                     "compliance": [
                         0.0004
@@ -589,13 +645,13 @@
                             0.0
                         ],
                         "k_drive": [
-                            0.0
+                            0.03
                         ],
                         "symp_factor": [
-                            1
+                            0.2
                         ],
                         "para_factor": [
-                            1
+                            5
                         ],
                         "variable": [
                             "arterioles_resistance"
@@ -643,10 +699,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta50N/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta50N/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO/sim_output/mesh_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -663,7 +719,7 @@
             false
         ],
         "frequency_n": [
-            20
+            1
         ],
         "save_outputs": "all"
     },
