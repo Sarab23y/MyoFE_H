@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            50000
+            45000
         ], 
         "baroreflex": {
             "activations": [
@@ -532,19 +532,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione5/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione5/sim_output/data.csv"
         ], 
         "frequency_n": [
             10
         ],
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione5/mesh_output/"
         ]  
     }, 
     "mesh": {
@@ -762,7 +762,7 @@
                     "Guccione"
                 ],
                 "c": [
-                    630
+                    624
                 ],
                 "c2": [
                     400
@@ -771,10 +771,10 @@
                     16.0
                 ],
                 "bf": [
-                    13.3
+                    13.4
                 ],
                 "bt": [
-                    8.2
+                    8.4
                 ],
                 "bfs": [
                     4.8
