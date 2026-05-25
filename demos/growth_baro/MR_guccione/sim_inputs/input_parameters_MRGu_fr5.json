@@ -72,89 +72,158 @@
         ], 
         "function_spaces": [
             {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
                 "name": [
                     "stimulusFS"
-                ],
-                "type": [
-                    "scalar"
-                ],
-                "element_type": [
-                    "DG"
-                ],
+                ], 
                 "degree": [
                     1
                 ]
-            },
+            }, 
             {
-                "name": [
-                    "scalar"
-                ],
-                "type": [
-                    "scalar"
-                ],
                 "element_type": [
                     "DG"
-                ],
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "scalar"
+                ], 
                 "degree": [
                     1
                 ]
-            },
+            }, 
             {
-                "name": [
-                    "tensor_space"
-                ],
+                "element_type": [
+                    "DG"
+                ], 
                 "type": [
                     "tensor"
-                ],
-                "element_type": [
-                    "DG"
-                ],
+                ], 
+                "name": [
+                    "tensor_space"
+                ], 
                 "degree": [
                     1
                 ]
-            },
+            }, 
             {
-                "name": [
-                    "material_coord_system_space"
-                ],
+                "element_type": [
+                    "DG"
+                ], 
                 "type": [
-                    "vector"
-                ],
+                    "scalar"
+                ], 
+                "name": [
+                    "growth_scalar_FS"
+                ], 
+                "degree": [
+                    1
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "scalar_for_growth"
+                ], 
+                "degree": [
+                    0
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "scalar_for_active"
+                ], 
+                "degree": [
+                    0
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "tensor"
+                ], 
+                "name": [
+                    "growth_tensor_FS"
+                ], 
+                "degree": [
+                    1
+                ]
+            }, 
+            {
                 "element_type": [
                     "Quadrature"
-                ],
+                ], 
+                "type": [
+                    "vector"
+                ], 
+                "name": [
+                    "material_coord_system_space"
+                ], 
+                "degree": [
+                    2
+                ]
+            }, 
+            {
+                "element_type": [
+                    "Quadrature"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "quadrature_space"
+                ], 
                 "degree": [
                     2
                 ]
             },
             {
+                "name": ["fiber_FS"],
+                "type": ["vector" ],
+                "element_type": ["Quadrature" ],
+                "degree": [2]
+            },
+            {
+                "name": ["scalar_CG"],
+                "type": ["scalar"],
+                "element_type": ["CG"],
+                "degree": [1]
+            },
+            {
                 "name": [
-                    "quadrature_space"
+                    "scalar_DG0"
                 ],
                 "type": [
                     "scalar"
                 ],
                 "element_type": [
-                    "Quadrature"
+                    "DG"
                 ],
                 "degree": [
-                    2
-                ]
-            },
-            {
-                "name": [
-                    "fiber_FS"
-                ],
-                "type": [
-                    "vector"
-                ],
-                "element_type": [
-                    "Quadrature"
-                ],
-                "degree": [
-                    2
+                    0
                 ]
             }
+        
         ],
         "forms_parameters": {
             "passive_law_parameters": {
@@ -228,7 +297,7 @@
                     1e-8
                 ],
                 "max_iter": [
-                    100
+                    300
                 ],
                 "debugging_mode": [
                     false
@@ -247,7 +316,7 @@
             "aligned"
         ],
         "disarray_seed": [
-            11
+            0
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
