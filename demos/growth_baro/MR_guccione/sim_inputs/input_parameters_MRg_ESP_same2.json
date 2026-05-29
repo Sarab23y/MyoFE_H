@@ -532,19 +532,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione_s/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione_M/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione_s/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione_M/sim_output/data.csv"
         ], 
         "frequency_n": [
             10
         ],
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione_s/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione_M/mesh_output/"
         ]  
     }, 
     "mesh": {
@@ -762,19 +762,19 @@
                     "Guccione"
                 ],
                 "c": [
-                    1027
+                    1555
                 ],
                 "c2": [
-                    430
+                    250
                 ],
                 "c3": [
-                    14.0
+                    15.0
                 ],
                 "bf": [
-                    0.23
+                    2.56
                 ],
                 "bt": [
-                    4.785
+                    3.32
                 ],
                 "bfs": [
                     5.0
