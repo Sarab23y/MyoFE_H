@@ -603,13 +603,13 @@
                             0.0
                         ],
                         "k_drive": [
-                            0.0
+                            0.02
                         ],
                         "symp_factor": [
-                            1
+                            2
                         ],
                         "para_factor": [
-                            1
+                            0.5
                         ],
                         "variable": [
                             "arterioles_resistance"
@@ -657,10 +657,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baselinegu/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baseline/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baselinegu/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baseline/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
