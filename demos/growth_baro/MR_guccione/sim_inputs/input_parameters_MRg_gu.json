@@ -10,13 +10,13 @@
                         "mitral_insufficiency_conductance"
                     ], 
                     "t_stop_s": [
-                        600
+                        60
                     ], 
                     "total_change": [
                         0.005
                     ], 
                     "t_start_s": [
-                        500
+                        50
                     ], 
                     "level": [
                         "circulation"
@@ -28,7 +28,7 @@
             "activations": [
                 {
                     "t_stop_s": [
-                        400
+                        40
                     ], 
                     "t_start_s": [
                         400
@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            40000
+            170000
         ], 
         "baroreflex": {
             "activations": [
@@ -253,7 +253,7 @@
                         "aorta"
                     ], 
                     "resistance": [
-                        25
+                        20
                     ]
                 }, 
                 {
@@ -541,8 +541,9 @@
             "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione/sim_output/data.csv"
         ], 
         "frequency_n": [
-            10
+            20
         ],
+        "save_outputs": "all",
         "growth_mesh_path": [
             "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione/mesh_output/"
         ]  
@@ -771,13 +772,13 @@
                     16.0
                 ],
                 "bf": [
-                    8.74
+                    9.74
                 ],
                 "bt": [
                     9.85
                 ],
                 "bfs": [
-                    4.0
+                    6.0
                 ],
                 "phi_m": [
                     1.0
