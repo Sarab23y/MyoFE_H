@@ -541,7 +541,7 @@
             "/mnt/gpfs2_4m/scratch/sba431/demos/Guccione/sim_output/data.csv"
         ], 
         "frequency_n": [
-            10
+            20
         ],
         
         "growth_mesh_path": [
