@@ -528,10 +528,10 @@
     }, 
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baseline4/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta40/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baseline4/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta40/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -581,22 +581,19 @@
             ]
         },
         "fiber_architecture": [
-            "aligned"
+            "disarray"
         ],
         "disarray_seed": [
-            42
+            11
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
         ],
-        "disarray_width": [
-            0.0
-        ],
         "theta_rms_deg": [
-            0.0
+            40.0
         ],
         "ell_c": [
-            0.075
+            null
         ], 
         "function_spaces": [
             {
@@ -796,16 +793,16 @@
                     "Guccione"
                 ],
                 "bt": [
-                    5.8
+                    5.5
                 ], 
                 "c": [
-                    400
+                    370
                 ],  
                 "bf": [
-                    11.0
+                    10.5
                 ], 
                 "bfs": [
-                    3.0
+                    2.8
                 ], 
                 "phi_g": [
                     1.0
@@ -817,7 +814,7 @@
                     250
                 ], 
                 "phi_m": [
-                    1
+                    1.0
                 ]
             }
         }
