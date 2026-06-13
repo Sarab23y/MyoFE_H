@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            60000
+            40000
         ], 
         "baroreflex": {
             "activations": [
@@ -365,7 +365,7 @@
                             0.0
                         ], 
                         "k_drive": [
-                            0.03
+                            0.02
                         ], 
                         "symp_factor": [
                             0.386
@@ -385,13 +385,13 @@
                             0.0
                         ], 
                         "k_drive": [
-                            0.03
+                            0.02
                         ], 
                         "symp_factor": [
-                            5.0
+                            2.0
                         ], 
                         "para_factor": [
-                            0.2
+                            0.5
                         ], 
                         "variable": [
                             "k_act"
@@ -405,13 +405,13 @@
                             0.0
                         ], 
                         "k_drive": [
-                            0.03
+                            0.02
                         ], 
                         "symp_factor": [
-                            5
+                            2
                         ], 
                         "para_factor": [
-                            0.2
+                            0.5
                         ], 
                         "variable": [
                             "k_serca"
@@ -425,13 +425,13 @@
                             0.0
                         ], 
                         "k_drive": [
-                            0.03
+                            0.02
                         ], 
                         "symp_factor": [
-                            5
+                            2
                         ], 
                         "para_factor": [
-                            0.2
+                            0.5
                         ], 
                         "variable": [
                             "k_1"
@@ -445,7 +445,7 @@
                             0.0
                         ], 
                         "k_drive": [
-                            0.03
+                            0.02
                         ], 
                         "symp_factor": [
                             0.5
@@ -465,13 +465,13 @@
                             0.0
                         ], 
                         "k_drive": [
-                            0.0
+                            0.02
                         ], 
                         "symp_factor": [
-                            1
+                            2.0
                         ], 
                         "para_factor": [
-                            1
+                            0.5
                         ], 
                         "variable": [
                             "arterioles_resistance"
@@ -485,13 +485,13 @@
                             0.0
                         ], 
                         "k_drive": [
-                            0.03
+                            0.02
                         ], 
                         "symp_factor": [
-                            0.2
+                            0.25
                         ], 
                         "para_factor": [
-                            5
+                            4
                         ], 
                         "variable": [
                             "veins_compliance"
