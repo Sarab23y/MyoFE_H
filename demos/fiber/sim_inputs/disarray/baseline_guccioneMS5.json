@@ -362,10 +362,10 @@
                             "heart_rate"
                         ], 
                         "k_recov": [
-                            0.0
+                            0.005
                         ], 
                         "k_drive": [
-                            0.03
+                            0.018
                         ], 
                         "symp_factor": [
                             0.386
@@ -382,16 +382,16 @@
                             "membranes"
                         ], 
                         "k_recov": [
-                            0.0
+                            0.005
                         ], 
                         "k_drive": [
-                            0.03
+                            0.018
                         ], 
                         "symp_factor": [
-                            5.0
+                            1.8
                         ], 
                         "para_factor": [
-                            0.2
+                            0.56
                         ], 
                         "variable": [
                             "k_act"
@@ -402,16 +402,16 @@
                             "membranes"
                         ], 
                         "k_recov": [
-                            0.0
+                            0.005
                         ], 
                         "k_drive": [
-                            0.03
+                            0.018
                         ], 
                         "symp_factor": [
-                            5
+                            1.8
                         ], 
                         "para_factor": [
-                            0.2
+                            0.56
                         ], 
                         "variable": [
                             "k_serca"
@@ -422,16 +422,16 @@
                             "myofilaments"
                         ], 
                         "k_recov": [
-                            0.0
+                            0.005
                         ], 
                         "k_drive": [
-                            0.03
+                            0.018
                         ], 
                         "symp_factor": [
-                            5
+                            1.8
                         ], 
                         "para_factor": [
-                            0.2
+                            0.56
                         ], 
                         "variable": [
                             "k_1"
@@ -442,16 +442,16 @@
                             "myofilaments"
                         ], 
                         "k_recov": [
-                            0.0
+                            0.003
                         ], 
                         "k_drive": [
-                            0.03
+                            0.01
                         ], 
                         "symp_factor": [
-                            0.5
+                            1.3
                         ], 
                         "para_factor": [
-                            2
+                            0.77
                         ], 
                         "variable": [
                             "k_on"
@@ -462,16 +462,16 @@
                             "circulation"
                         ], 
                         "k_recov": [
-                            0.0
+                            0.004
                         ], 
                         "k_drive": [
-                            0.0
+                            0.012
                         ], 
                         "symp_factor": [
-                            1
+                            1.5
                         ], 
                         "para_factor": [
-                            1
+                            0.67
                         ], 
                         "variable": [
                             "arterioles_resistance"
@@ -482,16 +482,16 @@
                             "circulation"
                         ], 
                         "k_recov": [
-                            0.0
+                            0.004
                         ], 
                         "k_drive": [
-                            0.03
+                            0.012
                         ], 
                         "symp_factor": [
-                            0.2
+                            1.4
                         ], 
                         "para_factor": [
-                            5
+                            0.71
                         ], 
                         "variable": [
                             "veins_compliance"
