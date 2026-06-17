@@ -10,13 +10,13 @@
                         "mitral_insufficiency_conductance"
                     ], 
                     "t_stop_s": [
-                        30
+                        300
                     ], 
                     "total_change": [
                         0.002
                     ], 
                     "t_start_s": [
-                        20
+                        200
                     ], 
                     "level": [
                         "circulation"
@@ -532,19 +532,19 @@
             
         ], 
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/HO_M/sim_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO/sim_output/"
         ], 
         "dumping_spatial_in_average": [
             false
         ], 
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/HO_M/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO/sim_output/data.csv"
         ], 
         "frequency_n": [
             10
         ],
         "growth_mesh_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/HO_M/mesh_output/"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/HO/mesh_output/"
         ]  
     }, 
     "mesh": {
