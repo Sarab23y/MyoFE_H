@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    5.15
+                    4.92
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -365,7 +365,7 @@
                             0.005
                         ], 
                         "k_drive": [
-                            0.018
+                            0.017
                         ], 
                         "symp_factor": [
                             0.386
@@ -528,10 +528,10 @@
     }, 
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta35/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS5hr/theta45/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta35/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS5hr/theta45/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -590,7 +590,7 @@
             "lv_midwall_no_apex_no_base"
         ],
         "theta_rms_deg": [
-            35.0
+            45.0
         ],
         "ell_c": [
             null

@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    5.15
+                    4.92
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -465,13 +465,13 @@
                             0.004
                         ], 
                         "k_drive": [
-                            0.012
+                            0.01
                         ], 
                         "symp_factor": [
-                            1.5
+                            1.3
                         ], 
                         "para_factor": [
-                            0.67
+                            0.77
                         ], 
                         "variable": [
                             "arterioles_resistance"
@@ -528,10 +528,10 @@
     }, 
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta35/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS5R/baseline5/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/theta35/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS5R/baseline5/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -581,19 +581,22 @@
             ]
         },
         "fiber_architecture": [
-            "disarray"
+            "aligned"
         ],
         "disarray_seed": [
-            11
+            42
         ],
         "disarray_region_mask": [
             "lv_midwall_no_apex_no_base"
         ],
+        "disarray_width": [
+            0.0
+        ],
         "theta_rms_deg": [
-            35.0
+            0.0
         ],
         "ell_c": [
-            null
+            0.075
         ], 
         "function_spaces": [
             {
@@ -812,7 +815,7 @@
                 ], 
                 "c2": [
                     250
-                ], 
+                ],
                 "phi_m": [
                     1.0
                 ]
