@@ -365,7 +365,7 @@
                             0.005
                         ], 
                         "k_drive": [
-                            0.017
+                            0.0165
                         ], 
                         "symp_factor": [
                             0.386
@@ -385,7 +385,7 @@
                             0.005
                         ], 
                         "k_drive": [
-                            0.018
+                            0.0185
                         ], 
                         "symp_factor": [
                             1.8
@@ -405,7 +405,7 @@
                             0.005
                         ], 
                         "k_drive": [
-                            0.018
+                            0.0185
                         ], 
                         "symp_factor": [
                             1.8
@@ -425,7 +425,7 @@
                             0.005
                         ], 
                         "k_drive": [
-                            0.018
+                            0.0185
                         ], 
                         "symp_factor": [
                             1.8
@@ -465,13 +465,13 @@
                             0.004
                         ], 
                         "k_drive": [
-                            0.011
+                            0.0115
                         ], 
                         "symp_factor": [
-                            1.4
+                            1.45
                         ], 
                         "para_factor": [
-                            0.71
+                            0.69
                         ], 
                         "variable": [
                             "arterioles_resistance"
@@ -488,10 +488,10 @@
                             0.011
                         ], 
                         "symp_factor": [
-                            1.4
+                            1.35
                         ], 
                         "para_factor": [
-                            0.71
+                            0.74
                         ], 
                         "variable": [
                             "veins_compliance"
@@ -528,10 +528,10 @@
     }, 
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS7/theta45/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/theta50/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS7/theta45/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/theta50/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -590,7 +590,7 @@
             "lv_midwall_no_apex_no_base"
         ],
         "theta_rms_deg": [
-            45.0
+            50.0
         ],
         "ell_c": [
             null

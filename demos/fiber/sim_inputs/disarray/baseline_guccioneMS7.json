@@ -365,7 +365,7 @@
                             0.005
                         ], 
                         "k_drive": [
-                            0.018
+                            0.017
                         ], 
                         "symp_factor": [
                             0.386
@@ -382,16 +382,16 @@
                             "membranes"
                         ], 
                         "k_recov": [
-                            0.006
+                            0.005
                         ], 
                         "k_drive": [
-                            0.015
+                            0.018
                         ], 
                         "symp_factor": [
-                            1.6
+                            1.8
                         ], 
                         "para_factor": [
-                            0.625
+                            0.56
                         ], 
                         "variable": [
                             "k_act"
@@ -402,16 +402,16 @@
                             "membranes"
                         ], 
                         "k_recov": [
-                            0.006
+                            0.005
                         ], 
                         "k_drive": [
-                            0.015
+                            0.018
                         ], 
                         "symp_factor": [
-                            1.6
+                            1.8
                         ], 
                         "para_factor": [
-                            0.625
+                            0.56
                         ], 
                         "variable": [
                             "k_serca"
@@ -422,16 +422,16 @@
                             "myofilaments"
                         ], 
                         "k_recov": [
-                            0.006
+                            0.005
                         ], 
                         "k_drive": [
-                            0.015
+                            0.018
                         ], 
                         "symp_factor": [
-                            1.6
+                            1.8
                         ], 
                         "para_factor": [
-                            0.625
+                            0.56
                         ], 
                         "variable": [
                             "k_1"
@@ -465,14 +465,14 @@
                             0.004
                         ], 
                         "k_drive": [
-                            0.012
+                            0.011
                         ], 
                         "symp_factor": [
-                            1.5
+                            1.4
                         ], 
                         "para_factor": [
-                            0.67
-                        ], 
+                            0.71
+                        ],
                         "variable": [
                             "arterioles_resistance"
                         ]
@@ -485,7 +485,7 @@
                             0.004
                         ], 
                         "k_drive": [
-                            0.012
+                            0.011
                         ], 
                         "symp_factor": [
                             1.4
@@ -528,10 +528,10 @@
     }, 
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baseline7/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS7/baseline7/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/baseline7/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MS7/baseline7/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
