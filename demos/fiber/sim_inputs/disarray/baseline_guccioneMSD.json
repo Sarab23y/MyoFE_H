@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    5.40
+                    5.30
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -186,7 +186,7 @@
                     0.01
                 ], 
                 "k_act": [
-                    0.0830
+                    0.0820
                 ], 
                 "implementation": {
                     "kinetic_scheme": [
@@ -197,7 +197,7 @@
                     0.0006
                 ], 
                 "k_serca": [
-                    8.05
+                    7.95
                 ], 
                 "Ca_content": [
                     0.001
@@ -528,10 +528,10 @@
     }, 
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/baseline7/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/baselineD/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/baseline7/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/baselineD/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
