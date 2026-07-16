@@ -37,7 +37,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            30000
+            60000
         ], 
         "baroreflex": {
             "activations": [
@@ -101,7 +101,7 @@
                     0.001
                 ], 
                 "k_1": [
-                    5.40
+                    5.15
                 ], 
                 "ext_passive_exp_L": [
                     70
@@ -186,7 +186,7 @@
                     0.01
                 ], 
                 "k_act": [
-                    0.0830
+                    0.0806
                 ], 
                 "implementation": {
                     "kinetic_scheme": [
@@ -197,7 +197,7 @@
                     0.0006
                 ], 
                 "k_serca": [
-                    8.05
+                    7.866
                 ], 
                 "Ca_content": [
                     0.001
@@ -448,10 +448,10 @@
                             0.01
                         ], 
                         "symp_factor": [
-                            1.3
+                            0.67
                         ], 
                         "para_factor": [
-                            0.77
+                            1.5
                         ], 
                         "variable": [
                             "k_on"
@@ -488,10 +488,10 @@
                             0.012
                         ], 
                         "symp_factor": [
-                            1.4
+                            0.5
                         ], 
                         "para_factor": [
-                            0.71
+                            2.0
                         ], 
                         "variable": [
                             "veins_compliance"
