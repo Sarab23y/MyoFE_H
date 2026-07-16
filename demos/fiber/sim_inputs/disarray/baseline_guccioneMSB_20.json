@@ -448,10 +448,10 @@
                             0.01
                         ], 
                         "symp_factor": [
-                            1.3
+                            0.77
                         ], 
                         "para_factor": [
-                            0.77
+                            1.3
                         ], 
                         "variable": [
                             "k_on"
