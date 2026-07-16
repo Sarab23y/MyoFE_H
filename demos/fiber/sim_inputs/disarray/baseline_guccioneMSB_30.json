@@ -488,10 +488,10 @@
                             0.012
                         ], 
                         "symp_factor": [
-                            1.4
+                            0.71
                         ], 
                         "para_factor": [
-                            0.71
+                            1.4
                         ], 
                         "variable": [
                             "veins_compliance"
