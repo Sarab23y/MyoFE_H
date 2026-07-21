@@ -472,7 +472,7 @@
                         ], 
                         "para_factor": [
                             0.87
-                        ], 
+                        ],
                         "variable": [
                             "arterioles_resistance"
                         ]
@@ -528,10 +528,10 @@
     }, 
     "output_handler": {
         "output_data_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/theta35/data.csv"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/theta20/data.csv"
         ],
         "mesh_output_path": [
-            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/theta35/mesh_output_disarray"
+            "/mnt/gpfs2_4m/scratch/sba431/demos/fiber/sim_output/MSC/theta20/mesh_output_disarray"
         ],
         "mesh_object_to_save": [
             "displacement",
@@ -590,11 +590,11 @@
             "lv_midwall_no_apex_no_base"
         ],
         "theta_rms_deg": [
-            35.0
+            20.0
         ],
         "ell_c": [
             null
-        ], 
+        ],
         "function_spaces": [
             {
                 "element_type": [
@@ -812,7 +812,7 @@
                 ], 
                 "c2": [
                     250
-                ], 
+                ],
                 "phi_m": [
                     1.0
                 ]
