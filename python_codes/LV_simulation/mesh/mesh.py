@@ -206,6 +206,10 @@ class MeshClass():
                     fcn_spaces[fs['name'][0]] = \
                         TensorFunctionSpace(self.model['mesh'], fs['element_type'][0],
                                         degree = fs['degree'][0])
+                else:
+                    raise ValueError(
+                        "Unsupported function space type: %s for %s" %
+                        (fs['type'][0], fs['name'][0]))
                 # now define function spaces over defined finite elements
                 if not fs['type'][0] == 'tensor':
                     fcn_spaces[fs['name'][0]] = FunctionSpace(self.model['mesh'],finite_element)
