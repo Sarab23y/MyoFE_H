@@ -38,6 +38,12 @@
                 "degree": [1]
             },
             {
+                "name":["tensor_space"],
+                "type":["tensor"],
+                "element_type":["DG"],
+                "degree": [1]
+            },
+            {
                 "name":["growth_tensor_space"],
                 "type":["tensor"],
                 "element_type":["DG"],
