@@ -1,13 +1,13 @@
 {
     "protocol":
     {
-        "no_of_time_steps": [1000],
+        "no_of_time_steps": [2500],
         "time_step": [0.001],
         "baroreflex": 
         {
             "activations": [
                 {
-                    "t_start_s": [20],
+                    "t_start_s": [5],
                     "t_stop_s": [40]
                 }
             ]
@@ -16,13 +16,13 @@
     },
     "heart_rate": {
         "t_active_period": [0.003],
-        "t_quiescent_period": [0.854],
-        "t_first_activation": [0.5]
+        "t_quiescent_period": [0.92],
+        "t_first_activation": [0.2]
     },
     "mesh":
     {
         "relative_path": [true],
-        "mesh_path":["../demos/base/sim_inputs/ellipsoidal_degree_2_new.hdf5"],
+        "mesh_path":["../demos/base/sim_inputs/ellipsoidal_correct_fiber.hdf5"],
         "function_spaces":
         [
             {
