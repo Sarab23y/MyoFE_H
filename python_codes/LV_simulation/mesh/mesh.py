@@ -13,6 +13,34 @@ from ..dependencies.forms import Forms
 from ..dependencies.nsolver import NSolver#from ..dependencies.assign_heterogeneous_params import assign_heterogeneous_params as assign_params
 from ..dependencies.assign_heterogeneous_params import assign_heterogeneous_params 
 
+
+HO_PARAMETER_NAMES = ('a', 'b', 'a_f', 'b_f', 'a_s', 'b_s', 'a_fs', 'b_fs')
+
+
+def validate_passive_law_parameters(passive_params, tolerance=1.0e-8):
+    """Validate scalar HO inputs before creating distributed Functions."""
+    missing = [name for name in HO_PARAMETER_NAMES + ('phi_m', 'phi_c', 'phi_g')
+               if name not in passive_params]
+    if missing:
+        raise ValueError("Missing Holzapfel-Ogden passive-law parameters: %s" %
+                         ", ".join(missing))
+
+    fractions = {}
+    for name in ('phi_m', 'phi_c', 'phi_g'):
+        value = float(passive_params[name][0])
+        fractions[name] = value
+        if value < 0.0 or value > 1.0:
+            raise ValueError("%s must satisfy 0 <= %s <= 1; supplied %s" %
+                             (name, name, value))
+    fraction_sum = sum(fractions.values())
+    if abs(fraction_sum - 1.0) > tolerance:
+        raise ValueError(
+            "Constituent fractions must satisfy phi_m + phi_c + phi_g = 1 "
+            "(within %s); supplied phi_m=%s, phi_c=%s, phi_g=%s, sum=%s" %
+            (tolerance, fractions['phi_m'], fractions['phi_c'],
+             fractions['phi_g'], fraction_sum))
+
+
 class MeshClass():
 
     def __init__(self,parent_parameters,
@@ -30,7 +58,35 @@ class MeshClass():
         self.data = dict()
 
         if not predefined_mesh:
-            mesh_str = os.path.join(os.getcwd(),mesh_struct['mesh_path'][0])
+            configured_mesh_path = mesh_struct['mesh_path'][0]
+            current_working_directory = os.getcwd()
+            mesh_str = os.path.abspath(
+                os.path.join(current_working_directory, configured_mesh_path))
+
+            if MPI.rank(mpi_comm_world()) == 0:
+                print "CWD:", current_working_directory
+                print "mesh_path from JSON:", configured_mesh_path
+                print "resolved mesh path:", mesh_str
+                print "mesh exists:", os.path.exists(mesh_str)
+                if os.path.exists(mesh_str):
+                    print "mesh size:", os.path.getsize(mesh_str)
+
+            if not os.path.exists(mesh_str):
+                raise IOError(
+                    "Configured mesh file does not exist. JSON mesh_path: %s; "
+                    "resolved absolute path: %s; current working directory: %s" %
+                    (configured_mesh_path, mesh_str,
+                     current_working_directory))
+
+            with open(mesh_str, 'rb') as mesh_file:
+                mesh_header = mesh_file.read(64)
+            if mesh_header.startswith(
+                    b"version https://git-lfs.github.com/spec/v1"):
+                raise IOError(
+                    "The configured mesh file is a Git LFS pointer, not the "
+                    "actual HDF5 mesh. Run git lfs pull or copy the real mesh "
+                    "file to LCC. JSON mesh_path: %s; resolved absolute path: %s" %
+                    (configured_mesh_path, mesh_str))
         
             self.model['mesh'] = Mesh()
             
@@ -227,6 +283,8 @@ class MeshClass():
         # Initializing passive parameters as functions, in the case of introducing
         # heterogeneity later
         dolfin_functions = {}
+        validate_passive_law_parameters(
+            mesh_struct["forms_parameters"]["passive_law_parameters"])
         dolfin_functions["passive_params"] = \
             mesh_struct["forms_parameters"]["passive_law_parameters"]
         
