@@ -22,7 +22,7 @@
     "mesh":
     {
         "relative_path": [true],
-        "mesh_path":["../demos/HCM_paper/simulations_baseline_final/baseline_final_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"],
+        "mesh_path":["/home/sba431/MyoFE_H/demos/HCM_paper/simulations_baseline_final/baseline_final_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"],
         "function_spaces":
         [
             {
