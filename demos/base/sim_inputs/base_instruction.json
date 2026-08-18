@@ -59,15 +59,18 @@
         "forms_parameters": 
         {
             "passive_law_parameters": {
-              "passive_law": ["semi_structural"],
-              "c": [200],
-              "c2": [250],
-              "c3": [15.0],
-              "bf": [8.0],
-              "bt": [3.58],
-              "bfs": [1.627],
+              "passive_law": ["Holzapfel-Ogden"],
+              "a": [2500.0],
+              "b": [0.5],
+              "a_f": [1700.0],
+              "b_f": [2.6],
+              "a_s": [650.0],
+              "b_s": [0.54],
+              "a_fs": [470.0],
+              "b_fs": [0.5],
               "phi_m": [1.0],
-              "phi_g": [1.0]
+              "phi_c": [0.0],
+              "phi_g": [0.0]
             }
           }
     },

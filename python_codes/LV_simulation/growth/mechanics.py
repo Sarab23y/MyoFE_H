@@ -10,6 +10,7 @@ import json
 from dolfin import *
 import os
 from ..dependencies.forms import Forms
+from ..mesh.mesh import validate_passive_law_parameters
 
 class GrowthMechanicsClass():
 
@@ -175,6 +176,8 @@ class GrowthMechanicsClass():
         # Initializing passive parameters as functions, in the case of introducing
         # heterogeneity later
         dolfin_functions = {}
+        validate_passive_law_parameters(
+            mesh_struct["forms_parameters"]["passive_law_parameters"])
         dolfin_functions["passive_params"] = \
             mesh_struct["forms_parameters"]["passive_law_parameters"]
         dolfin_functions["cb_number_density"] = \
@@ -559,4 +562,4 @@ class GrowthMechanicsClass():
 
         return cb_stress
     
-    
+
