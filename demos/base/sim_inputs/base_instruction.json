@@ -32,7 +32,7 @@
                 "degree": [1]
             },
             {
-                "name":["scaler"],
+                "name":["scalar"],
                 "type":["scalar"],
                 "element_type":["DG"],
                 "degree": [1]
