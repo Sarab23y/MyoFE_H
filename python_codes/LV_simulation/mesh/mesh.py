@@ -58,7 +58,35 @@ class MeshClass():
         self.data = dict()
 
         if not predefined_mesh:
-            mesh_str = os.path.join(os.getcwd(),mesh_struct['mesh_path'][0])
+            configured_mesh_path = mesh_struct['mesh_path'][0]
+            current_working_directory = os.getcwd()
+            mesh_str = os.path.abspath(
+                os.path.join(current_working_directory, configured_mesh_path))
+
+            if MPI.rank(mpi_comm_world()) == 0:
+                print "CWD:", current_working_directory
+                print "mesh_path from JSON:", configured_mesh_path
+                print "resolved mesh path:", mesh_str
+                print "mesh exists:", os.path.exists(mesh_str)
+                if os.path.exists(mesh_str):
+                    print "mesh size:", os.path.getsize(mesh_str)
+
+            if not os.path.exists(mesh_str):
+                raise IOError(
+                    "Configured mesh file does not exist. JSON mesh_path: %s; "
+                    "resolved absolute path: %s; current working directory: %s" %
+                    (configured_mesh_path, mesh_str,
+                     current_working_directory))
+
+            with open(mesh_str, 'rb') as mesh_file:
+                mesh_header = mesh_file.read(64)
+            if mesh_header.startswith(
+                    b"version https://git-lfs.github.com/spec/v1"):
+                raise IOError(
+                    "The configured mesh file is a Git LFS pointer, not the "
+                    "actual HDF5 mesh. Run git lfs pull or copy the real mesh "
+                    "file to LCC. JSON mesh_path: %s; resolved absolute path: %s" %
+                    (configured_mesh_path, mesh_str))
         
             self.model['mesh'] = Mesh()
             
