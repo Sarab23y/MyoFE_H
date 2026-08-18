@@ -1,13 +1,13 @@
 {
     "protocol":
     {
-        "no_of_time_steps": [1000],
+        "no_of_time_steps": [25000],
         "time_step": [0.001],
         "baroreflex": 
         {
             "activations": [
                 {
-                    "t_start_s": [20],
+                    "t_start_s": [5],
                     "t_stop_s": [40]
                 }
             ]
@@ -16,13 +16,13 @@
     },
     "heart_rate": {
         "t_active_period": [0.003],
-        "t_quiescent_period": [0.854],
-        "t_first_activation": [0.5]
+        "t_quiescent_period": [0.92],
+        "t_first_activation": [0.2]
     },
     "mesh":
     {
         "relative_path": [true],
-        "mesh_path":["../demos/base/sim_inputs/ellipsoidal_degree_2_new.hdf5"],
+        "mesh_path":["../demos/base/sim_inputs/ellipsoidal.hdf5"],
         "function_spaces":
         [
             {
@@ -266,8 +266,8 @@
     },
     "output_handler":
     {
-        "output_data_path": ["../demos/base/sim_output/data.csv"],
-        "mesh_output_path": ["../demos/base/sim_output/mesh_output"],
+        "output_data_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base/sim_output/data.csv"],
+        "mesh_output_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base/mesh_output"],
         "mesh_object_to_save":
         [
             "displacement",
