@@ -5,24 +5,23 @@ import sys
 ## function to iterate through nested dictionaries and convert unicode values to
 # python strings
 def recode(json_input_dict):
-    """
-    Recursively convert unicode strings to byte strings for Python 2 code paths.
+    #print json_input_dict.values()
+    for v in json_input_dict.values():
+        
+        if type(v) is dict:
+            recode(v)
+        else:
+            # This works for a dictionary without dictionary values nested
+            #for v in json_input_dict.values():
 
-    This handles nested dict/list/scalar structures safely, including list items
-    that are plain unicode values (e.g. "save_outputs": "all").
-    """
-    if isinstance(json_input_dict, dict):
-        for key, value in json_input_dict.items():
-            json_input_dict[key] = recode(value)
-        return json_input_dict
+            counter = 0
+            for j in v:
 
-    if isinstance(json_input_dict, list):
-        for idx, item in enumerate(json_input_dict):
-            json_input_dict[idx] = recode(item)
-        return json_input_dict
+                if type(j) is unicode:
+                    rcj = _byteify(j)
+                    v[counter] = rcj
 
-    if isinstance(json_input_dict, unicode):
-        return _byteify(json_input_dict)
+                counter +=1
 
     return json_input_dict
 

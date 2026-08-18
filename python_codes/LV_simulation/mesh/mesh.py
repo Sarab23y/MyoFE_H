@@ -7,7 +7,6 @@ Created on Mon Jan 10 11:15:59 2022
 from pyclbr import Function
 import numpy as np
 import json
-from mpi4py import MPI
 from dolfin import *
 import os
 from ..dependencies.forms import Forms
@@ -29,7 +28,7 @@ class MeshClass():
 
         self.model = dict()
         self.data = dict()
-        
+
         if not predefined_mesh:
             mesh_str = os.path.join(os.getcwd(),mesh_struct['mesh_path'][0])
         
@@ -37,17 +36,7 @@ class MeshClass():
             
             # Read the mesh into the mesh object
             self.f = HDF5File(mpi_comm_world(), mesh_str, 'r')
-            self.mesh_dataset_name = 'ellipsoidal'
-            if ('mesh_dataset_name' in mesh_struct):
-                self.mesh_dataset_name = mesh_struct['mesh_dataset_name'][0]
-            try:
-                self.f.read(self.model['mesh'],self.mesh_dataset_name,False)
-            except RuntimeError:
-                if (self.mesh_dataset_name != 'mesh'):
-                    self.mesh_dataset_name = 'mesh'
-                    self.f.read(self.model['mesh'],self.mesh_dataset_name,False)
-                else:
-                    raise
+            self.f.read(self.model['mesh'],"ellipsoidal",False)
 
            
         else: 
@@ -63,6 +52,7 @@ class MeshClass():
         self.no_of_cells = len(subdomains.array())
         #print "no of cells"
         #print self.no_of_cells
+
         
 
         self.model['function_spaces'] = self.initialize_function_spaces(mesh_struct)
@@ -202,28 +192,27 @@ class MeshClass():
 
 
 
-            self.f.read(facetboundaries, self.mesh_dataset_name+"/"+"facetboundaries")
+            self.f.read(facetboundaries, "ellipsoidal"+"/"+"facetboundaries")
             # Load these in from f
-            self.f.read(f0,self.mesh_dataset_name+"/eF")
-            self.f.read(s0,self.mesh_dataset_name+"/eS")
-            self.f.read(n0,self.mesh_dataset_name+"/eN")
+            self.f.read(f0,"ellipsoidal/eF")
+            self.f.read(s0,"ellipsoidal/eS")
+            self.f.read(n0,"ellipsoidal/eN")
 
                 #MM for post processing purpusses here we save more data from the mesh
             
 
             try:
-                self.f.read(endo_dist,self.mesh_dataset_name+"/endo_dist")
-                self.f.read(epi_dist,self.mesh_dataset_name+"/epi_dist")
+                self.f.read(endo_dist,"ellipsoidal/endo_dist")
+                self.f.read(epi_dist,"ellipsoidal/epi_dist")
             except:
-                if self.parent_parameters.comm.Get_rank() == 0:
-                    print("endo_dist not available in the mesh")
+                print("endo_dist not available in the mesh")
 
             ## for the old mesh
             #self.f.read(endo_dist,"ellipsoidal/norm_dist_endo")
             
-            self.f.read(ell,self.mesh_dataset_name+"/eL")
-            self.f.read(err,self.mesh_dataset_name+"/eR")
-            self.f.read(ecc,self.mesh_dataset_name+"/eC")
+            self.f.read(ell,"ellipsoidal/eL")
+            self.f.read(err,"ellipsoidal/eR")
+            self.f.read(ecc,"ellipsoidal/eC")
 
             
         else: 
@@ -231,6 +220,9 @@ class MeshClass():
             f0 = predefined_functions['f0']
             s0 = predefined_functions['s0']
             n0 = predefined_functions['n0']
+
+
+        
 
         # Initializing passive parameters as functions, in the case of introducing
         # heterogeneity later
@@ -267,8 +259,6 @@ class MeshClass():
 
         ##MM in the general form there used to be more inputs for below function, but for LV het modeling only below inputs are needed
         dolfin_functions = het_class.assign_heterogeneous_params(dolfin_functions,self.no_of_cells,endo_dist,xq)
-
-        self.apply_static_fiber_architecture(mesh_struct, f0, s0, n0, dolfin_functions=dolfin_functions)
        
         ### infarct note: for chronic infarcts we apply it here as material is alterred but for acute infarcts it is applied fin protocol and uses handle_infarct function in the main code
         # as acute infacrt is like a purtubation and can be applied after few normal cycles
@@ -313,7 +303,7 @@ class MeshClass():
 
         if not predefined_functions:
             try:
-                self.f.read(hsl0, self.mesh_dataset_name + "/" + "hsl0")
+                self.f.read(hsl0, "ellipsoidal" + "/" + "hsl0")
                 # close f
                 self.f.close()
             except:
@@ -402,345 +392,15 @@ class MeshClass():
 
         functions["passive_total_stress"] =passive_total_stress
 
+        Pactive = Function(self.model['function_spaces']['quadrature_space'])
+        functions["Pactive"] = Pactive
+
         functions["Ell"] =Ell
         functions["Ecc"] =Ecc
         functions["Err"] =Err
 
 
         return functions
-
-    def _get_mpi4py_comm(self):
-        if hasattr(self.parent_parameters, 'comm') and                 hasattr(self.parent_parameters.comm, 'allreduce'):
-            return self.parent_parameters.comm
-        if hasattr(self.comm, 'tompi4py'):
-            return self.comm.tompi4py()
-        return None
-
-    def _global_mean_std(self, values, mask):
-        mpi_comm = self._get_mpi4py_comm()
-        selected = values[mask]
-        local_n = float(len(selected))
-        local_sum = float(np.sum(selected))
-        local_sumsq = float(np.sum(selected*selected))
-
-        if mpi_comm is not None:
-            global_n = mpi_comm.allreduce(local_n)
-            global_sum = mpi_comm.allreduce(local_sum)
-            global_sumsq = mpi_comm.allreduce(local_sumsq)
-        else:
-            global_n = local_n
-            global_sum = local_sum
-            global_sumsq = local_sumsq
-
-        if global_n <= 0:
-            return 0.0, 0.0
-        mean = global_sum/global_n
-        var = max(global_sumsq/global_n - mean*mean, 0.0)
-        return mean, np.sqrt(var)
-
-    def _build_disarray_mask(self, local_points, mesh_struct, dolfin_functions=None):
-        mask_mode = 'auto'
-        if 'disarray_region_mask' in mesh_struct:
-            mask_mode = mesh_struct['disarray_region_mask'][0]
-
-        if mask_mode == 'all':
-            return np.ones(local_points, dtype=bool)
-
-        if mask_mode in ['mid_ventricle', 'mid_ventricle_all_gauss', 'lv_midwall_no_apex_no_base']:
-            qcoords = self.model['function_spaces']['quadrature_space'].tabulate_dof_coordinates().reshape((-1, 3))
-            z_local = qcoords[:local_points, 2]
-            if len(z_local) == 0:
-                return np.zeros(local_points, dtype=bool)
-
-            mpi_comm = self._get_mpi4py_comm()
-            zmin_local = float(np.min(z_local))
-            zmax_local = float(np.max(z_local))
-            if mpi_comm is not None:
-                zmin_global = min(mpi_comm.allgather(zmin_local))
-                zmax_global = max(mpi_comm.allgather(zmax_local))
-            else:
-                zmin_global = zmin_local
-                zmax_global = zmax_local
-
-            zspan = max(zmax_global - zmin_global, 1e-12)
-            zrel = (z_local - zmin_global)/zspan
-            if mask_mode == 'lv_midwall_no_apex_no_base':
-                # Exclude apex (zeta < 0.10) and base (zeta > 0.90)
-                return np.array((zrel >= 0.10) & (zrel <= 0.90), dtype=bool)
-            # Keep middle third of LV long axis as mid-ventricle region
-            return np.array((zrel >= (1.0/3.0)) & (zrel <= (2.0/3.0)), dtype=bool)
-
-        if (mask_mode in ['auto', 'active_only']) and dolfin_functions is not None:
-            if 'cb_number_density' in dolfin_functions and                     len(dolfin_functions['cb_number_density']) > 0 and                     isinstance(dolfin_functions['cb_number_density'][-1], Function):
-                cb_local = dolfin_functions['cb_number_density'][-1].vector().get_local()[:]
-                if len(cb_local) >= local_points:
-                    return np.array(cb_local[:local_points] > 0.0, dtype=bool)
-
-        return np.ones(local_points, dtype=bool)
-
-    def _generate_correlated_field(self, ell_c, seed, n_local):
-        rng = np.random.RandomState(seed)
-        cg_space = FunctionSpace(self.model['mesh'], 'CG', 1)
-        xi = Function(cg_space)
-        xi_local = xi.vector().get_local()[:]
-        xi_local[:] = rng.normal(0.0, 1.0, len(xi_local))
-        xi.vector().set_local(xi_local)
-        as_backend_type(xi.vector()).update_ghost_values()
-
-        u = TrialFunction(cg_space)
-        v = TestFunction(cg_space)
-        a = (u*v + (ell_c**2)*dot(grad(u), grad(v)))*dx
-        L = xi*v*dx
-        eps_field = Function(cg_space)
-        solve(a == L, eps_field)
-
-        eps_q = project(eps_field, self.model['function_spaces']['quadrature_space'])
-        local = eps_q.vector().get_local()[:]
-        if len(local) < n_local:
-            out = np.zeros(n_local)
-            out[:len(local)] = local
-            return out
-        return local[:n_local]
-
-    def apply_static_fiber_architecture(self, mesh_struct, f0, s0, n0, dolfin_functions=None):
-        """Initialize static fiber architecture once (aligned/disarray)."""
-
-        fiber_architecture = 'aligned'
-        theta_rms_deg = 0.0
-        ell_c = 0.075
-        disarray_seed = 1
-
-        if 'fiber_architecture' in mesh_struct:
-            fiber_architecture = mesh_struct['fiber_architecture'][0]
-        if 'theta_rms_deg' in mesh_struct:
-            theta_rms_deg = float(mesh_struct['theta_rms_deg'][0])
-        elif 'disarray_width' in mesh_struct:
-            # backward compatibility with older input
-            theta_rms_deg = float(mesh_struct['disarray_width'][0]) * 180.0/np.pi
-        if 'ell_c' in mesh_struct:
-            ec_val = mesh_struct['ell_c'][0]
-            if ec_val is None:
-                ell_c = None
-            else:
-                ell_c = float(ec_val)
-        if 'disarray_seed' in mesh_struct:
-            disarray_seed = int(mesh_struct['disarray_seed'][0])
-
-        if MPI.rank(self.comm) == 0:
-            print 'Fiber architecture: %s' % fiber_architecture
-            print 'theta_rms_deg: %0.6f' % theta_rms_deg
-            print 'ell_c: %s' % str(ell_c)
-            print 'disarray_seed: %s' % str(disarray_seed)
-
-        fbar0_local = f0.vector().get_local()[:].copy()
-        local_points = int(len(fbar0_local)/3)
-
-        if fiber_architecture == 'aligned' or theta_rms_deg <= 0.0:
-            self.log_fiber_misalignment_stats(f0, fbar0_local)
-            return
-
-        if fiber_architecture != 'disarray':
-            if MPI.rank(self.comm) == 0:
-                print 'Unknown fiber_architecture=%s. Using aligned fibers.' % fiber_architecture
-            self.log_fiber_misalignment_stats(f0, fbar0_local)
-            return
-
-        mask = self._build_disarray_mask(local_points, mesh_struct, dolfin_functions=dolfin_functions)
-        mpi_comm = self._get_mpi4py_comm()
-        local_mask_n = int(np.sum(mask))
-        if mpi_comm is not None:
-            global_mask_n = int(mpi_comm.allreduce(local_mask_n))
-            global_pts = int(mpi_comm.allreduce(local_points))
-        else:
-            global_mask_n = local_mask_n
-            global_pts = local_points
-        if MPI.rank(self.comm) == 0:
-            print 'Disarray mask selected %d/%d quadrature points' % (global_mask_n, global_pts)
-            if global_pts > 0:
-                print 'Disarray mask coverage fraction: %0.4f' % (float(global_mask_n)/float(global_pts))
-
-        theta_rms = np.deg2rad(theta_rms_deg)
-        w = theta_rms/np.sqrt(2.0)
-
-        if ell_c is None:
-            eps_s = np.random.RandomState(disarray_seed).normal(0.0, w, local_points)
-            eps_n = np.random.RandomState(disarray_seed+1).normal(0.0, w, local_points)
-        else:
-            eps_s = self._generate_correlated_field(float(ell_c), disarray_seed, local_points)
-            eps_n = self._generate_correlated_field(float(ell_c), disarray_seed+1, local_points)
-            mean_s, std_s = self._global_mean_std(eps_s, mask)
-            mean_n, std_n = self._global_mean_std(eps_n, mask)
-            if std_s > 0:
-                eps_s = (eps_s-mean_s)*(w/std_s)
-            else:
-                eps_s[:] = 0.0
-            if std_n > 0:
-                eps_n = (eps_n-mean_n)*(w/std_n)
-            else:
-                eps_n[:] = 0.0
-
-        target_deg = theta_rms_deg
-        # Calibrate disarray intensity inside mask (usually converges in 1-2 passes)
-        for _ in range(2):
-            if np.any(mask):
-                theta_est = np.degrees(np.arccos(np.clip(1.0/np.sqrt(1.0 + eps_s[mask]*eps_s[mask] + eps_n[mask]*eps_n[mask]), -1.0, 1.0)))
-                local_sum = float(np.sum(theta_est*theta_est))
-                local_n = float(len(theta_est))
-                if mpi_comm is not None:
-                    global_sum = mpi_comm.allreduce(local_sum)
-                    global_n = mpi_comm.allreduce(local_n)
-                else:
-                    global_sum = local_sum
-                    global_n = local_n
-                if global_n > 0:
-                    rms_deg = np.sqrt(global_sum/global_n)
-                    if rms_deg > 1e-12:
-                        scale = target_deg/rms_deg
-                        eps_s[mask] *= scale
-                        eps_n[mask] *= scale
-
-        eps_s[~mask] = 0.0
-        eps_n[~mask] = 0.0
-
-        f0_local = fbar0_local.copy()
-        s0_local = s0.vector().get_local()[:]
-        n0_local = n0.vector().get_local()[:]
-        eps = 1e-12
-
-        for jj in np.arange(local_points):
-            fbar = fbar0_local[jj*3:jj*3+3]
-            sb = s0_local[jj*3:jj*3+3]
-            nb = n0_local[jj*3:jj*3+3]
-            ftilde = fbar + eps_s[jj]*sb + eps_n[jj]*nb
-            nrm = np.linalg.norm(ftilde)
-            if nrm < eps:
-                ftilde = fbar
-                nrm = max(np.linalg.norm(ftilde), eps)
-            f0_local[jj*3:jj*3+3] = ftilde/nrm
-
-        if np.isnan(f0_local).any():
-            raise RuntimeError('NaN detected in static fiber disarray initialization')
-
-        f0.vector().set_local(f0_local)
-        as_backend_type(f0.vector()).update_ghost_values()
-
-        self.rebuild_local_coordinate_system_once(f0, s0, n0)
-        self.log_fiber_misalignment_stats(f0, fbar0_local)
-        self.report_rms_disarray_angle(f0, fbar0_local, target_deg=theta_rms_deg, mask=mask)
-        self.validate_disarray_width_response(theta_rms_deg, disarray_seed)
-
-    def rebuild_local_coordinate_system_once(self, f0, s0, n0):
-        eps = 1e-12
-        f0_local = f0.vector().get_local()[:]
-        s0_local = s0.vector().get_local()[:]
-        n0_local = n0.vector().get_local()[:]
-        ref_z = np.array([0.0, 0.0, 1.0])
-        ref_y = np.array([0.0, 1.0, 0.0])
-
-        local_points = int(len(f0_local)/3)
-        for jj in np.arange(local_points):
-            fv = f0_local[jj*3:jj*3+3]
-            fn = np.linalg.norm(fv)
-            if fn < eps:
-                fv = np.array([1.0, 0.0, 0.0])
-                fn = 1.0
-            fv = fv/fn
-
-            ref = ref_z
-            if np.abs(np.dot(fv, ref)) > 0.95:
-                ref = ref_y
-
-            sv = np.cross(fv, ref)
-            sn = np.linalg.norm(sv)
-            if sn < eps:
-                ref = ref_y
-                sv = np.cross(fv, ref)
-                sn = np.linalg.norm(sv)
-            if sn < eps:
-                sv = np.array([0.0, 1.0, 0.0])
-                sn = 1.0
-            sv = sv/sn
-
-            nv = np.cross(fv, sv)
-            nn = np.linalg.norm(nv)
-            if nn < eps:
-                nv = np.array([0.0, 0.0, 1.0])
-                nn = 1.0
-            nv = nv/nn
-
-            f0_local[jj*3:jj*3+3] = fv
-            s0_local[jj*3:jj*3+3] = sv
-            n0_local[jj*3:jj*3+3] = nv
-
-        if np.isnan(f0_local).any() or np.isnan(s0_local).any() or np.isnan(n0_local).any():
-            raise RuntimeError('NaN detected while rebuilding local coordinate system')
-
-        f0.vector().set_local(f0_local)
-        s0.vector().set_local(s0_local)
-        n0.vector().set_local(n0_local)
-        as_backend_type(f0.vector()).update_ghost_values()
-        as_backend_type(s0.vector()).update_ghost_values()
-        as_backend_type(n0.vector()).update_ghost_values()
-
-    def log_fiber_misalignment_stats(self, f0, fbar0_local=None):
-        f0_local = f0.vector().get_local()[:].reshape((-1,3))
-        x_axis = np.array([1.0, 0.0, 0.0])
-        cosang = np.clip(np.dot(f0_local, x_axis), -1.0, 1.0)
-        local_angles = np.degrees(np.arccos(cosang))
-        print '[FiberDisarray][rank %d] misalignment wrt [1,0,0]: mean=%0.4f deg, std=%0.4f deg' %             (MPI.rank(self.comm), np.mean(local_angles), np.std(local_angles))
-
-    def report_rms_disarray_angle(self, f0, fbar0_local, target_deg=0.0, mask=None):
-        f0_local = f0.vector().get_local()[:].reshape((-1,3))
-        fbar_local = fbar0_local.reshape((-1,3))
-        cosang = np.clip(np.sum(f0_local*fbar_local, axis=1), -1.0, 1.0)
-        theta = np.arccos(cosang)
-        if mask is None:
-            mask = np.ones(len(theta), dtype=bool)
-        outside = np.logical_not(mask)
-
-        local_sum = float(np.sum(theta[mask]*theta[mask]))
-        local_n = float(np.sum(mask))
-        local_out_sum = float(np.sum(theta[outside]*theta[outside]))
-        local_out_n = float(np.sum(outside))
-        mpi_comm = self._get_mpi4py_comm()
-        if mpi_comm is not None:
-            global_sum = mpi_comm.allreduce(local_sum)
-            global_n = mpi_comm.allreduce(local_n)
-            global_out_sum = mpi_comm.allreduce(local_out_sum)
-            global_out_n = mpi_comm.allreduce(local_out_n)
-        else:
-            global_sum = local_sum
-            global_n = local_n
-            global_out_sum = local_out_sum
-            global_out_n = local_out_n
-        if global_n > 0 and MPI.rank(self.comm) == 0:
-            rms_deg = np.degrees(np.sqrt(global_sum/global_n))
-            print 'Fiber disarray RMS angle: target=%0.4f deg, measured=%0.4f deg' % (target_deg, rms_deg)
-            if global_out_n > 0:
-                rms_out_deg = np.degrees(np.sqrt(global_out_sum/global_out_n))
-                print 'Fiber disarray RMS angle outside mask: %0.4f deg' % rms_out_deg
-
-    def validate_disarray_width_response(self, theta_rms_deg, disarray_seed):
-        if theta_rms_deg <= 0:
-            return
-        if MPI.rank(self.comm) != 0:
-            return
-
-        theta_rms = np.deg2rad(theta_rms_deg)
-        widths = [theta_rms/np.sqrt(2.0), 2.0*theta_rms/np.sqrt(2.0)]
-        rng = np.random.RandomState(disarray_seed)
-        n_samples = 4000
-        stds = []
-        for w in widths:
-            e1 = rng.normal(0.0, w, n_samples)
-            e2 = rng.normal(0.0, w, n_samples)
-            vals = np.stack([np.ones(n_samples), e1, e2], axis=1)
-            norms = np.linalg.norm(vals, axis=1)
-            norms[norms < 1e-12] = 1.0
-            vals = vals/norms[:,None]
-            ang = np.degrees(np.arccos(np.clip(vals[:,0], -1.0, 1.0)))
-            stds.append(np.std(ang))
-        print 'Disarray theta validation: std@w=%0.4f, std@2w=%0.4f, increased=%s' %             (stds[0], stds[1], str(stds[1] >= stds[0]))
 
     def initialize_boundary_conditions(self):
 
@@ -955,14 +615,9 @@ class MeshClass():
                 project(self.model['functions']['hsl'],
                     self.model['function_spaces']['quadrature_space']).vector().get_local()[:]
         
-        """self.model['functions']["passive_total_stress"], self.model['functions']["Sff"] ,self.model['functions']["myo_passive_PK2"],\
+        self.model['functions']["passive_total_stress"], self.model['functions']["Sff"] ,self.model['functions']["myo_passive_PK2"],\
         self.model['functions']["bulk_passive"],self.model['functions']["incomp_stress"],self.model['functions']["fiber_strain"] = \
-            uflforms.stress(self.model['functions']["hsl"])"""
-        self.model['functions']["passive_total_stress"], self.model['functions']["Sff"], self.model['functions']["myo_passive_PK2"],\
-        self.model['functions']["bulk_passive"], self.model['functions']["incomp_stress"], self.model['functions']["fiber_strain"],\
-        self.model['functions']["I1"], self.model['functions']["I4f"] = \
             uflforms.stress(self.model['functions']["hsl"])
-
         
         temp_DG = project(self.model['functions']["Sff"], FunctionSpace(mesh, "DG", 1), form_compiler_parameters={"representation":"uflacs"})
         p_f = interpolate(temp_DG, self.model['function_spaces']['quadrature_space'])
@@ -970,7 +625,9 @@ class MeshClass():
          
         self.model['functions']['PK2_local'],self.model['functions']['incomp'] = \
             uflforms.passivestress(self.model['functions']["hsl"])
-        self.model['functions']['total_stress'] = Pactive + self.model['functions']["passive_total_stress"]
+        #self.model['functions']['total_stress'] = Pactive + self.model['functions']["passive_total_stress"]
+
+        self.model['functions']['total_stress'] = self.model['functions']['Pactive'] + self.model['functions']["passive_total_stress"]
 
         #self.model['functions']['myofiber_stretch'] = self.model['functions']["hsl"]/self.model['functions']["hsl0"]
         self.model['functions']['alpha_f'] = alpha_f
