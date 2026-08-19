@@ -7,8 +7,8 @@
         {
             "activations": [
                 {
-                    "t_start_s": [5],
-                    "t_stop_s": [40]
+                    "t_start_s": [500],
+                    "t_stop_s": [4000]
                 }
             ]
         }
@@ -102,7 +102,7 @@
                 },
                 {
                     "name": ["arterioles"],
-                    "resistance": [700],
+                    "resistance": [1230],
                     "compliance": [1e-3],
                     "slack_volume": [0.1]
                 },
@@ -141,8 +141,8 @@
             {
                 "Ca_content": [1e-3],
                 "k_leak": [6e-4],
-                "k_act": [8.2e-2],
-                "k_serca": [8],
+                "k_act": [0.13],
+                "k_serca": [12.3],
                 "t_open": [0.01],
                 "implementation":
                 {
@@ -162,7 +162,7 @@
                 "k_4_1": [1.5],
                 "k_cb": [0.001],
                 "x_ps": [5.2],
-                "k_on": [1.7e8],
+                "k_on": [1.6e8],
                 "k_off": [200],
                 "k_coop": [5],
                 "int_passive_exp_sigma": [100],
