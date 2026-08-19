@@ -14,12 +14,13 @@ from ..dependencies.nsolver import NSolver#from ..dependencies.assign_heterogene
 from ..dependencies.assign_heterogeneous_params import assign_heterogeneous_params 
 
 
-HO_PARAMETER_NAMES = ('a', 'b', 'a_f', 'b_f', 'a_s', 'b_s', 'a_fs', 'b_fs')
+HO_PARAMETER_NAMES = ('a', 'b', 'a_s', 'b_s', 'a_fs', 'b_fs')
 
 
 def validate_passive_law_parameters(passive_params, tolerance=1.0e-8):
     """Validate scalar HO inputs before creating distributed Functions."""
-    missing = [name for name in HO_PARAMETER_NAMES + ('phi_m', 'phi_c', 'phi_g')
+    missing = [name for name in HO_PARAMETER_NAMES +
+               ('c2', 'c3', 'phi_m', 'phi_c', 'phi_g')
                if name not in passive_params]
     if missing:
         raise ValueError("Missing Holzapfel-Ogden passive-law parameters: %s" %
@@ -569,6 +570,35 @@ class MeshClass():
         temp_E = project(self.model['functions']['E'],
                         self.model['function_spaces']['tensor_space'],
                         form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
+        diagnostic_fields = uflforms.passive_diagnostic_fields(hsl)
+        if MPI.rank(self.comm) == 0:
+            print "Passive constitutive diagnostics before first solve:"
+        for diagnostic_name in (
+                "myofiber_stretch", "I1", "I4s", "I8fs", "J",
+                "W_myo", "W_bulk", "W_collagen",
+                "phi_m", "phi_g", "phi_c"):
+            diagnostic_values = project(
+                diagnostic_fields[diagnostic_name],
+                self.model['function_spaces']['quadrature_space'],
+                form_compiler_parameters={"representation":"uflacs"} \
+                ).vector().get_local()[:]
+            local_nonfinite = int(not np.isfinite(diagnostic_values).all())
+            global_nonfinite = MPI.sum(self.comm, local_nonfinite)
+            local_min = diagnostic_values.min()
+            local_max = diagnostic_values.max()
+            global_min = MPI.min(self.comm, local_min)
+            global_max = MPI.max(self.comm, local_max)
+            if MPI.rank(self.comm) == 0:
+                print "%s min/max: %g %g" % (
+                    diagnostic_name, global_min, global_max)
+            if global_nonfinite:
+                raise RuntimeError(
+                    "Non-finite passive diagnostic field: %s" %
+                    diagnostic_name)
+            if diagnostic_name == "J" and global_min <= 0.0:
+                raise RuntimeError(
+                    "Non-positive elastic Jacobian before first solve: %g" %
+                    global_min)
         #print '**E**'
         #print temp_E
         self.model['functions']['Fmat'] = F

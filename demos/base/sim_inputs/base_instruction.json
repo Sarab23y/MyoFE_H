@@ -65,8 +65,7 @@
         "forms_parameters": 
         {
             "passive_law_parameters": {
-              "passive_law": ["Holzapfel-Ogden"],
-              "c": [ 600],
+              "passive_law": ["Xi-Holzapfel-Ogden"],
               "c2": [250],
               "c3": [15.0],
               "a": [2500.0],
