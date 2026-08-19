@@ -24,10 +24,7 @@ class Forms(object):
             self.Fg = Identity(3)
 
     def default_parameters(self):
-        return {#"bff"  : 29.0,
-			#"bfx"  : 13.3,
-			#"bxx"  : 26.6,
-			"Kappa": 1e5,
+        return {"Kappa": 1e5,
 			"incompressible" : True,
 			};
 
@@ -207,144 +204,88 @@ class Forms(object):
         Pactive = cbforce * as_tensor(f0[i]*f0[j], (i,j))
         return Pactive, cbforce
 
-    def PassiveMatSEF(self,hsl):
-    #def PassiveMatSEF(self):
-        Ea = self.Emat()
+    def _passive_energy_components(self, Cmat, hsl):
+        """Return unweighted HO ECM and Xi myofiber energies."""
         f0 = self.parameters["fiber"]
         s0 = self.parameters["sheet"]
-        n0 = self.parameters["sheet-normal"]
+        a = self.parameters["a"][-1]
+        b = self.parameters["b"][-1]
+        a_s = self.parameters["a_s"][-1]
+        b_s = self.parameters["b_s"][-1]
+        a_fs = self.parameters["a_fs"][-1]
+        b_fs = self.parameters["b_fs"][-1]
         C2 = self.parameters["c2"][-1]
         C3 = self.parameters["c3"][-1]
-        bff = self.parameters["bf"][-1]
-        bfx = self.parameters["bt"][-1]
-        bxx = self.parameters["bfs"][-1]
-        Kappa = self.parameters["Kappa"]
-        isincomp = self.parameters["incompressible"]
-        Cmat = self.Cmat()
+        myofiber_stretch = hsl/self.parameters["hsl0"]
+
+        I1 = tr(Cmat)
+        I4s = inner(s0, Cmat*s0)
+        I8fs = inner(f0, Cmat*s0)
+
+        QQ_m = conditional(
+            myofiber_stretch > 1.0,
+            C3*(myofiber_stretch - 1.0)**2.0,
+            0.0)
+        W_myo = C2*(exp(QQ_m) - 1.0)
+        W_bulk = a/(2.0*b)*(exp(b*(I1 - 3.0)) - 1.0)
+        # Temporary modeling assumption: s0 and the fs interaction represent
+        # collagen anisotropy until a distinct collagen orientation is added.
+        W_collagen = \
+            a_s/(2.0*b_s)*(exp(b_s*(I4s - 1.0)**2.0) - 1.0) + \
+            a_fs/(2.0*b_fs)*(exp(b_fs*I8fs**2.0) - 1.0)
+        return W_bulk, W_myo, W_collagen
+
+    def _weighted_passive_energy(self, Cmat, hsl):
+        W_bulk, W_myo, W_collagen = \
+            self._passive_energy_components(Cmat, hsl)
+        # These dimensionless fields are currently constituent mixture
+        # fractions; no density conversion is applied.
         phi_m = self.parameters["phi_m"][-1]
+        phi_c = self.parameters["phi_c"][-1]
         phi_g = self.parameters["phi_g"][-1]
-        hsl0 = self.parameters["hsl0"]
+        return phi_g*W_bulk + phi_m*W_myo + phi_c*W_collagen
 
-        if(isincomp):
+    def passive_diagnostic_fields(self, hsl):
+        Cmat = self.Cmat()
+        f0 = self.parameters["fiber"]
+        s0 = self.parameters["sheet"]
+        W_bulk, W_myo, W_collagen = \
+            self._passive_energy_components(Cmat, hsl)
+        return {
+            "myofiber_stretch": hsl/self.parameters["hsl0"],
+            "I1": tr(Cmat),
+            "I4s": inner(s0, Cmat*s0),
+            "I8fs": inner(f0, Cmat*s0),
+            "J": self.J(),
+            "W_myo": W_myo,
+            "W_bulk": W_bulk,
+            "W_collagen": W_collagen,
+            "phi_m": self.parameters["phi_m"][-1],
+            "phi_g": self.parameters["phi_g"][-1],
+            "phi_c": self.parameters["phi_c"][-1]}
+
+    def PassiveMatSEF(self,hsl):
+        Wp = self._weighted_passive_energy(self.Cmat(), hsl)
+        if self.parameters["incompressible"]:
             p = self.parameters["pressure_variable"]
-
-        C = self.parameters["c"][-1]
-
-        Eff = inner(f0, Ea*f0)
-        Ess = inner(s0, Ea*s0)
-        Enn = inner(n0, Ea*n0)
-        Efs = inner(f0, Ea*s0)
-        Efn = inner(f0, Ea*n0)
-        Ens = inner(n0, Ea*s0)
-        Esf = inner(s0, Ea*f0)
-        Esn = inner(s0, Ea*n0)
-        Enf = inner(n0, Ea*f0)
-
-        alpha = sqrt(2.0 * Eff + 1.0)
-        myofiber_stretch = hsl/hsl0
-
-        #alpha = sqrt(dot(f0, Cmat*f0))
-
-
-    		#QQ = bff*pow(Eff,2.0) + bfx*(pow(Ess,2.0)+ pow(Enn,2.0)+ 2.0*pow(Ens,2.0)) + bxx*(2.0*pow(Efs,2.0) + 2.0*pow(Efn,2.0))
-
-        #QQ_m = conditional(alpha > 1.0, C3*(alpha - 1.0)**2.0, 0.0)
-        QQ_m = conditional(myofiber_stretch > 1.0, C3*(myofiber_stretch - 1.0)**2.0, 0.0)
-        #QQ_m = C3*(alpha - 1.0)**2.0
-
-        #QQ_c = bff*Eff**2.0 + bfx*(Ess**2.0 + Enn**2.0 + 2.0*Ens**2.0) + bxx*(2.0*Efs**2.0 + 2.0*Efn**2.0)
-        Qbulk = bff*Eff**2.0 + bfx*(Ess**2.0 + Enn**2.0 + Ens**2.0 + Esn**2.0) + bxx*(Efs**2.0 + Esf**2.0 + Efn**2.0 + Enf**2.0)
-        #QQ_i = (C/2)*Eff**2 + bfx*(Ess**2.0 + Enn**2.0 + 2.0*Ens**2.0) + bxx*(2.0*Efs**2.0 + 2.0*Efn**2.0)
-
-
-        Wp_m = C2*(exp(QQ_m) -  1.0)
-
-        #Wp_m_weighted = phi_m*Wp_m
-        Wp_m_weighted = Wp_m
-
-        if(isincomp):
-            Wp_c = C/2.0*(exp(Qbulk) -  1.0) - p*(self.J() - 1.0)
-        else:
-            Wp_c = C/2.0*(exp(QQ_c) -  1.0) + Kappa/2.0*(self.J() - 1.0)**2.0
-
-        #Wp_c_weighted = phi_g*Wp_c
-
-
-        Wp = Wp_m + Wp_c
-        #Wp = Wp_m_weighted + Wp_c_weighted
-        #Wp = Wp_c
-        return Wp
+            return Wp - p*(self.J() - 1.0)
+        return Wp + self.parameters["Kappa"]/2.0*(self.J() - 1.0)**2.0
 
     def PassiveMatSEFComps(self,hsl):
-    #def PassiveMatSEF(self):
-        Ea = self.Emat()
-        f0 = self.parameters["fiber"]
-        s0 = self.parameters["sheet"]
-        n0 = self.parameters["sheet-normal"]
-        C2 = self.parameters["c2"][-1]
-        C3 = self.parameters["c3"][-1]
-        bff = self.parameters["bf"][-1]
-        bfx = self.parameters["bt"][-1]
-        bxx = self.parameters["bfs"][-1]
-        Kappa = self.parameters["Kappa"]
-        isincomp = self.parameters["incompressible"]
-        Cmat = self.Cmat()
+        W_bulk, W_myo, W_collagen = \
+            self._passive_energy_components(self.Cmat(), hsl)
         phi_m = self.parameters["phi_m"][-1]
+        phi_c = self.parameters["phi_c"][-1]
         phi_g = self.parameters["phi_g"][-1]
-        hsl0 = self.parameters["hsl0"]
-
-        if(isincomp):
-            p = self.parameters["pressure_variable"]
-
-        C = self.parameters["c"][-1]
-
-        Eff = inner(f0, Ea*f0)
-        Ess = inner(s0, Ea*s0)
-        Enn = inner(n0, Ea*n0)
-        Efs = inner(f0, Ea*s0)
-        Efn = inner(f0, Ea*n0)
-        Ens = inner(n0, Ea*s0)
-        Esf = inner(s0, Ea*f0)
-        Esn = inner(s0, Ea*n0)
-        Enf = inner(n0, Ea*f0)
-
-        alpha = sqrt(2.0 * Eff + 1.0)
-        myofiber_stretch = hsl/hsl0
-
-        #alpha = sqrt(dot(f0, Cmat*f0))
-
-
-    		#QQ = bff*pow(Eff,2.0) + bfx*(pow(Ess,2.0)+ pow(Enn,2.0)+ 2.0*pow(Ens,2.0)) + bxx*(2.0*pow(Efs,2.0) + 2.0*pow(Efn,2.0))
-
-        #QQ_m = conditional(alpha > 1.0, C3*(alpha - 1.0)**2.0, 0.0)
-        QQ_m = conditional(myofiber_stretch > 1.0, C3*(myofiber_stretch - 1.0)**2.0, 0.0)
-        #QQ_m = C3*(alpha - 1.0)**2.0
-
-        #QQ_c = bff*Eff**2.0 + bfx*(Ess**2.0 + Enn**2.0 + 2.0*Ens**2.0) + bxx*(2.0*Efs**2.0 + 2.0*Efn**2.0)
-        Qbulk = bff*Eff**2.0 + bfx*(Ess**2.0 + Enn**2.0 + Ens**2.0 + Esn**2.0) + bxx*(Efs**2.0 + Esf**2.0 + Efn**2.0 + Enf**2.0)
-        #QQ_i = (C/2)*Eff**2 + bfx*(Ess**2.0 + Enn**2.0 + 2.0*Ens**2.0) + bxx*(2.0*Efs**2.0 + 2.0*Efn**2.0)
-
-
-
-        Wp_m = C2*(exp(QQ_m) -  1.0)
-
-        #Wp_m_weighted = phi_m*Wp_m
-        Wp_m_weighted = Wp_m
-
-        if(isincomp):
-            Wp_c = C/2.0*(exp(Qbulk) -  1.0) - p*(self.J() - 1.0)
+        W_myo_weighted = phi_m*W_myo
+        W_matrix_weighted = phi_g*W_bulk + phi_c*W_collagen
+        if self.parameters["incompressible"]:
+            W_matrix_weighted -= \
+                self.parameters["pressure_variable"]*(self.J() - 1.0)
         else:
-            Wp_c = C/2.0*(exp(QQ_c) -  1.0) + Kappa/2.0*(self.J() - 1.0)**2.0
-
-        #Wp_c_weighted = phi_g*Wp_c
-
-
-        Wp = Wp_m + Wp_c
-        #Wp = Wp_m_weighted + Wp_c_weighted
-        #Wp = Wp_c
-        return Wp_m,Wp_c
-
-    
+            W_matrix_weighted += \
+                self.parameters["Kappa"]/2.0*(self.J() - 1.0)**2.0
+        return W_myo_weighted, W_matrix_weighted
 
 
     def RVV0constrainedE(self):
@@ -371,242 +312,79 @@ class Forms(object):
         return Wvol
 
 
-    def stress(self,hsl):
+    def _passive_stress_components(self, hsl):
+        """Return weighted Xi myofiber and HO ECM PK2 stresses."""
+        Ctensor = variable(self.Cmat())
+        W_bulk, unused_W_myo, W_collagen = \
+            self._passive_energy_components(Ctensor, hsl)
+        phi_m = self.parameters["phi_m"][-1]
+        phi_c = self.parameters["phi_c"][-1]
+        phi_g = self.parameters["phi_g"][-1]
 
-        mesh = self.parameters["mesh"]
+        bulk_passive = 2.0*diff(phi_g*W_bulk, Ctensor)
+        collagen_passive = 2.0*diff(phi_c*W_collagen, Ctensor)
 
-        e1 = Constant((1.0, 0.0, 0.0))
-        e2 = Constant((0.0, 1.0, 0.0))
-        e3 = Constant((0.0, 0.0, 1.0))
-
-        C = self.parameters["c"][-1]
-        bff = self.parameters["bf"][-1]
-        bfx = self.parameters["bt"][-1]
-        bxx = self.parameters["bfs"][-1]
+        C2 = self.parameters["c2"][-1]
+        C3 = self.parameters["c3"][-1]
+        myofiber_stretch = hsl/self.parameters["hsl0"]
+        Q = C3*conditional(
+            myofiber_stretch > 1.0,
+            myofiber_stretch - 1.0,
+            0.0)**2.0
+        Sff_unweighted = (
+            (2.0/myofiber_stretch)*C2*C3*
+            (conditional(
+                myofiber_stretch > 1.0,
+                myofiber_stretch,
+                1.0) - 1.0)*exp(Q))
+        Sff = phi_m*Sff_unweighted
 
         f0 = self.parameters["fiber"]
         s0 = self.parameters["sheet"]
         n0 = self.parameters["sheet-normal"]
+        e1 = Constant((1.0, 0.0, 0.0))
+        e2 = Constant((0.0, 1.0, 0.0))
+        e3 = Constant((0.0, 0.0, 1.0))
+        TransMatrix = as_tensor(f0[i]*e1[j], (i,j)) + \
+            as_tensor(s0[i]*e2[j], (i,j)) + \
+            as_tensor(n0[i]*e3[j], (i,j))
+        S_local = as_tensor(
+            [[Sff, 0.0, 0.0],
+             [0.0, 0.0, 0.0],
+             [0.0, 0.0, 0.0]])
+        myo_passive = TransMatrix*S_local*TransMatrix.T
 
-        C2 = self.parameters["c2"][-1]
-        C3 = self.parameters["c3"][-1]
-        phi_m = self.parameters["phi_m"][-1]
-        phi_g = self.parameters["phi_g"][-1]
-        isincomp = self.parameters["incompressible"]
-        hsl0 = self.parameters["hsl0"]
-        Kappa = self.parameters["Kappa"]
+        if self.parameters["incompressible"]:
+            incomp_stress = \
+                -self.parameters["pressure_variable"]*inv(Ctensor)
+        else:
+            J = self.J()
+            incomp_stress = \
+                self.parameters["Kappa"]*(J - 1.0)*J*inv(Ctensor)
+        return (Ctensor, bulk_passive, myo_passive, collagen_passive,
+                incomp_stress, Sff, TransMatrix)
 
-
-        if(isincomp):
-            p = self.parameters["pressure_variable"]
-        u = self.parameters["displacement_variable"]
-        d = u.ufl_domain().geometric_dimension()
-        I = Identity(d)
-        #F = self.Fmat()
-
-
-        #F = I + grad(u)
-
-        #F=Fe
-        J = self.J()
-        #Ea = 0.5*(as_tensor(F[k,i]*F[k,j] - I[i,j], (i,j)))
-        Ea = self.Emat()
-        Ea = dolfin.variable(Ea)
-        Ctensor = self.Cmat()
-
-        Eff = f0[i]*Ea[i,j]*f0[j]
-        Eff = dolfin.variable(Eff)
-        Ess = s0[i]*Ea[i,j]*s0[j]
-        Ess = dolfin.variable(Ess)
-        Enn = n0[i]*Ea[i,j]*n0[j]
-        Enn = dolfin.variable(Enn)
-        Efs = f0[i]*Ea[i,j]*s0[j]
-        Efs = dolfin.variable(Efs)
-        Esf = s0[i]*Ea[i,j]*f0[j]
-        Esf = dolfin.variable(Esf)
-        Efn = f0[i]*Ea[i,j]*n0[j]
-        Enf = n0[i]*Ea[i,j]*f0[j]
-        Enf = dolfin.variable(Enf)
-        Efn = dolfin.variable(Efn)
-        Ens = n0[i]*Ea[i,j]*s0[j]
-        Esn = s0[i]*Ea[i,j]*n0[j]
-        Esn = dolfin.variable(Esn)
-        Ens = dolfin.variable(Ens)
-
-        #Elocal = as_matrix([[Eff,Efs,Efn],[Esf,Ess,Esn],[Enf,Ens,Enn]])
-        #print type(Elocal)
-        #Elocal = dolfin.variable(Elocal)
-
-        alpha = sqrt(2.0 * Eff + 1.0)
-        # Using this because hsl will reset to a reference length at a different
-        # rate than alpha will reset to one (myofiber viscosity vs eccentric growth)
-        myofiber_stretch = hsl/hsl0
-
-
-        Q = C3*conditional(myofiber_stretch > 1.0, myofiber_stretch - 1.0,0.0)**2.0
-        #Q = C3*(myofiber_stretch - 1.0)**2.0
-        #Wmyo = C2*(exp(C3*(conditional(alpha > 1.0,alpha,1.0)-1.)**2.0)-1)
-
-        # Differentiation already done, this is the stress magnitude for myofiber passive response
-        #Sff = (2.0/myofiber_stretch)* C2 * C3 * (myofiber_stretch-1.0)*exp(Q)
-        Sff = (2.0/myofiber_stretch)* C2 * C3 * (conditional(myofiber_stretch > 1.0, myofiber_stretch,1.0)-1.0)*exp(Q)
-        # PK2 for myofiber passive stress in fiber-coordinate system
-        S_local = as_tensor([[Sff, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
-        # Mapping from fiber coordinate system to cartesian
-        TransMatrix = as_tensor(f0[i]*e1[j], (i,j)) + as_tensor(s0[i]*e2[j], (i,j)) + as_tensor(n0[i]*e3[j], (i,j))
-        # Map S_local to cartesian, this is PK2 for myofiber passive stress
-        S_global = TransMatrix*S_local*TransMatrix.T
-
-
-        #Sff_weighted = Sff*phi_m
-
-        # Calculate Guccione passive stress
-        Qbulk = bff*Eff**2.0 + bfx*(Ess**2.0 + Enn**2.0 + Ens**2.0 + Esn**2.0) + bxx*(Efs**2.0 + Esf**2.0 + Efn**2.0 + Enf**2.0)
-        # Guccione SEF
-        Wp_c = (C/2.0)*(exp(Qbulk) -  1.0) #- p*(det(F) - 1.0)
-
-        # Differentiating each component, gives Guccione PK2 in fiber system
-        PK2_local = as_tensor([[dolfin.diff(Wp_c,Eff),dolfin.diff(Wp_c,Efs),dolfin.diff(Wp_c,Efn)],[dolfin.diff(Wp_c,Esf),dolfin.diff(Wp_c,Ess),dolfin.diff(Wp_c,Esn)],[dolfin.diff(Wp_c,Enf),dolfin.diff(Wp_c,Ens),dolfin.diff(Wp_c,Enn)]])
-        # Transform to cartesian
-        PK2_global = as_tensor(TransMatrix[i,k]*TransMatrix[j,l]*PK2_local[k,l],(i,j))
-
-        #lm_temp = p*(det(F)-1.0)
-        #temp = diff(lm_temp,Ea)
-        #Wp_c_weighted = Wp_c*phi_g
-
-        # Guccione stress tensor
-        #sbulk = diff(Wp_c,Ea)
-
-        #Let's try total:
-        #s_total = diff((Wp_c+Wmyo),Ea)
-
-
-
-        #S_global = as_tensor(TransMatrix[i,k]*TransMatrix[j,l]*S_local[k,l],(i,j))
-
-        #S = S_global
-
-
-
-        # this is total PK2 for passive stress, including incompressibility
-        return S_global+PK2_global-p*inv(Ctensor),Sff , S_global, PK2_global, -p*inv(Ctensor),Eff
+    def stress(self,hsl):
+        Ctensor, bulk_passive, myo_passive, collagen_passive, \
+            incomp_stress, Sff, unused_TransMatrix = \
+                self._passive_stress_components(hsl)
+        f0 = self.parameters["fiber"]
+        fiber_strain = 0.5*(inner(f0, Ctensor*f0) - 1.0)
+        passive_total_stress = bulk_passive + myo_passive + \
+            collagen_passive + incomp_stress
+        # Preserve the six-value API: the matrix output contains ground and
+        # collagen stresses, while myo_passive remains the Xi constituent.
+        matrix_passive = bulk_passive + collagen_passive
+        return (passive_total_stress, Sff, myo_passive, matrix_passive,
+                incomp_stress, fiber_strain)
 
     def passivestress(self,hsl):
-
-        mesh = self.parameters["mesh"]
-
-        e1 = Constant((1.0, 0.0, 0.0))
-        e2 = Constant((0.0, 1.0, 0.0))
-        e3 = Constant((0.0, 0.0, 1.0))
-
-        C = self.parameters["c"][-1]
-        bff = self.parameters["bf"][-1]
-        bfx = self.parameters["bt"][-1]
-        bxx = self.parameters["bfs"][-1]
-
-        f0 = self.parameters["fiber"]
-        s0 = self.parameters["sheet"]
-        n0 = self.parameters["sheet-normal"]
-
-        C2 = self.parameters["c2"][-1]
-        C3 = self.parameters["c3"][-1]
-        phi_m = self.parameters["phi_m"][-1]
-        phi_g = self.parameters["phi_g"][-1]
-        isincomp = self.parameters["incompressible"]
-        hsl0 = self.parameters["hsl0"]
-        Kappa = self.parameters["Kappa"]
-
-
-        if(isincomp):
-            p = self.parameters["pressure_variable"]
-        u = self.parameters["displacement_variable"]
-        d = u.ufl_domain().geometric_dimension()
-        I = Identity(d)
-        #F = self.Fmat()
-        #F = self.Fe()
-        #F = I + grad(u)
-
-        #F=Fe
-        J = self.J()
-        #Ea = 0.5*(as_tensor(F[k,i]*F[k,j] - I[i,j], (i,j)))
-        Ea = self.Emat()
-        Ea = dolfin.variable(Ea)
-        Ctensor = self.Cmat()
-
-        Eff = f0[i]*Ea[i,j]*f0[j]
-        Eff = dolfin.variable(Eff)
-        Ess = s0[i]*Ea[i,j]*s0[j]
-        Ess = dolfin.variable(Ess)
-        Enn = n0[i]*Ea[i,j]*n0[j]
-        Enn = dolfin.variable(Enn)
-        Efs = f0[i]*Ea[i,j]*s0[j]
-        Efs = dolfin.variable(Efs)
-        Esf = s0[i]*Ea[i,j]*f0[j]
-        Esf = dolfin.variable(Esf)
-        Efn = f0[i]*Ea[i,j]*n0[j]
-        Enf = n0[i]*Ea[i,j]*f0[j]
-        Enf = dolfin.variable(Enf)
-        Efn = dolfin.variable(Efn)
-        Ens = n0[i]*Ea[i,j]*s0[j]
-        Esn = s0[i]*Ea[i,j]*n0[j]
-        Esn = dolfin.variable(Esn)
-        Ens = dolfin.variable(Ens)
-
-        #Elocal = as_matrix([[Eff,Efs,Efn],[Esf,Ess,Esn],[Enf,Ens,Enn]])
-        #print type(Elocal)
-        #Elocal = dolfin.variable(Elocal)
-
-        alpha = sqrt(2.0 * Eff + 1.0)
-        # Using this because hsl will reset to a reference length at a different
-        # rate than alpha will reset to one (myofiber viscosity vs eccentric growth)
-        myofiber_stretch = hsl/hsl0
-
-
-        Q = C3*conditional(myofiber_stretch > 1.0, myofiber_stretch - 1.0,0.0)**2.0
-        #Wmyo = C2*(exp(C3*(conditional(alpha > 1.0,alpha,1.0)-1.)**2.0)-1)
-
-        # Differentiation already done, this is the stress magnitude for myofiber passive response
-        Sff = (2.0/myofiber_stretch)* C2 * C3 * (conditional(myofiber_stretch > 1.0, myofiber_stretch,1.0)-1.0)*exp(Q)
-        # PK2 for myofiber passive stress in fiber-coordinate system
-        S_local = as_tensor([[Sff, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
-        # Mapping from fiber coordinate system to cartesian
-        TransMatrix = as_tensor(f0[i]*e1[j], (i,j)) + as_tensor(s0[i]*e2[j], (i,j)) + as_tensor(n0[i]*e3[j], (i,j))
-        # Map S_local to cartesian, this is PK2 for myofiber passive stress
-        S_global = TransMatrix*S_local*TransMatrix.T
-
-
-        #Sff_weighted = Sff*phi_m
-
-        # Calculate Guccione passive stress
-        Qbulk = bff*Eff**2.0 + bfx*(Ess**2.0 + Enn**2.0 + Ens**2.0 + Esn**2.0) + bxx*(Efs**2.0 + Esf**2.0 + Efn**2.0 + Enf**2.0)
-        # Guccione SEF
-        Wp_c = (C/2.0)*(exp(Qbulk) -  1.0) #- p*(det(F) - 1.0)
-
-        # Differentiating each component, gives Guccione PK2 in fiber system
-        PK2_local = as_tensor([[dolfin.diff(Wp_c,Eff),dolfin.diff(Wp_c,Efs),dolfin.diff(Wp_c,Efn)],[dolfin.diff(Wp_c,Esf),dolfin.diff(Wp_c,Ess),dolfin.diff(Wp_c,Esn)],[dolfin.diff(Wp_c,Enf),dolfin.diff(Wp_c,Ens),dolfin.diff(Wp_c,Enn)]])
-        # Transform to cartesian
-        PK2_global = as_tensor(TransMatrix[i,k]*TransMatrix[j,l]*PK2_local[k,l],(i,j))
-
-        #lm_temp = p*(det(F)-1.0)
-        #temp = diff(lm_temp,Ea)
-        #Wp_c_weighted = Wp_c*phi_g
-
-        # Guccione stress tensor
-        #sbulk = diff(Wp_c,Ea)
-
-        #Let's try total:
-        #s_total = diff((Wp_c+Wmyo),Ea)
-
-
-
-        #S_global = as_tensor(TransMatrix[i,k]*TransMatrix[j,l]*S_local[k,l],(i,j))
-
-        #S = S_global
-
-
-
-        # this is total PK2 for passive stress, including incompressibility
-        return PK2_local,-p*inv(Ctensor)
+        Ctensor, bulk_passive, myo_passive, collagen_passive, \
+            incomp_stress, unused_Sff, TransMatrix = \
+                self._passive_stress_components(hsl)
+        material_stress = bulk_passive + myo_passive + collagen_passive
+        PK2_local = TransMatrix.T*material_stress*TransMatrix
+        return PK2_local, incomp_stress
 
     def return_radial_vec_ratio(self):
 
