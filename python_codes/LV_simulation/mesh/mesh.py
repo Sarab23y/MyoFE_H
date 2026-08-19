@@ -580,7 +580,7 @@ class MeshClass():
             diagnostic_values = project(
                 diagnostic_fields[diagnostic_name],
                 self.model['function_spaces']['quadrature_space'],
-                form_compiler_parameters={"representation":"uflacs"} \
+                form_compiler_parameters={"representation":"quadrature"} \
                 ).vector().get_local()[:]
             local_nonfinite = int(not np.isfinite(diagnostic_values).all())
             global_nonfinite = MPI.sum(self.comm, local_nonfinite)
