@@ -851,10 +851,10 @@ class LV_simulation():
             
             try:
                 self.implement_time_step(self.prot.data['time_step'])
-            except RuntimeError: 
-                print "RuntimeError happend"
-                self.handle_output(output_struct)
-                return
+            except RuntimeError as e:
+                print "RuntimeError happened on rank %d: %s" % (
+                    self.comm.Get_rank(), str(e))
+                raise
         
             if i % 20000 == 0:
                 self.handle_output(output_struct)
