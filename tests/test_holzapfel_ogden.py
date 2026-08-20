@@ -15,8 +15,9 @@ def components(state, parameters):
         math.exp(parameters["c3"]*extension**2) - 1.0)
     bulk = parameters["a"]/(2.0*parameters["b"]) * (
         math.exp(parameters["b"]*(I1 - 3.0)) - 1.0)
+    collagen_extension = max(I4s - 1.0, 0.0)
     collagen = parameters["a_s"]/(2.0*parameters["b_s"]) * (
-        math.exp(parameters["b_s"]*(I4s - 1.0)**2) - 1.0)
+        math.exp(parameters["b_s"]*collagen_extension**2) - 1.0)
     collagen += parameters["a_fs"]/(2.0*parameters["b_fs"]) * (
         math.exp(parameters["b_fs"]*I8fs**2) - 1.0)
     return myo, bulk, collagen
@@ -50,17 +51,18 @@ class HybridPassiveLawTests(unittest.TestCase):
         self.assertAlmostEqual(sum(fractions), 1.0)
 
     def test_myofiber_only_exactly_matches_original_xi_law(self):
-        lambda_m = 1.1
-        energies = components((lambda_m, 3.2, 1.08, 0.04), self.parameters)
-        expected_energy = self.parameters["c2"] * (
-            math.exp(self.parameters["c3"]*(lambda_m - 1.0)**2) - 1.0)
-        expected_sff = ((2.0/lambda_m)*self.parameters["c2"]*
-                         self.parameters["c3"]*(lambda_m - 1.0)*
-                         math.exp(self.parameters["c3"]*
-                                  (lambda_m - 1.0)**2))
-        self.assertAlmostEqual(energies[0], expected_energy)
-        self.assertAlmostEqual(original_xi_sff(lambda_m, self.parameters),
-                               expected_sff)
+        for lambda_m in (0.95, 1.0, 1.05, 1.10, 1.20):
+            extension = max(lambda_m - 1.0, 0.0)
+            energies = components(
+                (lambda_m, 3.2, 1.08, 0.04), self.parameters)
+            expected_energy = self.parameters["c2"] * (
+                math.exp(self.parameters["c3"]*extension**2) - 1.0)
+            expected_sff = ((2.0/lambda_m)*self.parameters["c2"]*
+                             self.parameters["c3"]*extension*
+                             math.exp(self.parameters["c3"]*extension**2))
+            self.assertAlmostEqual(energies[0], expected_energy)
+            self.assertAlmostEqual(
+                original_xi_sff(lambda_m, self.parameters), expected_sff)
 
     def test_pure_constituents_and_mixture(self):
         energies = components((1.1, 3.2, 1.08, 0.04), self.parameters)

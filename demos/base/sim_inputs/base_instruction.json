@@ -78,7 +78,8 @@
               "b_fs": [0.5],
               "phi_m": [0.0],
               "phi_c": [0.0],
-              "phi_g": [1.0]
+              "phi_g": [1.0],
+              "passive_regularization": [0.0]
             }
           }
     },
