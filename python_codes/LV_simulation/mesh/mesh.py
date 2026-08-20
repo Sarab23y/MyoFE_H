@@ -572,17 +572,17 @@ class MeshClass():
                         self.model['function_spaces']['tensor_space'],
                         form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
         diagnostic_fields = uflforms.passive_diagnostic_fields(hsl)
+        diagnostic_space = FunctionSpace(mesh, "DG", 0)
         if MPI.rank(self.comm) == 0:
             print "Passive constitutive diagnostics before first solve:"
         for diagnostic_name in (
                 "myofiber_stretch", "I1", "I4s", "I8fs", "J",
-                "W_myo", "W_bulk", "W_collagen", "W_regularization",
                 "phi_m", "phi_g", "phi_c"):
+            if MPI.rank(self.comm) == 0:
+                print "Projecting passive diagnostic:", diagnostic_name
             diagnostic_values = project(
                 diagnostic_fields[diagnostic_name],
-                self.model['function_spaces']['quadrature_space'],
-                form_compiler_parameters={"representation":"uflacs"} \
-                ).vector().get_local()[:]
+                diagnostic_space).vector().get_local()[:]
             local_nonfinite = int(not np.isfinite(diagnostic_values).all())
             global_nonfinite = MPI.sum(self.comm, local_nonfinite)
             local_min = diagnostic_values.min()
