@@ -14,12 +14,14 @@ from ..dependencies.nsolver import NSolver#from ..dependencies.assign_heterogene
 from ..dependencies.assign_heterogeneous_params import assign_heterogeneous_params 
 
 
-HO_PARAMETER_NAMES = ('a', 'b', 'a_f', 'b_f', 'a_s', 'b_s', 'a_fs', 'b_fs')
+HO_PARAMETER_NAMES = ('a', 'b', 'a_s', 'b_s', 'a_fs', 'b_fs')
 
 
 def validate_passive_law_parameters(passive_params, tolerance=1.0e-8):
     """Validate scalar HO inputs before creating distributed Functions."""
-    missing = [name for name in HO_PARAMETER_NAMES + ('phi_m', 'phi_c', 'phi_g')
+    missing = [name for name in HO_PARAMETER_NAMES +
+               ('c2', 'c3', 'phi_m', 'phi_c', 'phi_g',
+                'passive_regularization')
                if name not in passive_params]
     if missing:
         raise ValueError("Missing Holzapfel-Ogden passive-law parameters: %s" %
@@ -58,7 +60,35 @@ class MeshClass():
         self.data = dict()
 
         if not predefined_mesh:
-            mesh_str = os.path.join(os.getcwd(),mesh_struct['mesh_path'][0])
+            configured_mesh_path = mesh_struct['mesh_path'][0]
+            current_working_directory = os.getcwd()
+            mesh_str = os.path.abspath(
+                os.path.join(current_working_directory, configured_mesh_path))
+
+            if MPI.rank(mpi_comm_world()) == 0:
+                print "CWD:", current_working_directory
+                print "mesh_path from JSON:", configured_mesh_path
+                print "resolved mesh path:", mesh_str
+                print "mesh exists:", os.path.exists(mesh_str)
+                if os.path.exists(mesh_str):
+                    print "mesh size:", os.path.getsize(mesh_str)
+
+            if not os.path.exists(mesh_str):
+                raise IOError(
+                    "Configured mesh file does not exist. JSON mesh_path: %s; "
+                    "resolved absolute path: %s; current working directory: %s" %
+                    (configured_mesh_path, mesh_str,
+                     current_working_directory))
+
+            with open(mesh_str, 'rb') as mesh_file:
+                mesh_header = mesh_file.read(64)
+            if mesh_header.startswith(
+                    b"version https://git-lfs.github.com/spec/v1"):
+                raise IOError(
+                    "The configured mesh file is a Git LFS pointer, not the "
+                    "actual HDF5 mesh. Run git lfs pull or copy the real mesh "
+                    "file to LCC. JSON mesh_path: %s; resolved absolute path: %s" %
+                    (configured_mesh_path, mesh_str))
         
             self.model['mesh'] = Mesh()
             
@@ -178,6 +208,10 @@ class MeshClass():
                     fcn_spaces[fs['name'][0]] = \
                         TensorFunctionSpace(self.model['mesh'], fs['element_type'][0],
                                         degree = fs['degree'][0])
+                else:
+                    raise ValueError(
+                        "Unsupported function space type: %s for %s" %
+                        (fs['type'][0], fs['name'][0]))
                 # now define function spaces over defined finite elements
                 if not fs['type'][0] == 'tensor':
                     fcn_spaces[fs['name'][0]] = FunctionSpace(self.model['mesh'],finite_element)
@@ -537,6 +571,35 @@ class MeshClass():
         temp_E = project(self.model['functions']['E'],
                         self.model['function_spaces']['tensor_space'],
                         form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
+        diagnostic_fields = uflforms.passive_diagnostic_fields(hsl)
+        diagnostic_space = FunctionSpace(mesh, "DG", 0)
+        if MPI.rank(self.comm) == 0:
+            print "Passive constitutive diagnostics before first solve:"
+        for diagnostic_name in (
+                "myofiber_stretch", "I1", "I4s", "I8fs", "J",
+                "phi_m", "phi_g", "phi_c"):
+            if MPI.rank(self.comm) == 0:
+                print "Projecting passive diagnostic:", diagnostic_name
+            diagnostic_values = project(
+                diagnostic_fields[diagnostic_name],
+                diagnostic_space).vector().get_local()[:]
+            local_nonfinite = int(not np.isfinite(diagnostic_values).all())
+            global_nonfinite = MPI.sum(self.comm, local_nonfinite)
+            local_min = diagnostic_values.min()
+            local_max = diagnostic_values.max()
+            global_min = MPI.min(self.comm, local_min)
+            global_max = MPI.max(self.comm, local_max)
+            if MPI.rank(self.comm) == 0:
+                print "%s min/max: %g %g" % (
+                    diagnostic_name, global_min, global_max)
+            if global_nonfinite:
+                raise RuntimeError(
+                    "Non-finite passive diagnostic field: %s" %
+                    diagnostic_name)
+            if diagnostic_name == "J" and global_min <= 0.0:
+                raise RuntimeError(
+                    "Non-positive elastic Jacobian before first solve: %g" %
+                    global_min)
         #print '**E**'
         #print temp_E
         self.model['functions']['Fmat'] = F
@@ -648,6 +711,10 @@ class MeshClass():
         self.model['functions']["passive_total_stress"], self.model['functions']["Sff"] ,self.model['functions']["myo_passive_PK2"],\
         self.model['functions']["bulk_passive"],self.model['functions']["incomp_stress"],self.model['functions']["fiber_strain"] = \
             uflforms.stress(self.model['functions']["hsl"])
+        self.model['functions']["S_myo"], \
+        self.model['functions']["S_bulk"], \
+        self.model['functions']["S_collagen"] = \
+            uflforms.constituent_stresses(self.model['functions']["hsl"])
         
         temp_DG = project(self.model['functions']["Sff"], FunctionSpace(mesh, "DG", 1), form_compiler_parameters={"representation":"uflacs"})
         p_f = interpolate(temp_DG, self.model['function_spaces']['quadrature_space'])

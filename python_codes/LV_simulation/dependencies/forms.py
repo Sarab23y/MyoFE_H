@@ -24,10 +24,7 @@ class Forms(object):
             self.Fg = Identity(3)
 
     def default_parameters(self):
-        return {#"bff"  : 29.0,
-			#"bfx"  : 13.3,
-			#"bxx"  : 26.6,
-			"Kappa": 1e5,
+        return {"Kappa": 1e5,
 			"incompressible" : True,
 			};
 
@@ -207,52 +204,79 @@ class Forms(object):
         Pactive = cbforce * as_tensor(f0[i]*f0[j], (i,j))
         return Pactive, cbforce
 
-    def _passive_energy_components(self, Cmat):
-        """Return the three unweighted Holzapfel--Ogden energies."""
+    def _passive_energy_components(self, Cmat, hsl):
+        """Return unweighted HO ECM and Xi myofiber energies."""
         f0 = self.parameters["fiber"]
         s0 = self.parameters["sheet"]
         a = self.parameters["a"][-1]
         b = self.parameters["b"][-1]
-        a_f = self.parameters["a_f"][-1]
-        b_f = self.parameters["b_f"][-1]
         a_s = self.parameters["a_s"][-1]
         b_s = self.parameters["b_s"][-1]
         a_fs = self.parameters["a_fs"][-1]
         b_fs = self.parameters["b_fs"][-1]
+        C2 = self.parameters["c2"][-1]
+        C3 = self.parameters["c3"][-1]
+        myofiber_stretch = hsl/self.parameters["hsl0"]
 
         I1 = tr(Cmat)
-        I4f = inner(f0, Cmat*f0)
         I4s = inner(s0, Cmat*s0)
         I8fs = inner(f0, Cmat*s0)
-
-        # The former passive fiber law was tension-only. Apply that convention
-        # to the HO directional terms, but not to the isotropic or shear terms.
-        I4f_eff = conditional(I4f > 1.0, I4f, 1.0)
         I4s_eff = conditional(I4s > 1.0, I4s, 1.0)
 
+        QQ_m = conditional(
+            myofiber_stretch > 1.0,
+            C3*(myofiber_stretch - 1.0)**2.0,
+            0.0)
+        W_myo = C2*(exp(QQ_m) - 1.0)
+        # Intended hierarchy (set by independently calibrated parameters):
+        # bulk is soft background support; collagen is stiff and anisotropic.
         W_bulk = a/(2.0*b)*(exp(b*(I1 - 3.0)) - 1.0)
-        W_myo = a_f/(2.0*b_f)*(exp(b_f*(I4f_eff - 1.0)**2.0) - 1.0)
-        # s0 is the collagen-associated anisotropic direction until a distinct
-        # collagen orientation field is introduced.
+        # Temporary modeling assumption: s0 and the fs interaction represent
+        # collagen anisotropy until a distinct collagen orientation is added.
         W_collagen = \
             a_s/(2.0*b_s)*(exp(b_s*(I4s_eff - 1.0)**2.0) - 1.0) + \
             a_fs/(2.0*b_fs)*(exp(b_fs*I8fs**2.0) - 1.0)
         return W_bulk, W_myo, W_collagen
 
-    def _weighted_passive_energy(self, Cmat):
+    def _weighted_passive_energy(self, Cmat, hsl):
         W_bulk, W_myo, W_collagen = \
-            self._passive_energy_components(Cmat)
+            self._passive_energy_components(Cmat, hsl)
         # These dimensionless fields are currently constituent mixture
         # fractions; no density conversion is applied.
         phi_m = self.parameters["phi_m"][-1]
         phi_c = self.parameters["phi_c"][-1]
         phi_g = self.parameters["phi_g"][-1]
-        return phi_g*W_bulk + phi_m*W_myo + phi_c*W_collagen
+        # Numerical-only isotropic stabilization for constituent-isolation
+        # tests. It is independent of all physical mixture fractions and its
+        # production default is zero.
+        passive_regularization = \
+            self.parameters["passive_regularization"][-1]
+        return phi_g*W_bulk + phi_m*W_myo + phi_c*W_collagen + \
+            passive_regularization*W_bulk
+
+    def passive_diagnostic_fields(self, hsl):
+        Cmat = self.Cmat()
+        f0 = self.parameters["fiber"]
+        s0 = self.parameters["sheet"]
+        W_bulk, W_myo, W_collagen = \
+            self._passive_energy_components(Cmat, hsl)
+        return {
+            "myofiber_stretch": hsl/self.parameters["hsl0"],
+            "I1": tr(Cmat),
+            "I4s": inner(s0, Cmat*s0),
+            "I8fs": inner(f0, Cmat*s0),
+            "J": self.J(),
+            "W_myo": W_myo,
+            "W_bulk": W_bulk,
+            "W_collagen": W_collagen,
+            "W_regularization": \
+                self.parameters["passive_regularization"][-1]*W_bulk,
+            "phi_m": self.parameters["phi_m"][-1],
+            "phi_g": self.parameters["phi_g"][-1],
+            "phi_c": self.parameters["phi_c"][-1]}
 
     def PassiveMatSEF(self,hsl):
-        # hsl remains in the public signature for callers and active mechanics,
-        # although the passive HO response depends on the elastic C tensor.
-        Wp = self._weighted_passive_energy(self.Cmat())
+        Wp = self._weighted_passive_energy(self.Cmat(), hsl)
         if self.parameters["incompressible"]:
             p = self.parameters["pressure_variable"]
             return Wp - p*(self.J() - 1.0)
@@ -260,12 +284,15 @@ class Forms(object):
 
     def PassiveMatSEFComps(self,hsl):
         W_bulk, W_myo, W_collagen = \
-            self._passive_energy_components(self.Cmat())
+            self._passive_energy_components(self.Cmat(), hsl)
         phi_m = self.parameters["phi_m"][-1]
         phi_c = self.parameters["phi_c"][-1]
         phi_g = self.parameters["phi_g"][-1]
+        passive_regularization = \
+            self.parameters["passive_regularization"][-1]
         W_myo_weighted = phi_m*W_myo
-        W_matrix_weighted = phi_g*W_bulk + phi_c*W_collagen
+        W_matrix_weighted = phi_g*W_bulk + phi_c*W_collagen + \
+            passive_regularization*W_bulk
         if self.parameters["incompressible"]:
             W_matrix_weighted -= \
                 self.parameters["pressure_variable"]*(self.J() - 1.0)
@@ -299,47 +326,37 @@ class Forms(object):
         return Wvol
 
 
-    def _passive_stress_components(self):
-        """Derive weighted constituent PK2 stresses from the HO energies."""
+    def _passive_stress_components(self, hsl):
+        """Return weighted Xi myofiber and HO ECM PK2 stresses."""
         Ctensor = variable(self.Cmat())
-        W_bulk, W_myo, W_collagen = \
-            self._passive_energy_components(Ctensor)
+        W_bulk, unused_W_myo, W_collagen = \
+            self._passive_energy_components(Ctensor, hsl)
         phi_m = self.parameters["phi_m"][-1]
         phi_c = self.parameters["phi_c"][-1]
         phi_g = self.parameters["phi_g"][-1]
+        passive_regularization = \
+            self.parameters["passive_regularization"][-1]
 
         bulk_passive = 2.0*diff(phi_g*W_bulk, Ctensor)
-        myo_passive = 2.0*diff(phi_m*W_myo, Ctensor)
         collagen_passive = 2.0*diff(phi_c*W_collagen, Ctensor)
-        if self.parameters["incompressible"]:
-            incomp_stress = \
-                -self.parameters["pressure_variable"]*inv(Ctensor)
-        else:
-            # 2*d[Kappa/2*(J-1)^2]/dC = Kappa*(J-1)*J*C^-1.
-            J = self.J()
-            incomp_stress = \
-                self.parameters["Kappa"]*(J - 1.0)*J*inv(Ctensor)
-        return (Ctensor, bulk_passive, myo_passive,
-                collagen_passive, incomp_stress)
+        regularization_stress = \
+            2.0*diff(passive_regularization*W_bulk, Ctensor)
 
-    def stress(self,hsl):
-        Ctensor, bulk_passive, myo_passive, collagen_passive, \
-            incomp_stress = self._passive_stress_components()
-        f0 = self.parameters["fiber"]
-        fiber_strain = 0.5*(inner(f0, Ctensor*f0) - 1.0)
-        # Preserve Sff as the myofiber passive-stress stimulus used downstream.
-        Sff = inner(f0, myo_passive*f0)
-        passive_total_stress = bulk_passive + myo_passive + \
-            collagen_passive + incomp_stress
-        # The six-value legacy API has no collagen slot.  Keep bulk_passive as
-        # the matrix output by including both ground and collagen constituents.
-        matrix_passive = bulk_passive + collagen_passive
-        return (passive_total_stress, Sff, myo_passive, matrix_passive,
-                incomp_stress, fiber_strain)
+        C2 = self.parameters["c2"][-1]
+        C3 = self.parameters["c3"][-1]
+        myofiber_stretch = hsl/self.parameters["hsl0"]
+        Q = C3*conditional(
+            myofiber_stretch > 1.0,
+            myofiber_stretch - 1.0,
+            0.0)**2.0
+        Sff_unweighted = (
+            (2.0/myofiber_stretch)*C2*C3*
+            (conditional(
+                myofiber_stretch > 1.0,
+                myofiber_stretch,
+                1.0) - 1.0)*exp(Q))
+        Sff = phi_m*Sff_unweighted
 
-    def passivestress(self,hsl):
-        Ctensor, bulk_passive, myo_passive, collagen_passive, \
-            incomp_stress = self._passive_stress_components()
         f0 = self.parameters["fiber"]
         s0 = self.parameters["sheet"]
         n0 = self.parameters["sheet-normal"]
@@ -349,7 +366,49 @@ class Forms(object):
         TransMatrix = as_tensor(f0[i]*e1[j], (i,j)) + \
             as_tensor(s0[i]*e2[j], (i,j)) + \
             as_tensor(n0[i]*e3[j], (i,j))
-        material_stress = bulk_passive + myo_passive + collagen_passive
+        S_local = as_tensor(
+            [[Sff, 0.0, 0.0],
+             [0.0, 0.0, 0.0],
+             [0.0, 0.0, 0.0]])
+        myo_passive = TransMatrix*S_local*TransMatrix.T
+
+        if self.parameters["incompressible"]:
+            incomp_stress = \
+                -self.parameters["pressure_variable"]*inv(Ctensor)
+        else:
+            J = self.J()
+            incomp_stress = \
+                self.parameters["Kappa"]*(J - 1.0)*J*inv(Ctensor)
+        return (Ctensor, bulk_passive, myo_passive, collagen_passive,
+                regularization_stress, incomp_stress, Sff, TransMatrix)
+
+    def constituent_stresses(self, hsl):
+        components = self._passive_stress_components(hsl)
+        return components[2], components[1], components[3]
+
+    def stress(self,hsl):
+        Ctensor, bulk_passive, myo_passive, collagen_passive, \
+            regularization_stress, incomp_stress, Sff, \
+            unused_TransMatrix = \
+                self._passive_stress_components(hsl)
+        f0 = self.parameters["fiber"]
+        fiber_strain = 0.5*(inner(f0, Ctensor*f0) - 1.0)
+        passive_total_stress = bulk_passive + myo_passive + \
+            collagen_passive + regularization_stress + incomp_stress
+        # Preserve the six-value API: the matrix output contains ground and
+        # collagen stresses, while myo_passive remains the Xi constituent.
+        matrix_passive = bulk_passive + collagen_passive + \
+            regularization_stress
+        return (passive_total_stress, Sff, myo_passive, matrix_passive,
+                incomp_stress, fiber_strain)
+
+    def passivestress(self,hsl):
+        Ctensor, bulk_passive, myo_passive, collagen_passive, \
+            regularization_stress, incomp_stress, unused_Sff, \
+            TransMatrix = \
+                self._passive_stress_components(hsl)
+        material_stress = bulk_passive + myo_passive + collagen_passive + \
+            regularization_stress
         PK2_local = TransMatrix.T*material_stress*TransMatrix
         return PK2_local, incomp_stress
 
