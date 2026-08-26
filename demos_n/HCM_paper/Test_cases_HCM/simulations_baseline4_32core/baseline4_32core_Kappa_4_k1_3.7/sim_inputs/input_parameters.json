@@ -1,7 +1,7 @@
 {
     "protocol": {
         "no_of_time_steps": [
-            20
+            150000
         ],
         "time_step": [
             0.001
@@ -10,7 +10,7 @@
             "activations": [
                 {
                     "t_start_s": [
-                        500
+                        5
                     ],
                     "t_stop_s": [
                         150000
@@ -35,7 +35,7 @@
             true
         ],
         "mesh_path": [
-            "../demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
+            "../demos/HCM_paper/simulations_baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
         ],
         "function_spaces": [
             {
@@ -182,7 +182,10 @@
         "forms_parameters": {
             "passive_law_parameters": {
                 "passive_law": [
-                    "Holzapfel"
+                    "semi_structural"
+                ],
+                "c": [
+                    200
                 ],
                 "c2": [
                     250
@@ -190,29 +193,14 @@
                 "c3": [
                     15.0
                 ],
-                "hbf": [
-                    4.7435
+                "bf": [
+                    8.0
                 ],
-                "hbfs": [
-                    3.39
+                "bt": [
+                    3.58
                 ],
-                "hbs": [
-                    1.5998
-                ],
-                "hb": [
-                    3.243
-                ],
-                "a": [
-                    134.8
-                ],
-                "af": [
-                    3176.2
-                ],
-                "as_": [
-                    542.6
-                ],
-                "afs": [
-                    234.4
+                "bfs": [
+                    1.627
                 ],
                 "phi_m": [
                     1.0
@@ -540,10 +528,10 @@
     },
     "output_handler": {
         "output_data_path": [
-            "/home/fenics/shared/demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/data.csv"
+            "/mnt/gpfs2_4m/scratch/mme250/HCM_paper/baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_output/data.csv"
         ],
         "mesh_output_path": [
-            "/home/fenics/shared/demos/HCM_paper/simulations_baseline_final/baseline4_32core_Kappa_4_k1_3.7/sim_output/"
+            "/mnt/gpfs2_4m/scratch/mme250/HCM_paper/baseline4_32core/baseline4_32core_Kappa_4_k1_3.7/sim_output/"
         ],
         "mesh_object_to_save": [
             "displacement",
