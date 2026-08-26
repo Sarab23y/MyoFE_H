@@ -1,29 +1,24 @@
 import json
 import sys
+from mpi4py import MPI
 
 
-## function to iterate through nested dictionaries and convert unicode values to
-# python strings
+## Recursively convert unicode values loaded by Python 2's json module to str
+# values without changing the surrounding dictionary/list/scalar structure.
 def recode(json_input_dict):
-    #print json_input_dict.values()
-    for v in json_input_dict.values():
-        
-        if type(v) is dict:
-            recode(v)
-        else:
-            # This works for a dictionary without dictionary values nested
-            #for v in json_input_dict.values():
-
-            counter = 0
-            for j in v:
-
-                if type(j) is unicode:
-                    rcj = _byteify(j)
-                    v[counter] = rcj
-
-                counter +=1
-
+    for key, value in json_input_dict.items():
+        json_input_dict[key] = _recode_value(value)
     return json_input_dict
+
+
+def _recode_value(value):
+    if isinstance(value, dict):
+        return recode(value)
+    if isinstance(value, list):
+        return [_recode_value(item) for item in value]
+    if isinstance(value, unicode):
+        return value.encode('utf-8')
+    return value
 
 def json_load_byteified(file_handle):
     return _byteify(
