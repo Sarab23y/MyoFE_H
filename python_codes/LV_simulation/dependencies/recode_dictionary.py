@@ -1,15 +1,17 @@
 import json
 import sys
+from mpi4py import MPI
 
 
 ## function to iterate through nested dictionaries and convert unicode values to
 # python strings
-def recode(json_input_dict):
+def recode(json_input_dict, dictionary_path='instruction_data'):
     #print json_input_dict.values()
-    for v in json_input_dict.values():
+    for key, v in json_input_dict.items():
+        value_path = '%s.%s' % (dictionary_path, key)
         
         if type(v) is dict:
-            recode(v)
+            recode(v, value_path)
         else:
             # This works for a dictionary without dictionary values nested
             #for v in json_input_dict.values():
@@ -19,6 +21,13 @@ def recode(json_input_dict):
 
                 if type(j) is unicode:
                     rcj = _byteify(j)
+                    if MPI.COMM_WORLD.Get_rank() == 0:
+                        print 'recode diagnostic path:', value_path
+                        print 'type(v):', type(v)
+                        print 'repr(v):', repr(v)
+                        print 'counter:', counter
+                        print 'type(rcj):', type(rcj)
+                        print 'repr(rcj):', repr(rcj)
                     v[counter] = rcj
 
                 counter +=1
