@@ -38,7 +38,7 @@
             ]
         }, 
         "no_of_time_steps": [
-            40000
+            20000
         ], 
         "baroreflex": {
             "activations": [
@@ -578,10 +578,10 @@
         ],
             
         "dumping_spatial_in_average": [
-            true
+            false
         ],
         "frequency_n": [
-            20
+            1
         ],
         "save_outputs": "all"
     },
