@@ -1,5 +1,6 @@
 import json
 import sys
+from mpi4py import MPI
 
 
 ## Recursively convert unicode values loaded by Python 2's json module to str

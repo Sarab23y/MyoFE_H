@@ -37,16 +37,16 @@
             ]
         }, 
         "no_of_time_steps": [
-            60000
+            20000
         ], 
         "baroreflex": {
             "activations": [
                 {
                     "t_stop_s": [
-                        2500
+                        15
                     ], 
                     "t_start_s": [
-                        5000
+                        0
                     ]
                 }
             ]
@@ -503,16 +503,12 @@
                 90
             ]
         },
-        "fiber_reorientation": {
-            "stress_type": [
-                "total_stress"
-            ],
-            "law": [
-                "new_stress_kroon"
-            ],
-            "time_constant": [
-                4
-            ]
+        "fiber_reorientation":
+        {
+            "stress_type":["total_stress"],
+            "law":["new_stress_kroon"],
+            "time_constant":[100000],
+            "reorient_t_start":[1.0,"ms"]
         }
     }, 
     "heart_rate": {
