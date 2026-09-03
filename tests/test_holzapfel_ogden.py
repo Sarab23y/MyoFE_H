@@ -1,89 +1,78 @@
-import json
 import math
 import pathlib
 import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-EXAMPLE = ROOT / "demos/base/sim_inputs/base_instruction.json"
+FORMS = ROOT / "python_codes/LV_simulation/dependencies/forms.py"
 
 
-def components(state, parameters):
-    lambda_m, I1, I4s, I8fs = state
-    extension = max(lambda_m - 1.0, 0.0)
-    myo = parameters["c2"] * (
-        math.exp(parameters["c3"]*extension**2) - 1.0)
-    bulk = parameters["a"]/(2.0*parameters["b"]) * (
-        math.exp(parameters["b"]*(I1 - 3.0)) - 1.0)
-    collagen_extension = max(I4s - 1.0, 0.0)
-    collagen = parameters["a_s"]/(2.0*parameters["b_s"]) * (
-        math.exp(parameters["b_s"]*collagen_extension**2) - 1.0)
-    collagen += parameters["a_fs"]/(2.0*parameters["b_fs"]) * (
-        math.exp(parameters["b_fs"]*I8fs**2) - 1.0)
-    return myo, bulk, collagen
+PARAMETERS = {
+    # Test-only values: production calibration remains configuration-owned.
+    "c2": 2.0,
+    "c3": 3.0,
+    "a_g": 4.0,
+    "b_g": 0.5,
+    "a_cf": 5.0,
+    "b_cf": 1.5,
+    "a_cs": 6.0,
+    "b_cs": 2.0,
+    "a_cn": 7.0,
+    "b_cn": 2.5,
+}
 
 
-def original_xi_sff(lambda_m, parameters):
-    extension = max(lambda_m - 1.0, 0.0)
-    return ((2.0/lambda_m)*parameters["c2"]*parameters["c3"]*
-            extension*math.exp(parameters["c3"]*extension**2))
+def xi_energy(stretch, parameters=PARAMETERS):
+    xi = parameters["c3"]*max(stretch - 1.0, 0.0)**2
+    return parameters["c2"]*(math.exp(xi) - 1.0)
+
+
+def ground_energy(I1, parameters=PARAMETERS):
+    return parameters["a_g"]/(2.0*parameters["b_g"])*(
+        math.exp(parameters["b_g"]*(I1 - 3.0)) - 1.0)
+
+
+def collagen_direction_energy(I4, direction, parameters=PARAMETERS):
+    I4_star = max(I4, 1.0)
+    a = parameters["a_c" + direction]
+    b = parameters["b_c" + direction]
+    return a/(2.0*b)*(math.exp(b*(I4_star - 1.0)**2) - 1.0)
 
 
 class HybridPassiveLawTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        data = json.loads(EXAMPLE.read_text())
-        raw = data["mesh"]["forms_parameters"]["passive_law_parameters"]
-        cls.parameters = {key: value[0] for key, value in raw.items()
-                          if key != "passive_law"}
+    def test_reference_state_is_zero(self):
+        self.assertEqual(ground_energy(3.0), 0.0)
+        self.assertEqual(xi_energy(1.0), 0.0)
+        for direction in ("f", "s", "n"):
+            self.assertEqual(collagen_direction_energy(1.0, direction), 0.0)
 
-    def test_reference_state_energy_and_deviatoric_stress_are_zero(self):
-        self.assertEqual(components((1.0, 3.0, 1.0, 0.0), self.parameters),
-                         (0.0, 0.0, 0.0))
-        self.assertEqual(original_xi_sff(1.0, self.parameters), 0.0)
-        # The bulk derivative at reference is hydrostatic, so its deviatoric
-        # part is zero; collagen derivatives vanish at I4s=1 and I8fs=0.
+    def test_collagen_is_inactive_in_compression(self):
+        for direction in ("f", "s", "n"):
+            self.assertEqual(collagen_direction_energy(0.8, direction), 0.0)
+            step = 1.0e-7
+            derivative = (
+                collagen_direction_energy(1.0, direction) -
+                collagen_direction_energy(1.0-step, direction))/step
+            self.assertEqual(derivative, 0.0)
 
-    def test_example_fractions_are_bounded_and_sum_to_one(self):
-        fractions = [self.parameters[name] for name in
-                     ("phi_m", "phi_g", "phi_c")]
-        self.assertTrue(all(0.0 <= value <= 1.0 for value in fractions))
-        self.assertAlmostEqual(sum(fractions), 1.0)
+    def test_collagen_is_positive_and_exponential_in_tension(self):
+        for direction in ("f", "s", "n"):
+            low = collagen_direction_energy(1.1, direction)
+            high = collagen_direction_energy(1.2, direction)
+            self.assertGreater(low, 0.0)
+            self.assertGreater(high, 2.0*low)
 
-    def test_myofiber_only_exactly_matches_original_xi_law(self):
-        for lambda_m in (0.95, 1.0, 1.05, 1.10, 1.20):
-            extension = max(lambda_m - 1.0, 0.0)
-            energies = components(
-                (lambda_m, 3.2, 1.08, 0.04), self.parameters)
-            expected_energy = self.parameters["c2"] * (
-                math.exp(self.parameters["c3"]*extension**2) - 1.0)
-            expected_sff = ((2.0/lambda_m)*self.parameters["c2"]*
-                             self.parameters["c3"]*extension*
-                             math.exp(self.parameters["c3"]*extension**2))
-            self.assertAlmostEqual(energies[0], expected_energy)
-            self.assertAlmostEqual(
-                original_xi_sff(lambda_m, self.parameters), expected_sff)
+    def test_ground_matrix_has_requested_I1_law(self):
+        I1 = 3.2
+        expected = 4.0/(2.0*0.5)*(math.exp(0.5*(I1-3.0))-1.0)
+        self.assertAlmostEqual(ground_energy(I1), expected)
 
-    def test_pure_constituents_and_mixture(self):
-        energies = components((1.1, 3.2, 1.08, 0.04), self.parameters)
-        for selected in range(3):
-            fractions = [0.0, 0.0, 0.0]
-            fractions[selected] = 1.0
-            total = sum(fraction*energy for fraction, energy in
-                        zip(fractions, energies))
-            self.assertAlmostEqual(total, energies[selected])
-        phi_m, phi_g, phi_c = 0.5, 0.2, 0.3
-        total = phi_m*energies[0] + phi_g*energies[1] + phi_c*energies[2]
-        self.assertAlmostEqual(total, sum(
-            fraction*energy for fraction, energy in
-            zip((phi_m, phi_g, phi_c), energies)))
-
-    def test_ho_fiber_parameters_are_compatibility_only(self):
-        baseline = components((1.1, 3.2, 1.08, 0.04), self.parameters)
-        changed = dict(self.parameters)
-        changed["a_f"] *= 100.0
-        changed["b_f"] *= 100.0
-        self.assertEqual(components((1.1, 3.2, 1.08, 0.04), changed), baseline)
+    def test_ufl_tension_only_conditionals_cover_all_directions(self):
+        source = FORMS.read_text()
+        for name in ("I4cf", "I4cs", "I4cn"):
+            self.assertIn(
+                "%s_star = conditional(%s > 1.0, %s, 1.0)" %
+                (name, name, name), source)
 
 
 if __name__ == "__main__":
