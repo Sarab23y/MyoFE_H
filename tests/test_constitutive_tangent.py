@@ -10,6 +10,7 @@ class ConstitutiveImplementationAudit(unittest.TestCase):
     def test_xi_energy_expression_is_preserved(self):
         source = FORMS.read_text()
         self.assertIn("myofiber_stretch = hsl/hsl0", source)
+        self.assertIn('myofiber_parameters = self.parameters["myofiber"]', source)
         self.assertIn("C3*(myofiber_stretch - 1.0)**2.0", source)
         self.assertIn("W_myo = C2*(exp(Xi) - 1.0)", source)
 

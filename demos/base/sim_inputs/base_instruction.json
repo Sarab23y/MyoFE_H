@@ -59,15 +59,26 @@
         "forms_parameters": 
         {
             "passive_law_parameters": {
-              "passive_law": ["semi_structural"],
-              "c": [200],
-              "c2": [250],
-              "c3": [15.0],
-              "bf": [8.0],
-              "bt": [3.58],
-              "bfs": [1.627],
+              "passive_law": ["Xi-ground-collagen"],
+              "ground_matrix": {
+                "a_g": [352.7],
+                "b_g": [0.1158]
+              },
+              "myofiber": {
+                "c2": [250],
+                "c3": [15.0]
+              },
+              "collagen": {
+                "a_cf": [29772.0],
+                "b_cf": [4.0985],
+                "a_cs": [54744.0],
+                "b_cs": [2.4095],
+                "a_cn": [54744.0],
+                "b_cn": [2.4095]
+              },
               "phi_m": [1.0],
-              "phi_g": [1.0]
+              "phi_g": [1.0],
+              "phi_c": [0.0]
             }
           }
     },

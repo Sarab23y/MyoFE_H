@@ -217,16 +217,19 @@ class Forms(object):
         n0 = self.parameters["sheet-normal"]
         hsl0 = self.parameters["hsl0"]
 
-        C2 = self.parameters["c2"][-1]
-        C3 = self.parameters["c3"][-1]
-        a_g = self.parameters["a_g"][-1]
-        b_g = self.parameters["b_g"][-1]
-        a_cf = self.parameters["a_cf"][-1]
-        b_cf = self.parameters["b_cf"][-1]
-        a_cs = self.parameters["a_cs"][-1]
-        b_cs = self.parameters["b_cs"][-1]
-        a_cn = self.parameters["a_cn"][-1]
-        b_cn = self.parameters["b_cn"][-1]
+        myofiber_parameters = self.parameters["myofiber"]
+        ground_parameters = self.parameters["ground_matrix"]
+        collagen_parameters = self.parameters["collagen"]
+        C2 = myofiber_parameters["c2"][-1]
+        C3 = myofiber_parameters["c3"][-1]
+        a_g = ground_parameters["a_g"][-1]
+        b_g = ground_parameters["b_g"][-1]
+        a_cf = collagen_parameters["a_cf"][-1]
+        b_cf = collagen_parameters["b_cf"][-1]
+        a_cs = collagen_parameters["a_cs"][-1]
+        b_cs = collagen_parameters["b_cs"][-1]
+        a_cn = collagen_parameters["a_cn"][-1]
+        b_cn = collagen_parameters["b_cn"][-1]
 
         myofiber_stretch = hsl/hsl0
         Xi = conditional(
@@ -322,8 +325,9 @@ class Forms(object):
         collagen_passive = 2.0*diff(phi_c*W_collagen, Ctensor)
 
         # Xi stress is intentionally kept in its existing closed form.
-        C2 = self.parameters["c2"][-1]
-        C3 = self.parameters["c3"][-1]
+        myofiber_parameters = self.parameters["myofiber"]
+        C2 = myofiber_parameters["c2"][-1]
+        C3 = myofiber_parameters["c3"][-1]
         myofiber_stretch = hsl/self.parameters["hsl0"]
         Q = C3*conditional(
             myofiber_stretch > 1.0,
