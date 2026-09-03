@@ -10,7 +10,6 @@ import json
 from dolfin import *
 import os
 from ..dependencies.forms import Forms
-from ..mesh.mesh import validate_passive_law_parameters
 
 class GrowthMechanicsClass():
 
@@ -176,8 +175,6 @@ class GrowthMechanicsClass():
         # Initializing passive parameters as functions, in the case of introducing
         # heterogeneity later
         dolfin_functions = {}
-        validate_passive_law_parameters(
-            mesh_struct["forms_parameters"]["passive_law_parameters"])
         dolfin_functions["passive_params"] = \
             mesh_struct["forms_parameters"]["passive_law_parameters"]
         dolfin_functions["cb_number_density"] = \
@@ -277,7 +274,7 @@ class GrowthMechanicsClass():
         functions["hsl_old"] = hsl_old
         functions["y_vec"] = y_vec
         #functions['core_ranks'] = core_ranks
-        
+
         return functions
 
     def initialize_boundary_conditions(self):
@@ -436,8 +433,12 @@ class GrowthMechanicsClass():
         '''self.model['functions']["total_passive_PK2"], self.model['functions']["Sff"] = \
             uflforms.stress(self.model['functions']["hsl"])'''
         
-        self.model['functions']["passive_total_stress"], self.model['functions']["Sff"] ,self.model['functions']["myo_passive_PK2"],\
+        """self.model['functions']["passive_total_stress"], self.model['functions']["Sff"] ,self.model['functions']["myo_passive_PK2"],\
         self.model['functions']["bulk_passive"],self.model['functions']["incomp_stress"],self.model['functions']["fiber_strain"] = \
+            uflforms.stress(self.model['functions']["hsl"])"""
+        self.model['functions']["passive_total_stress"], self.model['functions']["Sff"], self.model['functions']["myo_passive_PK2"],\
+        self.model['functions']["bulk_passive"], self.model['functions']["incomp_stress"], self.model['functions']["fiber_strain"],\
+        self.model['functions']["I1"], self.model['functions']["I4f"] = \
             uflforms.stress(self.model['functions']["hsl"])
         
 
@@ -562,4 +563,4 @@ class GrowthMechanicsClass():
 
         return cb_stress
     
-
+    

@@ -501,11 +501,12 @@
             "k_serca"
         ],
         "dumping_spatial_in_average": [
-            true
+            false
         ],
         "frequency_n": [
             10
-        ]
+        ],
+        "save_outputs": "all"
     },
     "debug_mpi": [
         false

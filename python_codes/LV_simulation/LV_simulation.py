@@ -288,12 +288,8 @@ class LV_simulation():
         rank_id = self.comm.Get_rank()
         print '%0.0f integer points have been assigned to core %0.0f'\
              %(self.local_n_of_int_points,rank_id)
-        self.local_n_of_elements = self.mesh.model['mesh'].num_cells()
-        self.global_n_of_elements = \
-            self.comm.reduce(self.local_n_of_elements)
-        # Then broadcast to all other cores
-        self.global_n_of_elements = \
-            self.comm.bcast(self.global_n_of_elements)
+        self.local_n_of_elements = self.local_owned_cells
+        self.global_n_of_elements = self.global_owned_cells
         if self.comm.Get_rank() == 0:
             print 'Mesh contains %0.0f elements' %(self.global_n_of_elements)
         """ Create a circulatory system object"""
@@ -583,10 +579,20 @@ class LV_simulation():
 
         # First setup the protocol for creating output data holders
         spatial_data_fields = []
+        self.save_outputs_mode = None
         self.spatial_data_to_mean = False
         self.dumping_data_frequency = 1
         if output_struct:
-            if 'spatial_data_fields' in output_struct:
+            if 'save_outputs' in output_struct:
+                self.save_outputs_mode = output_struct['save_outputs']
+                if isinstance(self.save_outputs_mode, list):
+                    self.save_outputs_mode = self.save_outputs_mode[0]
+            if self.save_outputs_mode == 'all':
+                # The maintained default below is the useful Gauss-point set;
+                # it intentionally excludes large internal kinetic vectors.
+                spatial_data_fields = []
+            if ('spatial_data_fields' in output_struct and
+                    self.save_outputs_mode != 'all'):
                 spatial_data_fields = output_struct['spatial_data_fields']
             if 'dumping_spatial_in_average' in output_struct:
                 if output_struct['dumping_spatial_in_average'][0] == True:
@@ -849,12 +855,30 @@ class LV_simulation():
         for i in np.arange(self.prot.data['no_of_time_steps']+1):
             #self.implement_time_step(self.prot.data['time_step'])
             
+            runtime_error = None
             try:
                 self.implement_time_step(self.prot.data['time_step'])
             except RuntimeError as e:
+                runtime_error = e
                 print "RuntimeError happened on rank %d: %s" % (
                     self.comm.Get_rank(), str(e))
-                raise
+
+            # Every rank reaches this collective before output is flushed, so
+            # a failure cannot send only one rank into handle_output's gathers.
+            failed_ranks = self.comm.allreduce(
+                1 if runtime_error is not None else 0, op=MPI.SUM)
+            if failed_ranks:
+                if self.comm.Get_rank() == 0:
+                    print ('Flushing %d completed spatial states before '
+                           're-raising the solver failure' % self.write_counter)
+                if self.write_counter > 0:
+                    self.handle_output(output_struct)
+                elif self.comm.Get_rank() == 0:
+                    print 'No completed spatial states were available to flush'
+                if runtime_error is not None:
+                    raise runtime_error
+                raise RuntimeError(
+                    'Solver RuntimeError occurred on another MPI rank')
         
             if i % 20000 == 0:
                 self.handle_output(output_struct)
@@ -2418,7 +2442,10 @@ class LV_simulation():
 
 
 #### here we need to save the geometric data of fibers based on the number of cores similar to other modeling params
-                if self.write_counter == 1:
+                # Reference-space quantities are static metadata.  Populate
+                # every saved row, including state zero, rather than leaving
+                # allocated rows as indistinguishable zero placeholders.
+                if self.write_counter >= 0:
                     data_mapping = {
                         'lx': lx,
                         'ly': ly,
@@ -2490,6 +2517,13 @@ class LV_simulation():
             hs_length =project(self.mesh.model['functions']['hsl'], 
                                     self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
 
+            cb_number_density = project(
+                self.mesh.model['functions']['cb_number_density'],
+                self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+            k_1 = project(
+                self.mesh.model['functions']['k_1'],
+                self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+
 
 
             fiber_strain = project(self.mesh.model['functions']['fiber_strain'],
@@ -2510,6 +2544,8 @@ class LV_simulation():
             'Sff_mesh': myo_Sff,
             'bulk_passive': bulk_passive,
             'incomp_stress': incomp_stress,
+            'cb_number_density': cb_number_density,
+            'k_1': k_1,
             'hs_length' : hs_length
             }
 
@@ -2663,13 +2699,22 @@ class LV_simulation():
 
         else:
             self.spatial_sim_data = self.local_spatial_sim_data
+
+        if (not self.spatial_data_to_mean and
+                self.comm.Get_rank() == 0):
+            self.report_global_output_diagnostics()
+            if self.output_data_str:
+                self.write_canonical_quadrature_output(
+                    os.path.dirname(self.output_data_str))
+
         # Now save output data
         # Things to improve: 1) Different data format (e.g. csv, hdf5, etc)
         # 2) Store data at a specified resolution (e.g. every 100 time steps)
         if output_struct and self.comm.Get_rank() == 0:
             if self.output_data_str:
                 output_sim_data = pd.DataFrame(data = self.sim_data)
-                output_sim_data.to_csv(self.output_data_str)
+                output_sim_data.iloc[:self.write_counter].to_csv(
+                    self.output_data_str)
                 #self.sim_data.to_csv(self.output_data_str)
 
                 output_dir = os.path.dirname(self.output_data_str)
@@ -2680,7 +2725,8 @@ class LV_simulation():
                     for f in list(self.spatial_sim_data.keys()):
                         print(f)
                         out_path = output_dir + '/' + f + '_data.csv'
-                        self.spatial_sim_data[f].to_csv(out_path)
+                        self.spatial_sim_data[f].iloc[
+                            :self.write_counter].to_csv(out_path)
 
                     '''out_path = output_dir + '/'  + 'coord_data.csv'
                     coord = list(self.coord)
@@ -2689,7 +2735,256 @@ class LV_simulation():
         if self.comm.Get_rank() == 0:
             print("Out_path:",out_path)
 
+    def report_global_output_diagnostics(self):
+        """Validate Gauss-point output cardinality and global DOF ordering."""
+        canonical_fields = [
+            'lx', 'ly', 'lz', 'f01', 'f02', 'f03',
+            'eccx', 'eccy', 'eccz',
+            'errx', 'erry', 'errz',
+            'ellx', 'elly', 'ellz']
+        if self.save_outputs_mode == 'all':
+            required_fields = canonical_fields
+        else:
+            required_fields = [field for field in canonical_fields
+                               if field in self.spatial_sim_data]
+        missing_fields = [field for field in required_fields
+                          if field not in self.spatial_sim_data]
+        if missing_fields:
+            raise RuntimeError(
+                'Required Gauss-point output fields are missing: %s' %
+                ', '.join(missing_fields))
+
+        expected_columns = list(np.arange(self.global_n_of_int_points))
+        output_columns = {}
+        for field in required_fields:
+            output_columns[field] = [column for column in
+                                     self.spatial_sim_data[field].columns
+                                     if column != 'time']
+            if output_columns[field] != expected_columns:
+                raise RuntimeError(
+                    '%s output columns do not match global quadrature DOF '
+                    'ordering' % field)
+
+        gathered_dofs = np.concatenate(
+            [np.asarray(rank_dofs, dtype=int)
+             for rank_dofs in self.dofmap_list])
+        unique_dofs = np.unique(gathered_dofs)
+        no_duplicate_ghost_points = \
+            len(gathered_dofs) == len(unique_dofs)
+        no_missing_quadrature_points = \
+            (len(unique_dofs) == self.global_n_of_int_points and
+             np.array_equal(unique_dofs,
+                            np.arange(self.global_n_of_int_points)))
+        if not no_duplicate_ghost_points:
+            raise RuntimeError(
+                'Duplicate global quadrature DOFs detected during MPI output '
+                'assembly')
+        if not no_missing_quadrature_points:
+            raise RuntimeError(
+                'Missing or out-of-range global quadrature DOFs detected '
+                'during MPI output assembly')
+
+        coordinate_fiber_ordering = (not required_fields or all(
+            output_columns[field] == output_columns[required_fields[0]]
+            for field in required_fields[1:]))
+        if not coordinate_fiber_ordering:
+            raise RuntimeError(
+                'Coordinate, fiber, and material-direction outputs use '
+                'different global quadrature DOF ordering')
+
+        saved_states = self.write_counter
+        coordinate_value_ordering = None
+        if all(field in output_columns for field in ('lx', 'ly', 'lz')):
+            expected_coordinates = np.zeros(
+                (self.global_n_of_int_points,
+                 self.mesh.model['mesh'].geometry().dim()))
+            coordinate_offset = 0
+            for rank_id, rank_dofs in enumerate(self.dofmap_list):
+                rank_point_count = int(self.int_points_per_core[rank_id])
+                rank_coordinates = self.coord[
+                    coordinate_offset:coordinate_offset + rank_point_count, :]
+                expected_coordinates[np.asarray(rank_dofs, dtype=int), :] = \
+                    rank_coordinates
+                coordinate_offset += rank_point_count
+            saved_coordinates = np.column_stack((
+                self.spatial_sim_data['lx'].iloc[0][expected_columns].values,
+                self.spatial_sim_data['ly'].iloc[0][expected_columns].values,
+                self.spatial_sim_data['lz'].iloc[0][expected_columns].values))
+            coordinate_value_ordering = np.allclose(
+                saved_coordinates, expected_coordinates)
+            if not coordinate_value_ordering:
+                raise RuntimeError(
+                    'Saved X/Y/Z values do not match quadrature coordinates '
+                    'in global quadrature DOF order')
+
+        point_counts = dict((field, len(output_columns[field]))
+                            for field in required_fields)
+
+        print 'GLOBAL OUTPUT DIAGNOSTICS'
+        print 'Global owned mesh cells:', self.global_owned_cells
+        print 'Global mesh vertices:', self.global_mesh_vertices
+        print 'Cell type:', self.mesh.model['mesh'].ufl_cell()
+        print 'Topology dimension:', \
+            self.mesh.model['mesh'].topology().dim()
+        print 'Geometry dimension:', \
+            self.mesh.model['mesh'].geometry().dim()
+        print 'Local owned cells by rank:', self.owned_cells_per_rank
+        print 'Local ghost cells by rank:', self.ghost_cells_per_rank
+        print 'Quadrature points per cell:', \
+            self.quadrature_points_per_cell
+        print 'Rank-0 scalar quadrature dimension:', \
+            self.local_quadrature_dimension
+        print 'Global scalar quadrature dimension:', \
+            self.global_quadrature_dimension
+        print 'Global vector quadrature dimension:', \
+            self.global_vector_quadrature_dimension
+        print 'Expected global quadrature points:', \
+            self.expected_global_n_of_int_points
+        print 'Coordinate output:'
+        print '    X points:', point_counts.get('lx', 'not requested')
+        print '    Y points:', point_counts.get('ly', 'not requested')
+        print '    Z points:', point_counts.get('lz', 'not requested')
+        print 'Fiber output:'
+        print '    f01 points:', point_counts.get('f01', 'not requested')
+        print '    f02 points:', point_counts.get('f02', 'not requested')
+        print '    f03 points:', point_counts.get('f03', 'not requested')
+        print 'Local direction output:'
+        print '    ecc points:', point_counts.get('eccx', 'not requested')
+        print '    err points:', point_counts.get('errx', 'not requested')
+        print '    ell points:', point_counts.get('ellx', 'not requested')
+        print 'Saved states:', saved_states
+        print 'Coordinates/fibers point-count match: PASS'
+        print 'Shared requested-field DOF ordering check: PASS'
+        if coordinate_value_ordering is not None:
+            print 'Coordinate value ordering check: PASS'
+        else:
+            print 'Coordinate value ordering check: not requested'
+        print 'No duplicate ghost points: PASS'
+        print 'No missing quadrature points: PASS'
+
         return 
+
+    def _global_spatial_values(self, field, state_slice):
+        """Return point-major values, excluding CSV time metadata."""
+        point_columns = list(np.arange(self.global_n_of_int_points))
+        return self.spatial_sim_data[field].iloc[state_slice][
+            point_columns].values
+
+    def write_canonical_quadrature_output(self, output_dir):
+        """Write the historical NPY contract in global quadrature-DOF order."""
+        if self.comm.Get_rank() != 0:
+            return
+
+        saved_states = self.write_counter
+        if saved_states <= 0:
+            print 'No completed spatial states; canonical NPY output skipped'
+            return
+
+        required = [
+            'lx', 'ly', 'lz', 'f01', 'f02', 'f03', 'endo_dist',
+            'eccx', 'eccy', 'eccz', 'errx', 'erry', 'errz',
+            'ellx', 'elly', 'ellz']
+        missing = [field for field in required
+                   if field not in self.spatial_sim_data]
+        if missing:
+            if self.save_outputs_mode == 'all':
+                raise RuntimeError(
+                    'Cannot write canonical Gauss-point arrays; missing: %s' %
+                    ', '.join(missing))
+            print ('Canonical NPY output skipped for restricted output set; '
+                   'missing: %s' % ', '.join(missing))
+            return
+
+        def vector_from_components(names):
+            return np.column_stack([
+                self._global_spatial_values(name, 0) for name in names])
+
+        quadrature_dof = vector_from_components(('lx', 'ly', 'lz'))
+        ecc = vector_from_components(('eccx', 'eccy', 'eccz'))
+        err = vector_from_components(('errx', 'erry', 'errz'))
+        ell = vector_from_components(('ellx', 'elly', 'ellz'))
+        norm_dist_endo = self._global_spatial_values('endo_dist', 0)
+        f0_vs_time = np.stack([
+            self._global_spatial_values(name, slice(0, saved_states)).T
+            for name in ('f01', 'f02', 'f03')], axis=1)
+
+        expected_vector_shape = (self.global_n_of_int_points, 3)
+        for name, values in (
+                ('quadrature_dof', quadrature_dof), ('ecc', ecc),
+                ('err', err), ('ell', ell)):
+            if values.shape != expected_vector_shape:
+                raise RuntimeError('%s has shape %s; expected %s' %
+                                   (name, values.shape,
+                                    expected_vector_shape))
+        if norm_dist_endo.shape != (self.global_n_of_int_points,):
+            raise RuntimeError('norm_dist_endo has incorrect shape %s' %
+                               (norm_dist_endo.shape,))
+        if f0_vs_time.shape != (self.global_n_of_int_points, 3,
+                                saved_states):
+            raise RuntimeError('f0_vs_time has incorrect shape %s' %
+                               (f0_vs_time.shape,))
+
+        vector_finite = all(np.all(np.isfinite(values)) for values in
+                            (quadrature_dof, ecc, err, ell, f0_vs_time))
+        if not vector_finite:
+            raise RuntimeError('Non-finite canonical spatial vector values')
+
+        basis_norms = [np.linalg.norm(values, axis=1)
+                       for values in (ecc, err, ell)]
+        basis_unit = all(np.allclose(norms, 1.0, atol=1.0e-6,
+                                     rtol=1.0e-6)
+                         for norms in basis_norms)
+        basis_dots = [np.einsum('ij,ij->i', left, right)
+                      for left, right in ((ecc, err), (ecc, ell), (err, ell))]
+        basis_orthogonal = all(np.allclose(dots, 0.0, atol=1.0e-6,
+                                           rtol=0.0)
+                               for dots in basis_dots)
+        f0_norms = np.linalg.norm(f0_vs_time, axis=1)
+
+        if not os.path.isdir(output_dir):
+            os.makedirs(output_dir)
+        arrays = (
+            ('quadrature_dof.npy', quadrature_dof), ('ecc.npy', ecc),
+            ('err.npy', err), ('ell.npy', ell),
+            ('norm_dist_endo.npy', norm_dist_endo),
+            ('f0_vs_time.npy', f0_vs_time))
+        for filename, values in arrays:
+            np.save(os.path.join(output_dir, filename), values)
+
+        print '=================================================='
+        print 'GLOBAL SPATIAL OUTPUT DIAGNOSTICS'
+        print 'MPI ranks:', self.comm.Get_size()
+        print 'Saved spatial states:', saved_states
+        print 'frequency_n:', self.dumping_data_frequency
+        print 'NPY:'
+        for filename, values in arrays:
+            print '    %s: %s' % (filename, values.shape)
+        print 'Vector finite check: PASS'
+        print 'Local-basis unit norm:', 'PASS' if basis_unit else 'FAIL'
+        print 'Local-basis orthogonality:', \
+            'PASS' if basis_orthogonal else 'FAIL'
+        print 'f0 norm min/mean/max:', (float(np.min(f0_norms)),
+                                        float(np.mean(f0_norms)),
+                                        float(np.max(f0_norms)))
+        print 'endo_dist min/max:', (float(np.min(norm_dist_endo)),
+                                     float(np.max(norm_dist_endo)))
+        print 'Reference state correctly populated: PASS'
+        requested_fields = list(self.spatial_fiber_data_fields) + \
+            list(self.spatial_extra) + list(self.spatial_gr_data_fields)
+        saved_fields = list(self.spatial_sim_data.keys())
+        missing_requested = [field for field in requested_fields
+                             if field not in saved_fields]
+        print 'CSV point-field orientation: (saved states, global points + time)'
+        for field in ('f01', 'f02', 'f03', 'lx', 'ly', 'lz',
+                      'eccx', 'eccy', 'eccz', 'errx', 'erry', 'errz',
+                      'ellx', 'elly', 'ellz'):
+            if field in self.spatial_sim_data:
+                print '    %s: %s' % (
+                    field,
+                    (saved_states, self.global_n_of_int_points + 1))
+        print 'Requested fields:', requested_fields
+        print 'Saved fields:', saved_fields
+        print 'Missing requested fields:', missing_requested
     
 
     def rebuild_from_perturbations(self):
@@ -2740,6 +3035,35 @@ class LV_simulation():
         #self.hs_params_mesh = dict()
         self.local_n_of_int_points = \
             4 * np.shape(self.mesh.model['mesh'].cells())[0]
+
+        cell_dim = self.mesh.model['mesh'].topology().dim()
+        topology = self.mesh.model['mesh'].topology()
+        if hasattr(topology, 'ghost_offset'):
+            self.local_owned_cells = topology.ghost_offset(cell_dim)
+        else:
+            self.local_owned_cells = self.mesh.model['mesh'].num_cells()
+        self.local_ghost_cells = \
+            self.mesh.model['mesh'].num_cells() - self.local_owned_cells
+        self.global_owned_cells = \
+            self.comm.allreduce(self.local_owned_cells, op=MPI.SUM)
+        self.owned_cells_per_rank = \
+            self.comm.allgather(self.local_owned_cells)
+        self.ghost_cells_per_rank = \
+            self.comm.allgather(self.local_ghost_cells)
+        self.quadrature_points_per_cell = 4
+        self.expected_global_n_of_int_points = \
+            self.global_owned_cells * self.quadrature_points_per_cell
+        if hasattr(self.mesh.model['mesh'], 'size_global'):
+            self.global_mesh_vertices = \
+                self.mesh.model['mesh'].size_global(0)
+        else:
+            self.global_mesh_vertices = 'unavailable'
+        self.local_quadrature_dimension = len(self.dofmap)
+        self.global_quadrature_dimension = \
+            self.mesh.model['function_spaces']['quadrature_space'].dim()
+        self.global_vector_quadrature_dimension = \
+            self.mesh.model['function_spaces'][
+                'material_coord_system_space'].dim()
         
         """ Calculate the total no of integration points"""
         # First on the root core
@@ -2748,6 +3072,15 @@ class LV_simulation():
         # Then broadcast to all other cores
         self.global_n_of_int_points = \
             self.comm.bcast(self.global_n_of_int_points)
+
+        if self.global_n_of_int_points != self.expected_global_n_of_int_points:
+            raise RuntimeError(
+                'Quadrature-point count mismatch: gathered=%d, expected=%d '
+                'from %d owned cells at %d points/cell' %
+                (self.global_n_of_int_points,
+                 self.expected_global_n_of_int_points,
+                 self.global_owned_cells,
+                 self.quadrature_points_per_cell))
 
         """ Now generate a list (with len = total num of cores) """
         # that holds the num of integer points for each core
