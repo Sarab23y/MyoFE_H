@@ -2353,9 +2353,17 @@ class LV_simulation():
             f0_z = f0_temp_3n[:,2]
 
 
-            ###since displacement is difiened in CG function space. here to get data in gauss poinst we project it to a qud vector space 
-            
-            d_temp0 = project(self.mesh.model['functions']['w'].sub(0),self.mesh.model['function_spaces']['fiber_FS'])
+            # Displacement is the vector CG2 subfield of the mixed solution.
+            # Spatial CSV data are indexed by the same degree-2 quadrature
+            # points as f0/s0/n0, so evaluate displacement in that existing
+            # vector Quadrature space.  Historical inputs called an identical
+            # space ``fiber_FS``; it was an output/data-layout space rather
+            # than a distinct fiber-disarray model input.
+            displacement_output_space = self.mesh.model[
+                'function_spaces']['material_coord_system_space']
+            d_temp0 = project(
+                self.mesh.model['functions']['w'].sub(0),
+                displacement_output_space)
             d_temp = d_temp0.vector().get_local()[:]
 
 
