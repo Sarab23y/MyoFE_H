@@ -7,7 +7,7 @@ Created on Mon Jan 10 11:15:59 2022
 from pyclbr import Function
 import numpy as np
 import json
-from mpi4py import MPI
+from mpi4py import MPI as MPI4PY
 from dolfin import *
 import os
 from ..dependencies.forms import Forms
@@ -203,6 +203,13 @@ class MeshClass():
 
     def report_mesh_diagnostics(self):
         """Report read-only MPI mesh, quadrature, and material-basis sizes."""
+        mpi_comm = self._get_mpi4py_comm()
+        if mpi_comm is None:
+            if MPI.rank(self.comm) == 0:
+                print ('[FibrosisMeshDiagnostics] unable to report distributed '
+                       'counts: no mpi4py-compatible communicator is available')
+            return
+
         mesh = self.model['mesh']
         cell_dim = mesh.topology().dim()
         topology = mesh.topology()
@@ -212,9 +219,10 @@ class MeshClass():
             local_owned_cells = mesh.num_cells()
         local_total_cells = mesh.num_cells()
         local_ghost_cells = local_total_cells - local_owned_cells
-        global_cells = self.comm.allreduce(local_owned_cells, op=MPI.SUM)
-        owned_counts = self.comm.allgather(local_owned_cells)
-        ghost_counts = self.comm.allgather(local_ghost_cells)
+        global_cells = mpi_comm.allreduce(
+            local_owned_cells, op=MPI4PY.SUM)
+        owned_counts = mpi_comm.allgather(local_owned_cells)
+        ghost_counts = mpi_comm.allgather(local_ghost_cells)
 
         if hasattr(mesh, 'size_global'):
             global_vertices = mesh.size_global(0)
@@ -237,7 +245,7 @@ class MeshClass():
         coordinate_count = quad_space.tabulate_dof_coordinates().reshape(
             (-1, mesh.geometry().dim())).shape[0]
         local_qp_dofs = np.asarray(quad_dofmap.dofs(), dtype=int)
-        gathered_qp_dofs = self.comm.allgather(local_qp_dofs)
+        gathered_qp_dofs = mpi_comm.allgather(local_qp_dofs)
         global_coordinate_dofs = len(np.unique(np.concatenate(
             gathered_qp_dofs)))
         basis = []
@@ -247,18 +255,18 @@ class MeshClass():
             basis.append((name, flat_count, flat_count/3))
         local_basis_consistent = all(
             item[2] == local_owned_qp for item in basis)
-        globally_consistent = self.comm.allreduce(
-            1 if local_basis_consistent else 0, op=MPI.MIN) == 1
+        globally_consistent = mpi_comm.allreduce(
+            1 if local_basis_consistent else 0, op=MPI4PY.MIN) == 1
         local_coordinate_consistent = coordinate_count == len(local_qp_dofs)
-        coordinate_consistent = self.comm.allreduce(
-            1 if local_coordinate_consistent else 0, op=MPI.MIN) == 1 and \
+        coordinate_consistent = mpi_comm.allreduce(
+            1 if local_coordinate_consistent else 0, op=MPI4PY.MIN) == 1 and \
             global_coordinate_dofs == actual_global_qp
         count_consistent = expected_global_qp == actual_global_qp
 
-        if MPI.rank(self.comm) != 0:
+        if mpi_comm.Get_rank() != 0:
             return
         print '[FibrosisMeshDiagnostics]'
-        print '  MPI ranks:', self.comm.Get_size()
+        print '  MPI ranks:', mpi_comm.Get_size()
         print '  Topological/geometric dimension:', \
             cell_dim, mesh.geometry().dim()
         print '  Local cells on rank 0 (owned/ghost/total):', \
@@ -284,7 +292,8 @@ class MeshClass():
             global_coordinate_dofs
         print '  Coordinate/field count match:', coordinate_consistent
         print '  Mesh/material-point consistency:', \
-            count_consistent and globally_consistent and coordinate_consistent
+            ('PASS' if count_consistent and globally_consistent and
+             coordinate_consistent else 'FAIL')
 
     def initialize_functions(self, mesh_struct,predefined_functions):
 
@@ -544,7 +553,14 @@ class MeshClass():
         return functions
 
     def _get_mpi4py_comm(self):
-        if hasattr(self.parent_parameters, 'comm') and                 hasattr(self.parent_parameters.comm, 'allreduce'):
+        """Return the mpi4py communicator supplied by the application.
+
+        ``self.comm`` is DOLFIN's mesh communicator and is a PETSc.Comm in
+        the deployed legacy stack.  Prefer the original mpi4py communicator
+        passed from MyoFE; conversion is only a compatibility fallback.
+        """
+        if (hasattr(self.parent_parameters, 'comm') and
+                hasattr(self.parent_parameters.comm, 'allreduce')):
             return self.parent_parameters.comm
         if hasattr(self.comm, 'tompi4py'):
             return self.comm.tompi4py()

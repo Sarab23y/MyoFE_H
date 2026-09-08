@@ -29,6 +29,25 @@ class FibrosisMeshExecutionPathTests(unittest.TestCase):
         for mutation in ("set_local", "vector()[:]", "ALE.move", "np.random"):
             self.assertNotIn(mutation, diagnostic)
 
+    def test_mesh_diagnostic_uses_mpi4py_communicator_for_collectives(self):
+        diagnostic = MESH_SOURCE.split(
+            "    def report_mesh_diagnostics(self):", 1)[1]
+        diagnostic = diagnostic.split("    def initialize_functions", 1)[0]
+        self.assertIn("mpi_comm = self._get_mpi4py_comm()", diagnostic)
+        for invalid_call in (
+                "self.comm.allreduce", "self.comm.allgather",
+                "self.comm.reduce", "self.comm.gather",
+                "self.comm.Get_size()", "self.comm.Get_rank()"):
+            self.assertNotIn(invalid_call, diagnostic)
+        self.assertIn("op=MPI4PY.SUM", diagnostic)
+        self.assertIn("op=MPI4PY.MIN", diagnostic)
+
+    def test_no_heterogeneous_parameter_dictionary_debug_dump(self):
+        source = (ROOT / (
+            "python_codes/LV_simulation/dependencies/"
+            "assign_heterogeneous_params.py")).read_text()
+        self.assertNotIn("print('het_dolfin_dict')", source)
+
 
 if __name__ == "__main__":
     unittest.main()
