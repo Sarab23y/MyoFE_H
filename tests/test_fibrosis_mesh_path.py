@@ -48,6 +48,20 @@ class FibrosisMeshExecutionPathTests(unittest.TestCase):
             "assign_heterogeneous_params.py")).read_text()
         self.assertNotIn("print('het_dolfin_dict')", source)
 
+    def test_spatial_displacement_uses_vector_quadrature_space(self):
+        simulation_source = (ROOT / (
+            "python_codes/LV_simulation/LV_simulation.py")).read_text()
+        writer = simulation_source.split(
+            "    def write_complete_data_to_spatial_sim_data(self,rank):",
+            1)[1]
+        writer = writer.split("    def check_output_directory_folder", 1)[0]
+        self.assertNotIn("['fiber_FS']", writer)
+        self.assertIn(
+            "'function_spaces']['material_coord_system_space']", writer)
+        self.assertIn(
+            "self.mesh.model['functions']['w'].sub(0),\n"
+            "                displacement_output_space", writer)
+
 
 if __name__ == "__main__":
     unittest.main()
