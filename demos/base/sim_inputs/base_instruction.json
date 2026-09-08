@@ -1,13 +1,13 @@
 {
     "protocol":
     {
-        "no_of_time_steps": [1000],
+        "no_of_time_steps": [10000],
         "time_step": [0.001],
         "baroreflex": 
         {
             "activations": [
                 {
-                    "t_start_s": [20],
+                    "t_start_s": [5],
                     "t_stop_s": [40]
                 }
             ]
@@ -16,24 +16,24 @@
     },
     "heart_rate": {
         "t_active_period": [0.003],
-        "t_quiescent_period": [0.854],
-        "t_first_activation": [0.5]
+        "t_quiescent_period": [0.92],
+        "t_first_activation": [0.2]
     },
     "mesh":
     {
         "relative_path": [true],
-        "mesh_path":["../demos/base/sim_inputs/ellipsoidal_degree_2_new.hdf5"],
+        "mesh_path":["../demos/HCM_paper/simulations_baseline_final/baseline_final_Kappa_10_k1_3.7/sim_inputs/ellipsoidal.hdf5"],
         "function_spaces":
         [
             {
                 "name":["stimulusFS"],
-                "type":["scaler"],
+                "type":["scalar"],
                 "element_type":["DG"],
                 "degree": [1]
             },
             {
-                "name":["scaler"],
-                "type":["scaler"],
+                "name":["scalar"],
+                "type":["scalar"],
                 "element_type":["DG"],
                 "degree": [1]
             },
@@ -51,7 +51,7 @@
             },
             {
                 "name":["quadrature_space"],
-                "type":["scaler"],
+                "type":["scalar"],
                 "element_type":["Quadrature"],
                 "degree": [2]
             }
@@ -76,9 +76,9 @@
                 "a_cn": [54744.0],
                 "b_cn": [2.4095]
               },
-              "phi_m": [1.0],
-              "phi_g": [1.0],
-              "phi_c": [0.0]
+              "phi_m": [0.70],
+              "phi_g": [0.27],
+              "phi_c": [0.03]
             }
           }
     },
@@ -274,15 +274,15 @@
     },
     "output_handler":
     {
-        "output_data_path": ["../demos/base/sim_output/data.csv"],
-        "mesh_output_path": ["../demos/base/sim_output/mesh_output"],
+        "output_data_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base_mix/sim_output/data.csv"],
+        "mesh_output_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base_mix/sim_output/mesh_output"],
         "mesh_object_to_save":
         [
             "displacement",
             "active_stress",
             "hs_length"
         ],
-        "dumping_spatial_in_average":[true],
+        "dumping_spatial_in_average":[false],
         "frequency_n": [5]
         
         
