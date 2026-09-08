@@ -33,6 +33,11 @@ class ConstitutiveImplementationAudit(unittest.TestCase):
             'self.parameters["Kappa"]/2.0*(self.J() - 1.0)**2.0',
             source)
 
+    def test_passive_stress_components_come_from_one_energy_definition(self):
+        source = FORMS.read_text()
+        self.assertIn("2.0*diff(phi_g*W_ground, Ctensor)", source)
+        self.assertIn("2.0*diff(phi_c*W_collagen, Ctensor)", source)
+
 
 if __name__ == "__main__":
     unittest.main()
