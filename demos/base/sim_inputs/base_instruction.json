@@ -283,7 +283,7 @@
             "hs_length"
         ],
         "dumping_spatial_in_average":[false],
-        "frequency_n": [5]
+        "frequency_n": [20]
         
         
     }
