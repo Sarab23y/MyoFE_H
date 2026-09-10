@@ -158,7 +158,7 @@
                 "prop_fibrosis": [0.0],
                 "prop_myofilaments": [0.6],
                 "k_1": [8],
-                "k_force": [1e-3],
+                "k_force": [1e-2],
                 "k_2": [100],
                 "k_3": [170],
                 "k_4_0": [80],
