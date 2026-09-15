@@ -1,6 +1,6 @@
 {
-  "input_json": "demos/base/sim_inputs/base_instruction.json",
-  "output_directory": "../results/material",
+  "input_json": "/home/sba431/MyoFE_H/demos/base/sim_inputs/base_instruction_Br.json",
+  "output_directory": "/mnt/gpfs2_4m/scratch/sba431/material_validation_Br",
   "stretch_min": 1.0,
   "stretch_max": 1.25,
   "shear_min": 0.0,
