@@ -346,9 +346,10 @@ python postprocessing/plot_passive_inflation.py \
   validation/results/passive_inflation/passive_inflation.png
 ```
 
-The inflation configuration's `volume_scale_to_ml` is explicit and must be
-verified for the selected mesh. The example uses 1000 because the current
-circulation inputs and LV volumes are treated as litres, but the repository
-does not contain a centralized unit contract. Do not compare the curve with
-an experimental EDPVR until reference loading, boundary conditions, volume
-units, and pressure-step/mesh convergence have been checked.
+The inflation configuration intentionally sets `volume_scale_to_ml` to `null`.
+The selected HDF5 mesh is a Git LFS pointer in this checkout, and the available
+mesh generators contain inconsistent scale conventions; circulation labels
+alone do not establish coordinate units. Set a positive conversion only after
+verifying the actual mesh provenance. Do not compare the curve with an
+experimental EDPVR until reference loading, boundary conditions, volume units,
+and pressure-step/mesh convergence have been checked.

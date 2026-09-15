@@ -20,7 +20,11 @@ def main():
     import pandas as pd
 
     data = pd.read_csv(args.csv)
-    converged = data[data['converged'] == True]  # noqa: E712
+    if data['converged'].dtype == object:
+        converged_mask = data['converged'].astype(str).str.lower() == 'true'
+    else:
+        converged_mask = data['converged'].astype(bool)
+    converged = data[converged_mask]
     if converged.empty:
         raise ValueError('No converged inflation states in CSV')
     if 'cavity_volume_ml' not in converged:

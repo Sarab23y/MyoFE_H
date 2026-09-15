@@ -36,7 +36,10 @@ def main():
             'direction': direction,
             'input_json': input_path,
             'passive_parameters': resolved,
-            'constraint': 'J=1; one total pressure from sigma_nn=0',
+            'constraint': ('J=1; one total pressure sets only the normal '
+                           'component of thickness-face traction to zero'),
+            'surface_traction': ('Tangential traction is reported and need '
+                                 'not vanish under prescribed simple shear'),
             'note': ('No explicit fiber-sheet coupling energy exists. Shear '
                      'can activate I1 and a stretched directional I4.'),
         }

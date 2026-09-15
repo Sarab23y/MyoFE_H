@@ -63,15 +63,17 @@ pushed forward as
 \sigma_i=F S_i F^T/J.
 \]
 
-A **single** pressure multiplier is then chosen from the traction-free local
-sheet-normal condition:
+A **single** pressure multiplier is then chosen to make the normal component
+of traction zero on the deformed image of the local sheet-normal face. For
+reference normal \(N=e_n\), the evaluator calculates the actual unit normal
+\(n=F^{-T}N/\|F^{-T}N\|\) and sets:
 
 \[
 p=(\sigma_g+\sigma_m+\sigma_c)_{nn},\qquad
 \sigma=\sum_i\sigma_i-pI,
 \]
 
-so \(\sigma_{nn}=0\). The corresponding physical PK2 stress is
+so \(n\cdot\sigma n=0\). The corresponding physical PK2 stress is
 
 \[
 S=\sum_i S_i-pJ C^{-1}.
@@ -81,7 +83,14 @@ The pressure term is not assigned independently to each constituent. Thus the
 constituent stress columns are energetic, fraction-weighted contributions;
 the total columns add the one constraint pressure. This convention exactly
 reconstructs total physical stress while avoiding an arbitrary allocation of
-pressure between constituents.
+pressure between constituents. The CSV separately reports the three traction
+components, normal residual, tangential magnitude, and full magnitude.
+
+For aligned diagonal biaxial deformation, symmetry makes tangential traction
+zero, so the thickness face is fully traction free. For prescribed simple
+shear, the pressure eliminates only normal traction. Tangential traction can be
+nonzero—and is required to maintain shear—so the documentation does not call
+those surfaces fully traction free.
 
 ### Reported measures
 
@@ -91,7 +100,9 @@ pressure between constituents.
 - `S_*`: second Piola-Kirchhoff stress;
 - `sigma_*`: Cauchy stress;
 - `J`: determinant of \(F\);
-- `traction_normal_residual`: total \(\sigma_{nn}\), expected near zero;
+- `traction_normal_residual`: \(n\cdot\sigma n\), expected near zero;
+- `traction_tangential_magnitude` and `traction_full_magnitude`: distinguish
+  zero normal stress from zero full surface traction;
 - weighted constituent and total energies.
 
 Stress and energy-density columns use the production internal unit. For the
@@ -179,19 +190,20 @@ python validation/verify_material_validation.py \
   validation/configs/material_validation.json
 ```
 
-The check verifies:
+The check evaluates the production UFL energy/stress equations and verifies:
 
 - zero constituent energy at \(F=I\);
 - \(J=1\) and zero normal-traction residual;
 - exact weighted energy reconstruction;
-- a central finite-difference energy derivative against total PK2 stress on
-  an isochoric fiber stretch path;
-- a central finite-difference energy derivative against the appropriate
-  first-Piola shear work conjugate;
+- central finite-difference energy derivatives against \(P:dF/dq\), with
+  \(P=FS\), on all three configured biaxial path definitions;
+- the same work-conjugate derivative check on all three shear directions;
 - positive ground and collagen shear energies for the selected shear state.
 
 This is a constitutive check, not experimental validation or parameter
-calibration.
+calibration. The generic unit tests only inspect source/configuration
+structure; this script is the check that actually assembles and evaluates the
+production numerical UFL equations and therefore must be run in FEniCS.
 
 ## 5. Passive LV inflation
 
@@ -212,14 +224,28 @@ therefore not advanced, baroreflex controls are not advanced, growth is not
 advanced, fiber reorientation is not advanced, and MyoSim ODEs are not
 advanced. It sets the DOLFIN `cb_number_density` field to zero, making the
 symbolic cross-bridge active stress identically zero during inflation, and
-restores the local field before exit.
+restores the local field before exit. Construction reads the mesh HDF5 file in
+read-only mode and does not initialize the normal simulation output handler;
+validation output is directed only to the configured validation directory.
+With `overwrite: false`, an existing inflation CSV causes a clear error.
 
-The pressure-controlled residual reuses production `F1` (passive), `F2`
+The pressure-controlled residual reuses production `F1` (passive and mixed
+incompressibility), `F2`
 (present but zero active stress), `F3_p` (prescribed endocardial pressure), and
 `F4` (rigid constraints). It omits the volume-control residual `F3`. Because
 the production mixed space still contains the now-unused cavity multiplier,
 the validation residual constrains that one Real unknown to zero; this removes
-an algebraic null row without altering displacement mechanics.
+an algebraic null row without altering displacement mechanics. The code also
+checks across MPI ranks that the active `cb_number_density` coefficient is
+exactly zero before solving.
+
+The prescribed pressure has the same sign as production `F3_p =
+Press*inner(J F^{-T}N,v)*ds(endo)`. On the endocardial boundary the solid's
+outward normal points into the cavity; writing internal virtual work minus the
+physical pressure traction produces this plus sign. This is also consistent
+with the negative orientation in the production cavity-volume surface
+integral. A smoke run must still verify that positive pressure increases
+cavity volume for the selected facet markers.
 
 ### Pressure and volume
 
@@ -235,16 +261,30 @@ collective, so the returned volume is global rather than a sum of already
 global values.
 
 The CSV records both model volume and `cavity_volume_ml`. The latter uses the
-configuration's explicit `volume_scale_to_ml`. The example value is 1000,
-consistent with interpreting current circulation volumes as litres, but it
-must be verified for the selected mesh before publication.
+configuration's required, explicit `volume_scale_to_ml`. No default is
+provided: the example value is `null`, and the driver refuses to run until a
+positive value is supplied.
+
+This is necessary because cavity volume is the integral of the mesh-coordinate
+geometry and therefore has units of coordinate-unit cubed. The checked-in base
+HDF5 file is only a Git LFS pointer in this environment, so its coordinates
+cannot be inspected. Available mesh-generation files also contain different
+dimensionless-looking scale values (including 1.2 and 11) without a definitive
+unit declaration tying either generator to this exact HDF5 object. A plotting
+template labels historical cavity volume as litres, but neither that label nor
+the circulation's blood-volume convention proves the mesh coordinate unit.
 
 ### Continuation and failures
 
 Requested pressures are traversed in increasing order. Each converged
 displacement/multiplier vector becomes the initial guess for the next state.
-If Newton raises `RuntimeError`, the last converged vector is restored and the
-pressure interval is bisected. Failed attempts are retained in the CSV. If
+If Newton raises `RuntimeError`, all ranks first agree on failure through an
+MPI all-reduction. The complete mixed vector `w`—displacement, hydrostatic
+pressure, cavity multiplier, and rigid-body multipliers—is restored from the
+last converged distributed vector and synchronized with `apply('insert')`.
+There are no time-evolved material history variables in this driver; pressure
+is reset explicitly for every attempt and active density remains zero. The
+pressure interval is then bisected. Failed attempts are retained in the CSV. If
 half the failed interval is below `minimum_pressure_increment_mmHg`, the CSV
 and metadata are written and the driver raises a clear terminal error; it does
 not label the failed target as converged.
@@ -279,11 +319,21 @@ with `--save`. `--headless` selects Matplotlib's non-interactive `Agg` backend.
 
 ### Reference-state limitation
 
-The example explicitly treats the supplied HDF5 geometry as a zero-pressure
-reference. The driver performs no inverse unloading and introduces no
-prestress. If the mesh represents an in-vivo loaded state, the resulting curve
-is a model inflation curve from that geometry—not a validated unloaded-organ
-EDPVR. This assumption is recorded in metadata.
+The example *declares an assumption* that the supplied HDF5 geometry is the
+zero-pressure reference. It is not verified. The production main mechanics
+uses `F=I+grad(u)` and, unless a growth tensor is explicitly passed to `Forms`,
+uses `Fe=F`; ordinary `MeshClass` construction does not load prestress or a
+constituent-specific deposition state. Initial `hsl0` and `f0/s0/n0` fields are
+loaded, but at `F=I` the Xi stretch ratio is one.
+
+If the input contains a growth module, its separate mechanics object can be
+constructed, but the inflation driver never advances or transfers a growth
+update into the primary reference configuration. Consequently, a previously
+grown state affects inflation only if it has already been exported as the
+selected input mesh/fields. The driver performs no inverse unloading and
+introduces no prestress. If the mesh represents an in-vivo loaded state, the
+resulting curve is a model inflation curve from that geometry—not a verified
+unloaded-organ EDPVR. This assumption is recorded in metadata.
 
 The curve can be compared with an experimental EDPVR only after matching the
 reference configuration, boundary/pericardial conditions, pressure and volume
@@ -330,7 +380,26 @@ Before interpreting fitted or experimental agreement:
    environment does not provide the legacy DOLFIN runtime needed to perform
    that comparison.
 
-## 8. What has and has not been tested here
+## 8. Cluster smoke-test script
+
+`validation/run_validation_smoke.slurm` follows the repository's existing
+Singularity/SLURM execution pattern without hard-coding a user account,
+partition, repository path, image path, or unverified volume conversion. Set:
+
+```bash
+export FENICS_IMAGE=/path/to/the/working/fenics.img
+export REPO=/path/to/MyoFE_H
+export VOLUME_SCALE_TO_ML=<verified-positive-conversion>
+cd "$REPO"
+sbatch validation/run_validation_smoke.slurm
+```
+
+The job runs production-UFL material verification, 0–1 mmHg serial inflation,
+the same two-rank inflation, a matching-pressure volume comparison, and a
+headless inflation plot. It writes only under `validation/results/`. This is a
+smoke test, not pressure-step or mesh-convergence evidence.
+
+## 9. What has and has not been tested here
 
 Static syntax, JSON parsing, configuration preservation, and source-level
 reuse can be checked in a generic development environment. Executing the UFL
@@ -338,3 +407,12 @@ material evaluator and passive inflation requires the repository's legacy
 FEniCS/Python 2 environment. No full cardiac run, large sweep, mesh refinement,
 pressure-step convergence study, or experimental comparison is performed by
 these tools automatically.
+
+During the 2026-09-15 audit, all 29 lightweight repository tests passed, as
+did Python compilation, JSON parsing, shell syntax, and diff-whitespace
+checks. The audit container did not provide `dolfin` or `matplotlib`, and the
+base HDF5 path resolved to a Git LFS pointer rather than mesh contents.
+Consequently, no claim is made here that the UFL derivative checks, inflation
+solve, serial/MPI volume comparison, or plot generation have passed
+numerically. Run the cluster smoke-test above in the project's working legacy
+FEniCS image before using validation results scientifically.

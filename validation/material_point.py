@@ -8,7 +8,7 @@ import os
 import sys
 
 import numpy as np
-from dolfin import (Constant, Function, FunctionSpace, UnitCubeMesh,
+from dolfin import (Constant, Function, UnitCubeMesh,
                     VectorFunctionSpace, as_tensor, assemble, dx)
 
 
@@ -124,7 +124,11 @@ def evaluate_state(F_numpy, passive_parameters):
     J = float(np.linalg.det(F_numpy))
     cauchy = [np.dot(np.dot(F_numpy, S), F_numpy.T)/J for S in stresses]
     material_cauchy = sum(cauchy)
-    constraint_pressure = material_cauchy[2, 2]
+    reference_normal = np.array([0.0, 0.0, 1.0])
+    deformed_normal = np.dot(np.linalg.inv(F_numpy).T, reference_normal)
+    deformed_normal /= np.linalg.norm(deformed_normal)
+    constraint_pressure = float(np.dot(
+        deformed_normal, np.dot(material_cauchy, deformed_normal)))
     constraint_cauchy = -constraint_pressure*np.eye(3)
     total_cauchy = material_cauchy + constraint_cauchy
     C_inverse = np.linalg.inv(C_numpy)
@@ -132,6 +136,9 @@ def evaluate_state(F_numpy, passive_parameters):
     E = 0.5*(C_numpy - np.eye(3))
 
     names = ('ground', 'myofiber', 'collagen')
+    traction = np.dot(total_cauchy, deformed_normal)
+    normal_traction = float(np.dot(traction, deformed_normal))
+    tangential_traction = traction - normal_traction*deformed_normal
     result = {
         'lambda_f': float(lambda_f),
         'lambda_s': float(np.sqrt(C_numpy[1, 1])),
@@ -141,7 +148,16 @@ def evaluate_state(F_numpy, passive_parameters):
         'engineering_shear_gamma': float(F_numpy[0, 1] + F_numpy[1, 0]),
         'J': J,
         'constraint_pressure': float(constraint_pressure),
-        'traction_normal_residual': float(total_cauchy[2, 2]),
+        'deformed_normal_f': float(deformed_normal[0]),
+        'deformed_normal_s': float(deformed_normal[1]),
+        'deformed_normal_n': float(deformed_normal[2]),
+        'traction_f': float(traction[0]),
+        'traction_s': float(traction[1]),
+        'traction_n': float(traction[2]),
+        'traction_normal_residual': normal_traction,
+        'traction_tangential_magnitude': float(
+            np.linalg.norm(tangential_traction)),
+        'traction_full_magnitude': float(np.linalg.norm(traction)),
         'energy_total': float(sum(weighted_energies)),
         'S_ff_total': float(total_pk2[0, 0]),
         'S_ss_total': float(total_pk2[1, 1]),
@@ -149,6 +165,12 @@ def evaluate_state(F_numpy, passive_parameters):
         'sigma_ff_total': float(total_cauchy[0, 0]),
         'sigma_ss_total': float(total_cauchy[1, 1]),
         'sigma_fs_total': float(total_cauchy[0, 1]),
+        'S_fn_total': float(total_pk2[0, 2]),
+        'S_sn_total': float(total_pk2[1, 2]),
+        'S_nn_total': float(total_pk2[2, 2]),
+        'sigma_fn_total': float(total_cauchy[0, 2]),
+        'sigma_sn_total': float(total_cauchy[1, 2]),
+        'sigma_nn_total': float(total_cauchy[2, 2]),
     }
     for i, name in enumerate(names):
         result['energy_' + name] = float(weighted_energies[i])

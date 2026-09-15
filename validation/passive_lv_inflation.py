@@ -3,7 +3,6 @@
 from __future__ import print_function
 
 import argparse
-import copy
 import csv
 import json
 import os
@@ -47,6 +46,22 @@ def _pressure_targets(config):
     return targets
 
 
+def _required_volume_scale(config):
+    value = config.get('volume_scale_to_ml')
+    if not isinstance(value, (int, float)) or value <= 0.0:
+        raise ValueError(
+            'Set a positive volume_scale_to_ml after verifying the selected '
+            'mesh coordinate units; no default conversion is assumed')
+    return float(value)
+
+
+def _restore_solution(lv, state):
+    """Restore every mixed FE unknown and synchronize owned/ghost entries."""
+    vector = lv.mesh.model['functions']['w'].vector()
+    vector[:] = state
+    vector.apply('insert')
+
+
 def _build_pressure_controlled_problem(lv):
     """Reuse production passive/active/pressure residual components.
 
@@ -88,6 +103,7 @@ def main():
     config_path = os.path.abspath(args.config)
     with open(config_path, 'r') as handle:
         config = json.load(handle)
+    volume_scale_to_ml = _required_volume_scale(config)
     input_path = _absolute_from_config(config_path, config['input_json'])
     with open(input_path, 'r') as handle:
         instruction = recode(json.load(handle))
@@ -109,15 +125,30 @@ def main():
     original_cb_density = cb_density.vector().get_local().copy()
     cb_density.vector()[:] = 0.0
     cb_density.vector().apply('insert')
+    local_active_density = np.max(np.abs(cb_density.vector().get_local())) \
+        if len(cb_density.vector().get_local()) else 0.0
+    global_active_density = MPI.COMM_WORLD.allreduce(
+        local_active_density, op=MPI.MAX)
+    if global_active_density != 0.0:
+        raise RuntimeError('Failed to disable cross-bridge active stress')
 
     output_dir = os.path.join(os.path.dirname(config_path),
                               config['output_directory'])
+    result_path = os.path.join(output_dir, 'passive_inflation.csv')
+    if (MPI.COMM_WORLD.Get_rank() == 0 and os.path.exists(result_path) and
+            not config.get('overwrite', False)):
+        output_conflict = ('Refusing to overwrite existing validation result: '
+                           + result_path)
+    else:
+        output_conflict = None
+    output_conflict = MPI.COMM_WORLD.bcast(output_conflict, root=0)
+    if output_conflict:
+        raise RuntimeError(output_conflict)
     if MPI.COMM_WORLD.Get_rank() == 0 and not os.path.isdir(output_dir):
         os.makedirs(output_dir)
     MPI.COMM_WORLD.Barrier()
 
     targets = _pressure_targets(config)
-    volume_scale_to_ml = float(config['volume_scale_to_ml'])
     min_increment = float(config['minimum_pressure_increment_mmHg'])
     solver_parameters = config.get('newton_solver', {
         'relative_tolerance': 1.0e-7,
@@ -131,7 +162,7 @@ def main():
     terminal_failure = None
     while pending:
         target = pending.pop(0)
-        lv.mesh.model['functions']['w'].vector()[:] = state
+        _restore_solution(lv, state)
         local_error = None
         try:
             volume, iterations = _solve_pressure_state(
@@ -163,7 +194,7 @@ def main():
                          'newton_iterations': '',
                          'converged': False,
                          'message': message})
-            lv.mesh.model['functions']['w'].vector()[:] = state
+            _restore_solution(lv, state)
             if failed/2.0 < min_increment:
                 terminal_failure = (
                     'Passive inflation failed at %g mmHg; minimum increment '
@@ -178,7 +209,7 @@ def main():
     cb_density.vector()[:] = original_cb_density
     cb_density.vector().apply('insert')
     if MPI.COMM_WORLD.Get_rank() == 0:
-        csv_path = os.path.join(output_dir, 'passive_inflation.csv')
+        csv_path = result_path
         fields = ['pressure_mmHg', 'pressure_internal',
                   'cavity_volume_model_units', 'cavity_volume_ml',
                   'newton_iterations', 'converged', 'message']

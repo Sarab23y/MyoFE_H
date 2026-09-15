@@ -49,7 +49,10 @@ def main():
             }[path_name],
             'input_json': input_path,
             'passive_parameters': resolved,
-            'constraint': 'J=1; one total pressure from sigma_nn=0',
+            'constraint': ('J=1; one total pressure sets normal traction to '
+                           'zero on the deformed thickness face'),
+            'surface_traction': ('Aligned diagonal biaxial kinematics have '
+                                 'zero tangential traction as well'),
             'stress_units': 'production internal stress unit (Pa for current input)',
         }
         metadata_path = write_results(rows, columns, csv_path, metadata)

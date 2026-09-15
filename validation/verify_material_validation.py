@@ -16,6 +16,24 @@ def close(name, observed, expected, rtol=2.0e-4, atol=1.0e-7):
                              (name, observed, expected))
 
 
+def directional_derivative(passive, state_function, value, delta):
+    """Compare dW/dq with P:dF/dq for an isochoric one-parameter path."""
+    F_minus = state_function(value-delta)
+    F_centre = state_function(value)
+    F_plus = state_function(value+delta)
+    minus = evaluate_state(F_minus, passive)
+    centre = evaluate_state(F_centre, passive)
+    plus = evaluate_state(F_plus, passive)
+    energy_derivative = (plus['energy_total']-minus['energy_total'])/(2*delta)
+    S = np.array([
+        [centre['S_ff_total'], centre['S_fs_total'], centre['S_fn_total']],
+        [centre['S_fs_total'], centre['S_ss_total'], centre['S_sn_total']],
+        [centre['S_fn_total'], centre['S_sn_total'], centre['S_nn_total']]])
+    P = np.dot(F_centre, S)
+    dF = (F_plus-F_minus)/(2*delta)
+    return centre, energy_derivative, float(np.sum(P*dF))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('config')
@@ -29,35 +47,41 @@ def main():
           reference['traction_normal_residual'], 0.0)
     close('reference J', reference['J'], 1.0)
 
-    # Central difference along F=diag(lambda,1,1/lambda). Because this path is
-    # isochoric and sigma_nn=0, dW/dlambda=lambda*S_ff.
     value = 1.12
     delta = 1.0e-5
-    minus = evaluate_state(biaxial_F(value-delta, 1.0), passive)
-    centre = evaluate_state(biaxial_F(value, 1.0), passive)
-    plus = evaluate_state(biaxial_F(value+delta, 1.0), passive)
-    derivative = (plus['energy_total']-minus['energy_total'])/(2.0*delta)
-    close('biaxial energy/PK2 derivative', derivative/value,
-          centre['S_ff_total'])
+    biaxial_paths = {
+        'equal_biaxial': lambda q: biaxial_F(q, q),
+        'fiber_dominant': lambda q: biaxial_F(q, 1.0+0.5*(q-1.0)),
+        'sheet_dominant': lambda q: biaxial_F(1.0+0.5*(q-1.0), q),
+    }
+    for name, path in biaxial_paths.items():
+        centre, observed, expected = directional_derivative(
+            passive, path, value, delta)
+        close(name + ' energy/work derivative', observed, expected)
+        close(name + ' full traction', centre['traction_full_magnitude'], 0.0)
 
-    # For F=I+gamma e_f (x) e_s, dW/dgamma=P_fs=S_fs+gamma*S_ss.
     gamma = 0.15
-    minus = evaluate_state(shear_F(gamma-delta, 'fiber_along_sheet'), passive)
-    centre = evaluate_state(shear_F(gamma, 'fiber_along_sheet'), passive)
-    plus = evaluate_state(shear_F(gamma+delta, 'fiber_along_sheet'), passive)
-    derivative = (plus['energy_total']-minus['energy_total'])/(2.0*delta)
-    expected = centre['S_fs_total'] + gamma*centre['S_ss_total']
-    close('shear energy/PK2 derivative', derivative, expected)
+    shear_directions = ('fiber_along_sheet', 'sheet_along_fiber',
+                        'fiber_along_normal')
+    shear_states = []
+    for direction in shear_directions:
+        path = lambda q, d=direction: shear_F(q, d)
+        centre, observed, expected = directional_derivative(
+            passive, path, gamma, delta)
+        close(direction + ' energy/work derivative', observed, expected)
+        close(direction + ' normal traction',
+              centre['traction_normal_residual'], 0.0)
+        shear_states.append(centre)
 
-    for row in (reference, centre):
+    for row in [reference] + shear_states:
         close('J', row['J'], 1.0)
         close('normal traction', row['traction_normal_residual'], 0.0)
         close('energy decomposition', row['energy_total'],
               row['energy_ground'] + row['energy_myofiber'] +
               row['energy_collagen'])
-    if centre['energy_ground'] <= 0.0:
+    if any(row['energy_ground'] <= 0.0 for row in shear_states):
         raise AssertionError('Ground matrix did not activate in shear')
-    if centre['energy_collagen'] <= 0.0:
+    if any(row['energy_collagen'] <= 0.0 for row in shear_states):
         raise AssertionError('Directional collagen did not activate in shear')
     print('Material validation checks: PASS')
 
