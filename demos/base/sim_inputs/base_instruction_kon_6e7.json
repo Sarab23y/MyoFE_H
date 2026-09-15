@@ -165,7 +165,7 @@
                 "k_4_1": [1],
                 "k_cb": [0.001],
                 "x_ps": [5],
-                "k_on": [1e7],
+                "k_on": [6.0e7],
                 "k_off": [200],
                 "k_coop": [5],
                 "int_passive_exp_sigma": [100],
@@ -274,8 +274,8 @@
     },
     "output_handler":
     {
-        "output_data_path": ["../demos/base/sim_output/data.csv"],
-        "mesh_output_path": ["../demos/base/sim_output/mesh_output"],
+        "output_data_path": ["../demos/base/kon_6e7/sim_output/data.csv"],
+        "mesh_output_path": ["../demos/base/kon_6e7/sim_output/mesh_output"],
         "mesh_object_to_save":
         [
             "displacement",
