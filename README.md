@@ -14,6 +14,8 @@ and `demos/base/sim_inputs/base_instruction.json`.
 
 For a detailed implementation audit, see
 [`docs/MyoFE_H_System_Review.md`](docs/MyoFE_H_System_Review.md).
+For passive material and LV-inflation validation, see
+[`docs/Mechanical_Validation.md`](docs/Mechanical_Validation.md).
 
 ## Repository map
 
@@ -307,3 +309,46 @@ done
 
 The unit tests are primarily validator, numerical formula, and source-level
 regression checks. They do not assemble or solve the full FEniCS problem.
+
+## Mechanical validation tools
+
+Run material tests from the repository root inside the same legacy FEniCS
+environment as the production model:
+
+```bash
+python validation/biaxial_material_test.py \
+  validation/configs/material_validation.json
+python validation/shear_material_test.py \
+  validation/configs/material_validation.json
+python validation/verify_material_validation.py \
+  validation/configs/material_validation.json
+```
+
+Plot interactively on a local workstation, or save without a display on HPC:
+
+```bash
+python postprocessing/plot_material_validation.py \
+  validation/results/material --show
+python postprocessing/plot_material_validation.py \
+  validation/results/material --headless \
+  --save validation/results/material/material_validation.png
+```
+
+Passive LV inflation is a separate finite-element calculation and is more
+expensive than the homogeneous tests:
+
+```bash
+mpiexec -np 32 python validation/passive_lv_inflation.py \
+  validation/configs/passive_inflation.json
+python postprocessing/plot_passive_inflation.py \
+  validation/results/passive_inflation/passive_inflation.csv \
+  --headless --save \
+  validation/results/passive_inflation/passive_inflation.png
+```
+
+The inflation configuration's `volume_scale_to_ml` is explicit and must be
+verified for the selected mesh. The example uses 1000 because the current
+circulation inputs and LV volumes are treated as litres, but the repository
+does not contain a centralized unit contract. Do not compare the curve with
+an experimental EDPVR until reference loading, boundary conditions, volume
+units, and pressure-step/mesh convergence have been checked.
