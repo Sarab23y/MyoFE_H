@@ -7,12 +7,13 @@ Created on Mon Jan 10 11:15:59 2022
 from pyclbr import Function
 import numpy as np
 import json
-from mpi4py import MPI
+from mpi4py import MPI as MPI4PY
 from dolfin import *
 import os
 from ..dependencies.forms import Forms
 from ..dependencies.nsolver import NSolver#from ..dependencies.assign_heterogeneous_params import assign_heterogeneous_params as assign_params
 from ..dependencies.assign_heterogeneous_params import assign_heterogeneous_params 
+from ..dependencies.fibrosis_config import validate_xi_ground_collagen
 
 class MeshClass():
 
@@ -44,12 +45,6 @@ class MeshClass():
             self.model['mesh'] = predefined_mesh
          # communicator to run in parallel
         self.comm = self.model['mesh'].mpi_comm()
-        if MPI.rank(self.comm) == 0:
-            print 'Mesh diagnostics (rank 0 local view):'
-            print '  mesh.num_cells():', self.model['mesh'].num_cells()
-            print '  mesh.num_vertices():', self.model['mesh'].num_vertices()
-            print '  mesh.topology().dim():', self.model['mesh'].topology().dim()
-            print '  mesh.geometry().dim():', self.model['mesh'].geometry().dim()
         #print 'comminicator is defined'
         #print self.comm.Get_rank()
         #print self.comm.Get_size()
@@ -62,12 +57,20 @@ class MeshClass():
         
 
         self.model['function_spaces'] = self.initialize_function_spaces(mesh_struct)
+
+        passive_parameters = mesh_struct['forms_parameters'][
+            'passive_law_parameters']
+        self.resolved_passive_parameters = \
+            validate_xi_ground_collagen(passive_parameters)
+        self.report_resolved_fibrosis_configuration()
         
         if MPI.rank(self.comm) == 0:
             print 'function spaces are defined'
 
 
         self.model['functions'] = self.initialize_functions(mesh_struct,predefined_functions)
+
+        self.report_mesh_diagnostics()
 
 
         self.model['boundary_conditions'] = self.initialize_boundary_conditions()
@@ -142,25 +145,155 @@ class MeshClass():
             for fs in mesh_struct['function_spaces']:
                 #print (fs['name'][0])
                 #define required finite elements 
-                if fs['type'][0] == 'scalar':
+                function_type = fs['type'][0]
+                # The current input uses the historical spelling "scaler".
+                # It denotes a rank-0 scalar element; preserve the JSON while
+                # interpreting that established spelling explicitly.
+                if function_type in ['scalar', 'scaler']:
                     finite_element = \
                         FiniteElement(fs['element_type'][0],self.model['mesh'].ufl_cell(),
                                         degree = fs['degree'][0],quad_scheme="default")
 
-                elif fs['type'][0] == 'vector':
+                elif function_type == 'vector':
                     finite_element = \
                         VectorElement(fs['element_type'][0],self.model['mesh'].ufl_cell(),
                                         degree = fs['degree'][0],quad_scheme="default")
                     
-                elif fs['type'][0] == 'tensor':
+                elif function_type == 'tensor':
                     fcn_spaces[fs['name'][0]] = \
                         TensorFunctionSpace(self.model['mesh'], fs['element_type'][0],
                                         degree = fs['degree'][0])
                 # now define function spaces over defined finite elements
-                if not fs['type'][0] == 'tensor':
+                else:
+                    raise ValueError(
+                        "Unsupported mesh.function_spaces type '%s' for '%s'" %
+                        (function_type, fs['name'][0]))
+                if not function_type == 'tensor':
                     fcn_spaces[fs['name'][0]] = FunctionSpace(self.model['mesh'],finite_element)
+                    if fs['name'][0] == 'scaler':
+                        # Existing mechanics code requests the conventional
+                        # name "scalar". Both names refer to this same rank-0
+                        # DG space; this is a spelling compatibility alias,
+                        # not an alias to a different FE space.
+                        fcn_spaces['scalar'] = fcn_spaces['scaler']
 
         return fcn_spaces
+
+    def report_resolved_fibrosis_configuration(self):
+        """Print validated user values once, before weak-form construction."""
+        if (self.resolved_passive_parameters is None or
+                MPI.rank(self.comm) != 0):
+            return
+        values = self.resolved_passive_parameters
+        print '[FibrosisConfiguration]'
+        print '  Passive law:', values['passive_law']
+        print '  Ground matrix: a_g=%s, b_g=%s' % \
+            (values['a_g'], values['b_g'])
+        print '  Myofiber Xi: c2=%s, c3=%s' % \
+            (values['c2'], values['c3'])
+        print ('  Collagen: a_cf=%s, b_cf=%s, a_cs=%s, b_cs=%s, '
+               'a_cn=%s, b_cn=%s') % \
+            (values['a_cf'], values['b_cf'], values['a_cs'],
+             values['b_cs'], values['a_cn'], values['b_cn'])
+        print '  Fractions: phi_m=%s, phi_g=%s, phi_c=%s, sum=%s' % \
+            (values['phi_m'], values['phi_g'], values['phi_c'],
+             values['fraction_sum'])
+        print '  Available function spaces:', \
+            sorted(self.model['function_spaces'].keys())
+
+    def report_mesh_diagnostics(self):
+        """Report read-only MPI mesh, quadrature, and material-basis sizes."""
+        mpi_comm = self._get_mpi4py_comm()
+        if mpi_comm is None:
+            if MPI.rank(self.comm) == 0:
+                print ('[FibrosisMeshDiagnostics] unable to report distributed '
+                       'counts: no mpi4py-compatible communicator is available')
+            return
+
+        mesh = self.model['mesh']
+        cell_dim = mesh.topology().dim()
+        topology = mesh.topology()
+        if hasattr(topology, 'ghost_offset'):
+            local_owned_cells = topology.ghost_offset(cell_dim)
+        else:
+            local_owned_cells = mesh.num_cells()
+        local_total_cells = mesh.num_cells()
+        local_ghost_cells = local_total_cells - local_owned_cells
+        global_cells = mpi_comm.allreduce(
+            local_owned_cells, op=MPI4PY.SUM)
+        owned_counts = mpi_comm.allgather(local_owned_cells)
+        ghost_counts = mpi_comm.allgather(local_ghost_cells)
+
+        if hasattr(mesh, 'size_global'):
+            global_vertices = mesh.size_global(0)
+        else:
+            global_vertices = 'unavailable (size_global is not supported)'
+
+        quad_space = self.model['function_spaces']['quadrature_space']
+        quad_dofmap = quad_space.dofmap()
+        quad_element = quad_space.ufl_element()
+        quad_degree = quad_element.degree()
+        if local_total_cells > 0:
+            quadrature_points_per_cell = len(quad_dofmap.cell_dofs(0))
+        else:
+            quadrature_points_per_cell = 0
+        quad_ownership = quad_dofmap.ownership_range()
+        local_owned_qp = quad_ownership[1] - quad_ownership[0]
+        actual_global_qp = quad_space.dim()
+        expected_global_qp = global_cells*quadrature_points_per_cell
+
+        coordinate_count = quad_space.tabulate_dof_coordinates().reshape(
+            (-1, mesh.geometry().dim())).shape[0]
+        local_qp_dofs = np.asarray(quad_dofmap.dofs(), dtype=int)
+        gathered_qp_dofs = mpi_comm.allgather(local_qp_dofs)
+        global_coordinate_dofs = len(np.unique(np.concatenate(
+            gathered_qp_dofs)))
+        basis = []
+        for name in ('f0', 's0', 'n0'):
+            flat_count = len(
+                self.model['functions'][name].vector().get_local())
+            basis.append((name, flat_count, flat_count/3))
+        local_basis_consistent = all(
+            item[2] == local_owned_qp for item in basis)
+        globally_consistent = mpi_comm.allreduce(
+            1 if local_basis_consistent else 0, op=MPI4PY.MIN) == 1
+        local_coordinate_consistent = coordinate_count == len(local_qp_dofs)
+        coordinate_consistent = mpi_comm.allreduce(
+            1 if local_coordinate_consistent else 0, op=MPI4PY.MIN) == 1 and \
+            global_coordinate_dofs == actual_global_qp
+        count_consistent = expected_global_qp == actual_global_qp
+
+        if mpi_comm.Get_rank() != 0:
+            return
+        print '[FibrosisMeshDiagnostics]'
+        print '  MPI ranks:', mpi_comm.Get_size()
+        print '  Topological/geometric dimension:', \
+            cell_dim, mesh.geometry().dim()
+        print '  Local cells on rank 0 (owned/ghost/total):', \
+            local_owned_cells, local_ghost_cells, local_total_cells
+        print '  Owned cells per rank (min/max):', \
+            min(owned_counts), max(owned_counts)
+        print '  Ghost cells per rank (min/max):', \
+            min(ghost_counts), max(ghost_counts)
+        print '  Global mesh cells:', global_cells
+        print '  Global mesh vertices:', global_vertices
+        print '  Quadrature degree:', quad_degree
+        print '  Quadrature element:', quad_element
+        print '  Quadrature points per cell:', quadrature_points_per_cell
+        print '  Expected/actual global material points:', \
+            expected_global_qp, actual_global_qp
+        for name, flat_count, vector_count in basis:
+            print '  %s flat/logical shape: (%d,) / (%d, 3)' % \
+                (name, flat_count, vector_count)
+        print '  f0/s0/n0 representation: vectors at quadrature points'
+        print '  Material-coordinate vectors on rank 0:', basis[0][2]
+        print '  Spatial coordinates on rank 0:', coordinate_count
+        print '  Global unique spatial coordinate DOFs:', \
+            global_coordinate_dofs
+        print '  Coordinate/field count match:', coordinate_consistent
+        print '  Mesh/material-point consistency:', \
+            ('PASS' if count_consistent and globally_consistent and
+             coordinate_consistent else 'FAIL')
 
     def initialize_functions(self, mesh_struct,predefined_functions):
 
@@ -276,18 +409,9 @@ class MeshClass():
         ##MM in the general form there used to be more inputs for below function, but for LV het modeling only below inputs are needed
         dolfin_functions = het_class.assign_heterogeneous_params(dolfin_functions,self.no_of_cells,endo_dist,xq)
 
-        self.apply_static_fiber_architecture(mesh_struct, f0, s0, n0, dolfin_functions=dolfin_functions)
-        if MPI.rank(self.comm) == 0:
-            print 'Post-architecture material-coordinate diagnostics (rank 0 local vectors):'
-            print '  fiber f0 flat/logical shape:', \
-                (len(f0.vector().get_local()),), \
-                (len(f0.vector().get_local())/3, 3)
-            print '  sheet s0 flat/logical shape:', \
-                (len(s0.vector().get_local()),), \
-                (len(s0.vector().get_local())/3, 3)
-            print '  normal n0 flat/logical shape:', \
-                (len(n0.vector().get_local()),), \
-                (len(n0.vector().get_local())/3, 3)
+        # Fibrosis simulations consume the HDF5 material basis unchanged.
+        # Static random Fiber Disarray transformations are not part of this
+        # execution path.
        
         ### infarct note: for chronic infarcts we apply it here as material is alterred but for acute infarcts it is applied fin protocol and uses handle_infarct function in the main code
         # as acute infacrt is like a purtubation and can be applied after few normal cycles
@@ -429,7 +553,14 @@ class MeshClass():
         return functions
 
     def _get_mpi4py_comm(self):
-        if hasattr(self.parent_parameters, 'comm') and                 hasattr(self.parent_parameters.comm, 'allreduce'):
+        """Return the mpi4py communicator supplied by the application.
+
+        ``self.comm`` is DOLFIN's mesh communicator and is a PETSc.Comm in
+        the deployed legacy stack.  Prefer the original mpi4py communicator
+        passed from MyoFE; conversion is only a compatibility fallback.
+        """
+        if (hasattr(self.parent_parameters, 'comm') and
+                hasattr(self.parent_parameters.comm, 'allreduce')):
             return self.parent_parameters.comm
         if hasattr(self.comm, 'tompi4py'):
             return self.comm.tompi4py()
@@ -863,11 +994,6 @@ class MeshClass():
         hsl = alpha_f*hsl0
         self.model['functions']["hsl"] = hsl
         self.model['functions']['E'] = uflforms.Emat()
-        temp_E = project(self.model['functions']['E'],
-                        self.model['function_spaces']['tensor_space'],
-                        form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
-        #print '**E**'
-        #print temp_E
         self.model['functions']['Fmat'] = F
         self.model['functions']['Fe'] = Fe
         self.model['functions']['J'] = J
