@@ -8,7 +8,8 @@ from mpi4py import MPI
 
 from ..dependencies.constituent_mass import ConstituentMassBookkeeper
 from ..dependencies.fibrosis_evolution import (
-    exact_collagen_update, validate_fibrosis_config)
+    exact_collagen_update, validate_fibrosis_config,
+    validate_fraction_compatibility)
 
 
 class StressDrivenFibrosis(object):
@@ -34,9 +35,9 @@ class StressDrivenFibrosis(object):
             fractions, point_count,
             {'enabled': [True], 'density': [self.config['density']],
              'positive_growth_allocation': {'mode': ['proportional']}})
-        if np.max(np.abs(np.asarray(fractions['phi_m']) - 0.70)) > 1.0e-10:
-            raise ValueError(
-                'Constant-volume fibrosis requires baseline phi_m = 0.70')
+        validate_fraction_compatibility(
+            fractions['phi_m'], fractions['phi_g'], fractions['phi_c'],
+            self.config['phi_c_max'])
         self._stress_integral = np.zeros(point_count)
         self._cycle_duration = 0.0
         self._homeostatic_samples = []
@@ -44,6 +45,8 @@ class StressDrivenFibrosis(object):
         self._remodeling_duration = 0.0
         self._remodeling_cycles = 0
         self.homeostatic_stress = None
+        self.activation_start = 0.0
+        self.activation_stop = float('inf')
         self.event_number = 0
         self.initial_reference_volume = self._reference_volume()
         self.initial_global_masses = self._global_masses()
@@ -85,9 +88,11 @@ class StressDrivenFibrosis(object):
         self.data['fib_cycle_averaged_total_fiber_stress'] = zeros.copy()
         self.data['fib_homeostatic_fiber_stress'] = zeros.copy()
         self.data['fib_normalized_stimulus'] = zeros.copy()
-        self.data['fib_phi_m'] = np.full(point_count, 0.70)
-        self.data['fib_phi_g'] = np.full(point_count, 0.27)
-        self.data['fib_phi_c'] = np.full(point_count, 0.03)
+        fractions = self.bookkeeper.fractions()
+        self.data['fib_phi_m'] = np.asarray(fractions['phi_m'])
+        self.data['fib_phi_g'] = np.asarray(fractions['phi_g'])
+        self.data['fib_phi_c'] = np.asarray(fractions['phi_c'])
+        self.data['fib_active'] = 0
         self.data['fib_event_number'] = 0
         self.data['fib_remodeling_timestep'] = 0.0
         self.data['fib_reference_volume'] = self.initial_reference_volume
@@ -191,8 +196,27 @@ class StressDrivenFibrosis(object):
             'fibrosis_homeostatic_fiber_stress', homeostatic)
         self._set_diagnostic_function('fibrosis_normalized_stimulus', stimulus)
 
+    def set_activation_window(self, growth_activations):
+        """Use protocol.growth as the fibrosis remodeling schedule only."""
+        if len(growth_activations) == 0:
+            self.activation_start = self.config['activation_time']
+            self.activation_stop = float('inf')
+            return
+        if len(growth_activations) != 1:
+            raise ValueError(
+                'Volume-neutral fibrosis requires exactly one '
+                'protocol.growth activation')
+        activation = growth_activations[0].data
+        self.activation_start = float(activation['t_start_s'])
+        self.activation_stop = float(activation['t_stop_s'])
+        if self.activation_stop <= self.activation_start:
+            raise ValueError('Fibrosis activation stop must follow start')
+
     def record_time_step(self, time_step, end_diastolic):
-        if self.parent.data['time'] < self.config['activation_time']:
+        current_time = self.parent.data['time']
+        active = self.activation_start <= current_time < self.activation_stop
+        self.data['fib_active'] = 1 if active else 0
+        if not active:
             return
         stress = self._total_fiber_stress()
         self._stress_integral += stress*time_step

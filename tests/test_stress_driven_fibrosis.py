@@ -60,7 +60,7 @@ class StressDrivenFibrosisTests(unittest.TestCase):
         self.assertAlmostEqual(sum(state['fractions'][key][0]
             for key in ('phi_m', 'phi_g', 'phi_c')), 1.0)
 
-    def test_configuration_rejects_geometric_growth_and_large_cap(self):
+    def test_configuration_rejects_geometric_growth_and_invalid_cap(self):
         config = read_json(
             ROOT / 'validation/configs/as_fibrosis_healthy.json')[
                 'model']['fibrosis']
@@ -68,7 +68,7 @@ class StressDrivenFibrosisTests(unittest.TestCase):
         self.assertFalse(config['geometric_growth_enabled'][0])
         self.assertTrue(validated['enabled'])
         bad = dict(config)
-        bad['phi_c_max'] = [0.31]
+        bad['phi_c_max'] = [1.0]
         with self.assertRaises(ValueError):
             EVOLUTION.validate_fibrosis_config(bad)
 

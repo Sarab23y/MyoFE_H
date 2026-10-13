@@ -392,3 +392,14 @@ sbatch validation/run_as_fibrosis_validation.slurm
 
 The example `tau_c`, `phi_c_max`, and stress regularization are sensitivity
 values, not experimentally calibrated parameters.
+
+### Authoritative Br fibrosis cases
+
+The current calibrated Br baseline and derived constant-volume fibrosis cases
+are documented in [`docs/Br_Fibrosis_Configuration.md`](docs/Br_Fibrosis_Configuration.md).
+Run the AS case from `python_codes` so its relative input-mesh path resolves:
+
+```bash
+mpiexec -np 32 python MyoFE.py LV_sim \
+  ../demos/base/sim_inputs/base_instruction_Br_fibrosis_AS.json
+```

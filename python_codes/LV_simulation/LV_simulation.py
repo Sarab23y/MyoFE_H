@@ -617,6 +617,8 @@ class LV_simulation():
 
 
         self.prot = prot.protocol(protocol_struct)
+        if self.fi:
+            self.fi.set_activation_window(self.prot.growth_activations)
 
         self.l_f00 = self.mesh.model['functions']['f00'].vector().get_local()[:] # this should be localized here sice at the end to time loop this function space also reorients automatially. to save initial fiber it should be saved here
         
@@ -868,6 +870,16 @@ class LV_simulation():
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar_for_active"],
                                         form_compiler_parameters={"representation":"uflacs"})
+                        if m == 'collagen_passive':
+                            temp_obj = project(inner(
+                                self.mesh.model['functions']['f0'],
+                                self.mesh.model['functions'][
+                                    'collagen_passive']*
+                                self.mesh.model['functions']['f0']),
+                                self.mesh.model['function_spaces'][
+                                    "scalar_for_active"],
+                                form_compiler_parameters={
+                                    "representation":"uflacs"})
 
 
                         if m in ['local_theta_vis_fiber','local_theta_vis_sheet','local_theta_vis_sheet_normal',
@@ -2192,6 +2204,15 @@ class LV_simulation():
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar_for_active"],
                                         form_compiler_parameters={"representation":"uflacs"})                    
+                    if m == 'collagen_passive':
+                        temp_obj = project(inner(
+                            self.mesh.model['functions']['f0'],
+                            self.mesh.model['functions']['collagen_passive']*
+                            self.mesh.model['functions']['f0']),
+                            self.mesh.model['function_spaces'][
+                                "scalar_for_active"],
+                            form_compiler_parameters={
+                                "representation":"uflacs"})
 
                     
                             

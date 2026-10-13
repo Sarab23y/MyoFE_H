@@ -1107,6 +1107,10 @@ class MeshClass():
         self.model['functions']["bulk_passive"], self.model['functions']["incomp_stress"], self.model['functions']["fiber_strain"],\
         self.model['functions']["I1"], self.model['functions']["I4f"] = \
             uflforms.stress(self.model['functions']["hsl"])
+        unused_myo, self.model['functions']['ground_matrix_passive'], \
+            self.model['functions']['collagen_passive'] = \
+                uflforms.constituent_stresses(
+                    self.model['functions']["hsl"])
 
         
         temp_DG = project(self.model['functions']["Sff"], FunctionSpace(mesh, "DG", 1), form_compiler_parameters={"representation":"uflacs"})

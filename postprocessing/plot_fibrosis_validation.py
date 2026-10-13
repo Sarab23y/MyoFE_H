@@ -20,18 +20,24 @@ def main():
     cases = [('Healthy', pd.read_csv(args.healthy_csv)),
              ('Aortic stenosis', pd.read_csv(args.as_csv))]
 
-    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
+    fig, axes = plt.subplots(3, 2, figsize=(12, 11))
     for label, data in cases:
         time = data['time']
         axes[0, 0].plot(time,
             data['fib_cycle_averaged_total_fiber_stress_mean'], label=label)
-        axes[0, 1].plot(time, data['fib_phi_c_mean'], label=label)
-        axes[1, 0].plot(time, data['fib_phi_g_mean'], label=label)
-        axes[1, 1].plot(time, data['fib_reference_volume'], label=label)
-    axes[0, 0].set_ylabel('Mean cycle-averaged total fiber stress (model units)')
-    axes[0, 1].set_ylabel('Mean collagen fraction (-)')
-    axes[1, 0].set_ylabel('Mean ground-matrix fraction (-)')
-    axes[1, 1].set_ylabel('Reference myocardial volume (mesh units^3)')
+        axes[0, 1].plot(time,
+            data['fib_homeostatic_fiber_stress_mean'], label=label)
+        axes[1, 0].plot(time,
+            data['fib_normalized_stimulus_mean'], label=label)
+        axes[1, 1].plot(time, data['fib_phi_c_mean'], label=label)
+        axes[2, 0].plot(time, data['fib_phi_g_mean'], label=label)
+        axes[2, 1].plot(time, data['fib_reference_volume'], label=label)
+    axes[0, 0].set_ylabel('Cycle-averaged total fiber stress (model units)')
+    axes[0, 1].set_ylabel('Homeostatic fiber stress (model units)')
+    axes[1, 0].set_ylabel('Normalized fibrosis stimulus (-)')
+    axes[1, 1].set_ylabel('Mean collagen fraction (-)')
+    axes[2, 0].set_ylabel('Mean ground-matrix fraction (-)')
+    axes[2, 1].set_ylabel('Reference myocardial volume (mesh units^3)')
     for axis in axes.flat:
         axis.set_xlabel('Simulation/remodeling time (s)')
         axis.grid(True)
@@ -39,21 +45,31 @@ def main():
     fig.tight_layout()
 
     pv_fig, pv_axis = plt.subplots(figsize=(7, 6))
-    for label, data in cases:
-        if 'pressure_ventricle' not in data or 'volume_ventricle' not in data:
-            raise KeyError('CSV lacks pressure_ventricle or volume_ventricle')
+    def complete_beat(data, event_value):
         event = data['fib_event_number']
         beat = (data['new_beat'] > 0).astype(int).cumsum()
-        for event_value, suffix, style in (
-                (event.min(), 'before', '--'), (event.max(), 'after', '-')):
-            candidates = data[event == event_value]
-            candidate_beats = beat[event == event_value]
-            if len(candidates):
-                selected_beat = candidate_beats.max()
-                subset = data[beat == selected_beat]
-                pv_axis.plot(subset['volume_ventricle'],
-                             subset['pressure_ventricle'], style,
-                             label='%s %s' % (label, suffix))
+        candidate_beats = beat[event == event_value]
+        if not len(candidate_beats):
+            return data.iloc[0:0]
+        return data[beat == candidate_beats.max()]
+
+    healthy = cases[0][1]
+    stenosis = cases[1][1]
+    selections = (
+        ('Healthy control', complete_beat(
+            healthy, healthy['fib_event_number'].max()), '-'),
+        ('Early AS', complete_beat(
+            stenosis, stenosis['fib_event_number'].min()), '--'),
+        ('Late AS/fibrosis', complete_beat(
+            stenosis, stenosis['fib_event_number'].max()), '-'))
+    for label, subset, style in selections:
+        if 'pressure_ventricle' not in subset or \
+                'volume_ventricle' not in subset:
+            raise KeyError('CSV lacks pressure_ventricle or volume_ventricle')
+        if len(subset):
+            pv_axis.plot(subset['volume_ventricle'],
+                         subset['pressure_ventricle'], style, label=label)
+
     pv_axis.set_xlabel('LV cavity volume (L, production circulation units)')
     pv_axis.set_ylabel('LV pressure (mmHg)')
     pv_axis.grid(True)

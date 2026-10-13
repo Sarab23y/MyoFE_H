@@ -31,7 +31,7 @@ the same DG-to-Quadrature route as `growth_component.return_signal()`:
 `S_ff,total = f0 . total_stress . f0`.
 
 The code integrates this field in time and divides by the actual accumulated
-cycle duration. Fibrosis activates at 20 s, matching the historical growth
+cycle duration. Fibrosis uses `protocol.growth.activations` as its remodeling window; the maintained Br cases activate it at 20 s, matching the historical growth
 activation. Three cycle averages establish the local healthy homeostatic
 field before the AS perturbation starts at 30 s. Each remodeling update then
 uses the duration-weighted average over four completed cycles. The positive
@@ -51,7 +51,7 @@ For the actual accumulated remodeling interval `Delta t`, the exact update is
 It is monotone and bounded. Zero or negative stimulus leaves collagen
 unchanged. The validation values `tau_c=50 s` and `phi_c_max=0.15` are clearly
 labeled accelerated sensitivity values, not physiological calibration.
-`phi_c_max` is validated to be no greater than 0.30.
+`phi_c_max` is validated against the configured initial collagen and ground-matrix fractions, so the requested exchange cannot consume more ground matrix than is available.
 
 The target collagen fraction is converted to a referential-density increment. The example common density is `1.0`, so reported masses are normalized density-times-mesh-volume quantities unless the user supplies a verified physical density and mesh unit.
 Exactly the same density is removed from ground matrix, myofiber density is

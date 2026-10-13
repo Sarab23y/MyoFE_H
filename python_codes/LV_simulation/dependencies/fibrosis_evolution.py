@@ -37,8 +37,8 @@ def validate_fibrosis_config(config):
     if tau_c <= 0.0 or stress_epsilon <= 0.0 or density <= 0.0:
         raise ValueError(
             'fibrosis tau_c, stress_epsilon, and density must be positive')
-    if phi_c_max < 0.03 or phi_c_max > 0.30:
-        raise ValueError('fibrosis.phi_c_max must be between 0.03 and 0.30')
+    if phi_c_max <= 0.0 or phi_c_max >= 1.0:
+        raise ValueError('fibrosis.phi_c_max must be between zero and one')
     if homeostatic_cycles < 1 or remodeling_frequency_cycles < 1 or \
             activation_time < 0.0:
         raise ValueError('fibrosis cycle counts must be positive integers')
@@ -74,3 +74,19 @@ def exact_collagen_update(phi_c, stimulus, dt, tau_c, phi_c_max):
             1.0 - math.exp(-stimulus_value*float(dt)/float(tau_c)))
         updated.append(min(max(value, old_value), phi_c_max))
     return updated
+
+
+def validate_fraction_compatibility(phi_m, phi_g, phi_c, phi_c_max):
+    """Validate a collagen cap against configured local mixture fractions."""
+    if not (len(phi_m) == len(phi_g) == len(phi_c)):
+        raise ValueError('Configured constituent fraction sizes differ')
+    for point, values in enumerate(zip(phi_m, phi_g, phi_c)):
+        myofiber, ground, collagen = [float(value) for value in values]
+        if min(myofiber, ground, collagen) < 0.0 or \
+                abs(myofiber + ground + collagen - 1.0) > 1.0e-8:
+            raise ValueError(
+                'Configured fractions are inadmissible at point %d' % point)
+        if phi_c_max < collagen or phi_c_max > collagen + ground:
+            raise ValueError(
+                'fibrosis.phi_c_max is incompatible with configured '
+                'fractions at point %d' % point)
