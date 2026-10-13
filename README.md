@@ -353,3 +353,42 @@ alone do not establish coordinate units. Set a positive conversion only after
 verifying the actual mesh provenance. Do not compare the curve with an
 experimental EDPVR until reference loading, boundary conditions, volume units,
 and pressure-step/mesh convergence have been checked.
+
+### Growth constituent masses
+
+Optional spatial mass bookkeeping can allocate positive incremental growth to
+myofiber, ground matrix, and collagen, then recalculate the three passive-law
+fractions after each committed growth event. It is disabled unless explicitly
+configured, so existing growth inputs retain their prior behavior. See
+[`docs/Growth_Constituent_Mass.md`](docs/Growth_Constituent_Mass.md) for the
+growth-tensor audit, density assumption, configuration, and limitations.
+
+### Growth constituent-mass validation
+
+The physical referential-density bookkeeping, ALE material-point mapping,
+outputs, assumptions, and three controlled configurations are documented in
+[`docs/Growth_Constituent_Mass.md`](docs/Growth_Constituent_Mass.md). On the
+legacy cluster environment run:
+
+```bash
+export FENICS_IMAGE=/path/to/working-fenics-image.sif
+sbatch validation/run_growth_mass_validation.slurm
+```
+
+These are validation runs with isolated output directories; the baseline JSON
+is not modified.
+
+### Volume-neutral AS fibrosis validation
+
+The optional stress-driven fibrosis extension and its assumptions are described
+in [`docs/Stress_Driven_Fibrosis.md`](docs/Stress_Driven_Fibrosis.md). It keeps
+`Fg=I`, does not invoke `ALE.move`, and exchanges ground-matrix referential
+density for collagen. Run the healthy/AS comparison in the legacy environment:
+
+```bash
+export FENICS_IMAGE=/path/to/working-fenics-image.sif
+sbatch validation/run_as_fibrosis_validation.slurm
+```
+
+The example `tau_c`, `phi_c_max`, and stress regularization are sensitivity
+values, not experimentally calibrated parameters.
