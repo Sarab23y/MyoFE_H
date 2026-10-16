@@ -727,7 +727,8 @@ class LV_simulation():
                                  'growth_geometric_volume_ratio',
                                  'fibrosis_cycle_averaged_total_fiber_stress',
                                  'fibrosis_homeostatic_fiber_stress',
-                                 'fibrosis_normalized_stimulus'] and \
+                                 'fibrosis_normalized_stimulus',
+                                 'fibrosis_effective_stimulus'] and \
                                 m in self.mesh.model['functions']:
                             temp_obj = project(
                                 self.mesh.model['functions'][m],
@@ -2053,7 +2054,8 @@ class LV_simulation():
                              'growth_geometric_volume_ratio',
                              'fibrosis_cycle_averaged_total_fiber_stress',
                              'fibrosis_homeostatic_fiber_stress',
-                             'fibrosis_normalized_stimulus'] and \
+                             'fibrosis_normalized_stimulus',
+                             'fibrosis_effective_stimulus'] and \
                             m in self.mesh.model['functions']:
                         temp_obj = project(
                             self.mesh.model['functions'][m],

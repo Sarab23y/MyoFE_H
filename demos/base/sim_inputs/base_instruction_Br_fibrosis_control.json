@@ -751,6 +751,9 @@
       "stress_epsilon": [
         1.0
       ],
+      "gamma_c": [
+        1.5
+      ],
       "density": [
         1.0
       ],
@@ -799,7 +802,8 @@
       "constituent_density_total",
       "fibrosis_cycle_averaged_total_fiber_stress",
       "fibrosis_homeostatic_fiber_stress",
-      "fibrosis_normalized_stimulus"
+      "fibrosis_normalized_stimulus",
+      "fibrosis_effective_stimulus"
     ],
     "dumping_spatial_in_average": [
       false

@@ -77,6 +77,7 @@ class BrFibrosisConfigurationTests(unittest.TestCase):
                 case['model']['fibrosis'])
             self.assertEqual(config['tau_c'], 50.0)
             self.assertEqual(config['phi_c_max'], 0.15)
+            self.assertEqual(config['gamma_c'], 1.5)
             self.assertEqual(config['remodeling_frequency_cycles'], 4)
         self.assertEqual(self.control['output_handler']['frequency_n'], [10])
         self.assertEqual(self.stenosis['output_handler']['frequency_n'], [10])
@@ -150,7 +151,11 @@ class BrFibrosisConfigurationTests(unittest.TestCase):
             outputs = set(case['output_handler']['mesh_object_to_save'])
             self.assertFalse(outputs.intersection(unsupported))
             self.assertIn('fibrosis_normalized_stimulus', outputs)
+            self.assertIn('fibrosis_effective_stimulus', outputs)
             self.assertIn('collagen_passive', outputs)
+
+    def test_authoritative_baseline_has_not_acquired_fibrosis_gamma(self):
+        self.assertNotIn('fibrosis', self.base['model'])
 
     def test_protocol_growth_window_is_consumed_without_geometric_growth(self):
         simulation = (ROOT /

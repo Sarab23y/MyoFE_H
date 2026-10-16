@@ -390,8 +390,10 @@ export FENICS_IMAGE=/path/to/working-fenics-image.sif
 sbatch validation/run_as_fibrosis_validation.slurm
 ```
 
-The example `tau_c`, `phi_c_max`, and stress regularization are sensitivity
-values, not experimentally calibrated parameters.
+The example `tau_c`, `phi_c_max`, stress regularization, and nonlinear
+`gamma_c` are sensitivity values, not experimentally calibrated parameters.
+`gamma_c` defaults to `1.0` for older configurations; the Br control and AS
+inputs use `1.5` and output both the raw and exponentiated stimuli.
 
 ### Authoritative Br fibrosis cases
 

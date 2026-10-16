@@ -8,7 +8,8 @@ from mpi4py import MPI
 
 from ..dependencies.constituent_mass import ConstituentMassBookkeeper
 from ..dependencies.fibrosis_evolution import (
-    exact_collagen_update, validate_fibrosis_config,
+    effective_fibrosis_stimulus, exact_collagen_update,
+    validate_fibrosis_config,
     validate_fraction_compatibility)
 
 
@@ -53,7 +54,8 @@ class StressDrivenFibrosis(object):
         self._initialize_data(point_count)
         self._apply_composition()
         self._publish_stress_diagnostics(
-            np.zeros(point_count), np.zeros(point_count))
+            np.zeros(point_count), np.zeros(point_count),
+            np.zeros(point_count))
 
     def _fraction_functions(self):
         return self.mesh.model['functions']['dolfin_functions'][
@@ -88,6 +90,8 @@ class StressDrivenFibrosis(object):
         self.data['fib_cycle_averaged_total_fiber_stress'] = zeros.copy()
         self.data['fib_homeostatic_fiber_stress'] = zeros.copy()
         self.data['fib_normalized_stimulus'] = zeros.copy()
+        self.data['fib_effective_stimulus'] = zeros.copy()
+        self.data['fib_gamma_c'] = self.config['gamma_c']
         fractions = self.bookkeeper.fractions()
         self.data['fib_phi_m'] = np.asarray(fractions['phi_m'])
         self.data['fib_phi_g'] = np.asarray(fractions['phi_g'])
@@ -124,7 +128,12 @@ class StressDrivenFibrosis(object):
         masses['total'] = sum(masses.values())
         return masses
 
-    def _update_global_diagnostics(self, cycle_stress, stimulus):
+    def _update_global_diagnostics(self, cycle_stress, stimulus,
+                                   effective_stimulus=None):
+        if effective_stimulus is None:
+            effective_stimulus = np.asarray(
+                effective_fibrosis_stimulus(
+                    stimulus, self.config['gamma_c']))
         fractions = self.bookkeeper.fractions()
         for name, values in (
                 ('cycle_averaged_total_fiber_stress', cycle_stress),
@@ -132,6 +141,7 @@ class StressDrivenFibrosis(object):
                  self.homeostatic_stress if self.homeostatic_stress is not None
                  else np.zeros(len(cycle_stress))),
                 ('normalized_stimulus', stimulus),
+                ('effective_stimulus', effective_stimulus),
                 ('phi_m', fractions['phi_m']),
                 ('phi_g', fractions['phi_g']),
                 ('phi_c', fractions['phi_c'])):
@@ -186,7 +196,12 @@ class StressDrivenFibrosis(object):
         function.vector().apply('insert')
         self.mesh.model['functions'][name] = function
 
-    def _publish_stress_diagnostics(self, cycle_stress, stimulus):
+    def _publish_stress_diagnostics(self, cycle_stress, stimulus,
+                                    effective_stimulus=None):
+        if effective_stimulus is None:
+            effective_stimulus = np.asarray(
+                effective_fibrosis_stimulus(
+                    stimulus, self.config['gamma_c']))
         homeostatic = self.homeostatic_stress
         if homeostatic is None:
             homeostatic = np.zeros(len(cycle_stress))
@@ -195,6 +210,8 @@ class StressDrivenFibrosis(object):
         self._set_diagnostic_function(
             'fibrosis_homeostatic_fiber_stress', homeostatic)
         self._set_diagnostic_function('fibrosis_normalized_stimulus', stimulus)
+        self._set_diagnostic_function(
+            'fibrosis_effective_stimulus', effective_stimulus)
 
     def set_activation_window(self, growth_activations):
         """Use protocol.growth as the fibrosis remodeling schedule only."""
@@ -254,11 +271,18 @@ class StressDrivenFibrosis(object):
             self.config['stress_epsilon'])
         cycle_stimulus = np.maximum(
             (cycle_average - self.homeostatic_stress)/cycle_denominator, 0.0)
+        cycle_effective_stimulus = np.asarray(
+            effective_fibrosis_stimulus(
+                cycle_stimulus, self.config['gamma_c']))
         self.data['fib_cycle_averaged_total_fiber_stress'] = \
             cycle_average.copy()
         self.data['fib_normalized_stimulus'] = cycle_stimulus.copy()
-        self._update_global_diagnostics(cycle_average, cycle_stimulus)
-        self._publish_stress_diagnostics(cycle_average, cycle_stimulus)
+        self.data['fib_effective_stimulus'] = \
+            cycle_effective_stimulus.copy()
+        self._update_global_diagnostics(
+            cycle_average, cycle_stimulus, cycle_effective_stimulus)
+        self._publish_stress_diagnostics(
+            cycle_average, cycle_stimulus, cycle_effective_stimulus)
         if self._remodeling_cycles < \
                 self.config['remodeling_frequency_cycles']:
             return
@@ -269,10 +293,13 @@ class StressDrivenFibrosis(object):
             self.config['stress_epsilon'])
         stimulus = np.maximum(
             (remodeling_average - self.homeostatic_stress)/denominator, 0.0)
+        effective_stimulus = np.asarray(
+            effective_fibrosis_stimulus(stimulus, self.config['gamma_c']))
         fractions = self.bookkeeper.fractions()
         phi_c_new = exact_collagen_update(
             fractions['phi_c'], stimulus, self._remodeling_duration,
-            self.config['tau_c'], self.config['phi_c_max'])
+            self.config['tau_c'], self.config['phi_c_max'],
+            self.config['gamma_c'])
         before_total = np.asarray(
             [sum(self.bookkeeper.referential_density[name][point]
                  for name in ('myofiber', 'ground_matrix', 'collagen'))
@@ -291,12 +318,15 @@ class StressDrivenFibrosis(object):
         self.data['fib_cycle_averaged_total_fiber_stress'] = \
             remodeling_average.copy()
         self.data['fib_normalized_stimulus'] = stimulus.copy()
+        self.data['fib_effective_stimulus'] = effective_stimulus.copy()
         current_volume = self._reference_volume()
         self.data['fib_reference_volume'] = current_volume
         self.data['fib_reference_volume_residual'] = \
             current_volume - self.initial_reference_volume
-        self._update_global_diagnostics(remodeling_average, stimulus)
-        self._publish_stress_diagnostics(remodeling_average, stimulus)
+        self._update_global_diagnostics(
+            remodeling_average, stimulus, effective_stimulus)
+        self._publish_stress_diagnostics(
+            remodeling_average, stimulus, effective_stimulus)
         tolerance = 1.0e-10*max(1.0, self.initial_reference_volume)
         if abs(self.data['fib_reference_volume_residual']) > tolerance:
             raise RuntimeError(

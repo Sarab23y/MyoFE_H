@@ -3,6 +3,7 @@
 from __future__ import print_function
 import argparse
 import csv
+import math
 
 
 def final_row(path):
@@ -13,6 +14,13 @@ def final_row(path):
     if not completed:
         raise RuntimeError('%s contains no fibrosis remodeling event' % path)
     return completed[-1]
+
+
+def observed_range(path, minimum_name, maximum_name):
+    with open(path, 'r') as handle:
+        rows = list(csv.DictReader(handle))
+    return (min(float(row[minimum_name]) for row in rows),
+            max(float(row[maximum_name]) for row in rows))
 
 
 def value(row, name):
@@ -32,6 +40,15 @@ def validate_invariants(label, row, tolerance, myofiber_fraction):
                     value(row, 'fib_phi_c_mean'))
     if abs(fraction_sum - 1.0) > tolerance:
         raise RuntimeError('%s mean fractions do not sum to one' % label)
+    for name in ('fib_normalized_stimulus_min',
+                 'fib_normalized_stimulus_mean',
+                 'fib_normalized_stimulus_max',
+                 'fib_effective_stimulus_min',
+                 'fib_effective_stimulus_mean',
+                 'fib_effective_stimulus_max', 'fib_gamma_c'):
+        diagnostic = value(row, name)
+        if math.isnan(diagnostic) or math.isinf(diagnostic):
+            raise RuntimeError('%s has non-finite %s' % (label, name))
 
 
 def main():
@@ -60,6 +77,24 @@ def main():
         raise RuntimeError('AS did not increase mean collagen over healthy')
     print('PASS: volume-neutral AS fibrosis invariants')
     print('healthy/AS final mean phi_c:', healthy_phi, as_phi)
+    print('gamma_c:', value(stenosis, 'fib_gamma_c'))
+    print('AS raw stimulus min/mean/max:',
+          value(stenosis, 'fib_normalized_stimulus_min'),
+          value(stenosis, 'fib_normalized_stimulus_mean'),
+          value(stenosis, 'fib_normalized_stimulus_max'))
+    print('AS effective stimulus min/mean/max:',
+          value(stenosis, 'fib_effective_stimulus_min'),
+          value(stenosis, 'fib_effective_stimulus_mean'),
+          value(stenosis, 'fib_effective_stimulus_max'))
+    raw_range = observed_range(
+        args.as_csv, 'fib_normalized_stimulus_min',
+        'fib_normalized_stimulus_max')
+    effective_range = observed_range(
+        args.as_csv, 'fib_effective_stimulus_min',
+        'fib_effective_stimulus_max')
+    print('AS observed raw stimulus range over saved times:', raw_range)
+    print('AS observed effective stimulus range over saved times:',
+          effective_range)
 
 
 if __name__ == '__main__':

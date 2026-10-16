@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import math
 import pathlib
 import unittest
 
@@ -26,11 +27,29 @@ def read_json(path):
 
 
 class StressDrivenFibrosisTests(unittest.TestCase):
+    def test_gamma_one_reproduces_previous_update(self):
+        previous = 0.026 + (0.15 - 0.026)*(
+            1.0 - math.exp(-0.75*4.0/50.0))
+        explicit = EVOLUTION.exact_collagen_update(
+            [0.026], [0.75], 4.0, 50.0, 0.15, gamma_c=1.0)
+        self.assertAlmostEqual(previous, explicit[0])
+
+    def test_nonlinear_effective_stimulus(self):
+        effective = EVOLUTION.effective_fibrosis_stimulus(
+            [0.0, 0.5, 1.0, 2.0], 1.5)
+        self.assertEqual(effective[0], 0.0)
+        self.assertLess(effective[1], 0.5)
+        self.assertEqual(effective[2], 1.0)
+        self.assertGreater(effective[3], 2.0)
+
     def test_homeostatic_and_negative_stimulus_are_invariant(self):
         old = [0.03, 0.08]
         updated = EVOLUTION.exact_collagen_update(
             old, [0.0, -1.0], 4.0, 50.0, 0.15)
         self.assertEqual(updated, old)
+        nonlinear = EVOLUTION.exact_collagen_update(
+            old, [0.0, 0.0], 4.0, 50.0, 0.15, gamma_c=1.5)
+        self.assertEqual(nonlinear, old)
 
     def test_exact_update_is_positive_bounded_and_saturates(self):
         old = [0.03]
@@ -71,6 +90,19 @@ class StressDrivenFibrosisTests(unittest.TestCase):
         bad['phi_c_max'] = [1.0]
         with self.assertRaises(ValueError):
             EVOLUTION.validate_fibrosis_config(bad)
+        for invalid in (0.0, -1.0, float('inf'), float('nan')):
+            bad = dict(config)
+            bad['gamma_c'] = [invalid]
+            with self.assertRaises(ValueError):
+                EVOLUTION.validate_fibrosis_config(bad)
+
+    def test_absent_gamma_defaults_to_linear_model(self):
+        config = read_json(
+            ROOT / 'validation/configs/as_fibrosis_healthy.json')[
+                'model']['fibrosis']
+        config.pop('gamma_c', None)
+        self.assertEqual(
+            EVOLUTION.validate_fibrosis_config(config)['gamma_c'], 1.0)
 
     def test_as_case_reuses_existing_resistance_perturbation(self):
         original = read_json(

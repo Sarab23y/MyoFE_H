@@ -24,7 +24,7 @@ coexist with geometric growth. Therefore the geometric growth solver and
 The healthy fibrosis control adds only:
 
 - `model.fibrosis` with the preliminary sensitivity values `tau_c=50`,
-  `phi_c_max=0.15`, `stress_epsilon=1.0`, three homeostatic cycles, and four
+  `phi_c_max=0.15`, `stress_epsilon=1.0`, `gamma_c=1.5`, three homeostatic cycles, and four
   cycles per remodeling update;
 - a dedicated absolute CSV output path;
 - a dedicated absolute mesh-output path;
@@ -62,6 +62,31 @@ constant-volume experiment. Their meaningful fibrosis replacements are
 `fibrosis_cycle_averaged_total_fiber_stress`,
 `fibrosis_homeostatic_fiber_stress`, and
 `fibrosis_normalized_stimulus`.
+
+## Nonlinear fibrosis stimulus
+
+The configured cases retain the raw normalized stimulus `G_c` and use
+`G_c_effective = G_c**gamma_c` only in the collagen evolution rate. The exact
+bounded update is
+
+`phi_c_new = phi_c_old + (phi_c_max - phi_c_old) *`
+`(1 - exp(-G_c_effective * dt / tau_c))`.
+
+`gamma_c` defaults to `1.0` in older inputs. The Br control and AS cases use
+the exploratory value `1.5`. Thus values below one are attenuated, values
+above one are amplified, and zero remains zero. There is no stimulus clipping
+or additional scaling. Both raw and effective local stimuli and their global
+minimum/mean/maximum are output so that high maxima can be checked against
+small homeostatic-stress denominators. No result files are stored in this
+repository, so the typical stimulus range cannot be established statically;
+it must be measured in the control and AS cluster runs before calibration.
+
+An exploratory sensitivity study should copy the AS input and vary only
+`gamma_c` over `0.75`, `1.0`, `1.5`, and `2.0`, holding `tau_c`, `phi_c_max`,
+loading, circulation, and material parameters fixed. A mean collagen fraction
+near 0.12 is a comparison target, not an enforced endpoint; it must not be
+confused with the maximum local fraction or directly equated with histology
+without validating the common-density mixture interpretation.
 
 ## Output paths
 

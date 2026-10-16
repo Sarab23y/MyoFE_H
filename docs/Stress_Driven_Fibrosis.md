@@ -19,7 +19,7 @@ ground matrix for collagen and never calls the growth solver or `ALE.move`.
 The validation inputs are derived from the current maintained Fibrosis
 baseline, not from the historical example's obsolete `semi_structural`
 material block. Thus the current Xi-ground-collagen coefficients, initial
-fractions `(0.70, 0.27, 0.03)`, MyoSim parameters, circulation compartments,
+Br fractions `(0.700, 0.274, 0.026)`, MyoSim parameters, circulation compartments,
 and mesh path remain unchanged. Only the published-example AS resistance
 perturbation and timing are reused.
 
@@ -42,11 +42,22 @@ normalized stimulus is
 `S_epsilon` has the same units as the model stress. It prevents division by a
 near-zero setpoint; its example value requires sensitivity testing.
 
+The kinetic stimulus is optionally nonlinear:
+
+`G_c_effective = G_c**gamma_c`, with strictly positive, finite `gamma_c`.
+
+Older configurations default to `gamma_c=1.0`, which exactly recovers the
+previous model. The Br fibrosis cases use the exploratory value `1.5`. This
+attenuates raw stimuli between zero and one, leaves one unchanged, and
+amplifies stimuli greater than one. The implementation does not clip the raw
+stimulus or introduce another scale factor.
+
 ## Collagen update and composition exchange
 
 For the actual accumulated remodeling interval `Delta t`, the exact update is
 
-`phi_c(new) = phi_c + (phi_c_max-phi_c)*(1-exp(-G_c*Delta t/tau_c))`.
+`phi_c(new) = phi_c + (phi_c_max-phi_c)*`
+`(1-exp(-G_c_effective*Delta t/tau_c))`.
 
 It is monotone and bounded. Zero or negative stimulus leaves collagen
 unchanged. The validation values `tau_c=50 s` and `phi_c_max=0.15` are clearly

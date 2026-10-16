@@ -28,13 +28,16 @@ def main():
         axes[0, 1].plot(time,
             data['fib_homeostatic_fiber_stress_mean'], label=label)
         axes[1, 0].plot(time,
-            data['fib_normalized_stimulus_mean'], label=label)
+            data['fib_normalized_stimulus_mean'], label=label + ' raw')
+        axes[1, 0].plot(time,
+            data['fib_effective_stimulus_mean'], '--',
+            label=label + ' effective')
         axes[1, 1].plot(time, data['fib_phi_c_mean'], label=label)
         axes[2, 0].plot(time, data['fib_phi_g_mean'], label=label)
         axes[2, 1].plot(time, data['fib_reference_volume'], label=label)
     axes[0, 0].set_ylabel('Cycle-averaged total fiber stress (model units)')
     axes[0, 1].set_ylabel('Homeostatic fiber stress (model units)')
-    axes[1, 0].set_ylabel('Normalized fibrosis stimulus (-)')
+    axes[1, 0].set_ylabel('Raw/effective fibrosis stimulus (-)')
     axes[1, 1].set_ylabel('Mean collagen fraction (-)')
     axes[2, 0].set_ylabel('Mean ground-matrix fraction (-)')
     axes[2, 1].set_ylabel('Reference myocardial volume (mesh units^3)')
