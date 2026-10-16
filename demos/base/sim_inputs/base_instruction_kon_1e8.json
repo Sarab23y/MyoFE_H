@@ -1,12 +1,15 @@
 {
     "protocol":
     {
+        "no_of_time_steps": [1000],
         "no_of_time_steps": [40000],
         "time_step": [0.001],
         "baroreflex": 
         {
             "activations": [
                 {
+                    "t_start_s": [20],
+                    "t_stop_s": [40]
                     "t_start_s": [200],
                     "t_stop_s": [400]
                 }
@@ -16,6 +19,46 @@
     },
     "heart_rate": {
         "t_active_period": [0.003],
+        "t_quiescent_period": [0.854],
+        "t_first_activation": [0.5]
+    },
+    "mesh":
+    {
+        "relative_path": [true],
+        "mesh_path":["../demos/base/sim_inputs/ellipsoidal_degree_2_new.hdf5"],
+        "function_spaces":
+        [
+            {
+                "name":["stimulusFS"],
+                "type":["scaler"],
+                "element_type":["DG"],
+                "degree": [1]
+            },
+            {
+                "name":["scaler"],
+                "type":["scaler"],
+                "element_type":["DG"],
+                "degree": [1]
+            },
+            {
+                "name":["growth_tensor_space"],
+                "type":["tensor"],
+                "element_type":["DG"],
+                "degree": [1]
+            },
+            {
+                "name":["material_coord_system_space"],
+                "type":["vector"],
+                "element_type":["Quadrature"],
+                "degree": [2]
+            },
+            {
+                "name":["quadrature_space"],
+                "type":["scaler"],
+                "element_type":["Quadrature"],
+                "degree": [2]
+            }
+        ],
         "t_quiescent_period": [0.92],
         "t_first_activation": [0.1]
     },
@@ -277,6 +320,7 @@
                 },
                 {
                     "name": ["arterioles"],
+                    "resistance": [700],
                     "resistance": [787],
                     "compliance": [1e-3],
                     "slack_volume": [0.1]
@@ -302,6 +346,7 @@
                 },
                 {
                     "name": ["ventricle"],
+                    "resistance": [5],
                     "resistance": [10],
                     "slack_volume": [0.06],
                     "wall_density": [1055],
@@ -318,6 +363,7 @@
                 "Ca_content": [1e-3],
                 "k_leak": [6e-4],
                 "k_act": [8.2e-2],
+                "k_serca": [8],
                 "k_serca": [7.866],
                 "t_open": [0.01],
                 "implementation":
@@ -332,6 +378,13 @@
                 "prop_myofilaments": [0.6],
                 "k_1": [8],
                 "k_force": [1e-3],
+                "k_2": [100],
+                "k_3": [170],
+                "k_4_0": [80],
+                "k_4_1": [1],
+                "k_cb": [0.001],
+                "x_ps": [5],
+                "k_on": [1.0e8],
                 "k_2": [200],
                 "k_3": [80],
                 "k_4_0": [80],
@@ -447,6 +500,8 @@
     },
     "output_handler":
     {
+        "output_data_path": ["../demos/base/kon_1e8/sim_output/data.csv"],
+        "mesh_output_path": ["../demos/base/kon_1e8/sim_output/mesh_output"],
         "output_data_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base_mix3/sim_output/data.csv"],
         "mesh_output_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base_mix3/mesh_output"],
         "mesh_object_to_save":
@@ -455,6 +510,8 @@
             "active_stress",
             "hs_length"
         ],
+        "dumping_spatial_in_average":[true],
+        "frequency_n": [5]
         "dumping_spatial_in_average":[false],
         "frequency_n": [20]
         
