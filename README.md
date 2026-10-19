@@ -426,3 +426,18 @@ The committed matched signed-range JSON templates are fail-closed: their
 approved. Use `validation/run_br_signedrange_fibrosis.slurm`, with both bounds
 exported, to produce validated runtime copies and run the control and perturbed
 cases sequentially without modifying the templates.
+
+### One-run automatically calibrated signed-range case
+
+The continuous 0--60 s Br baseline-to-pressure-overload case is
+`demos/base/sim_inputs/base_instruction_Br_fibrosis_signedrange_single.json`.
+It derives frozen 1st/99th-percentile stress references from the last three
+complete pre-20-s cycles and requires no exported bounds. Submit its only job:
+
+```bash
+sbatch validation/run_br_signedrange_single.sh
+```
+
+See `docs/Stress_Driven_Fibrosis.md` for the MPI calibration algorithm,
+outlier diagnostics, and the important expectation that the healthy
+signed-range baseline is generally positive.

@@ -263,3 +263,59 @@ export S_FF_MAX='<approved measured upper reference>'
 sbatch --export=ALL,S_FF_MIN,S_FF_MAX \
   validation/run_br_signedrange_fibrosis.slurm
 ```
+
+## Single-run automatic calibration experiment
+
+`demos/base/sim_inputs/base_instruction_Br_fibrosis_signedrange_single.json`
+is the self-contained baseline-to-pressure-overload experiment. It runs one LV
+simulation: healthy baseline from 0--20 s, fibrosis activation and an additive
+`aorta_resistance +170` ramp from 20--30 s, and sustained resistance through
+60 s. The perturbation machinery adds increments only during the ramp and does
+not subtract them afterward, so a baseline value of 20 remains 190 after 30 s.
+Geometric growth remains absent from `model`.
+
+### Frozen reference algorithm
+
+Before 20 s, the fibrosis object records the existing
+`f0 . total_stress . f0` field and retains a rolling window containing the last
+three **complete** cardiac-cycle averages. At the first fibrosis-active time
+step it:
+
+1. averages those three cycle-average fields at each owned Quadrature DOF;
+2. gathers the owned local arrays to MPI rank 0;
+3. computes fixed global spatial 1st and 99th percentiles;
+4. records the untrimmed observed minimum and maximum for outlier review;
+5. rejects empty, nonfinite, or degenerate samples;
+6. broadcasts the same two references to all ranks and freezes them; and
+7. discards the partial cycle crossing 20 s before accumulating remodeling
+   stress.
+
+The 1st/99th-percentile rule is an explicit, configurable robust exploratory
+choice: unlike raw extrema, an isolated numerical extreme does not directly
+become a bound. It is not claimed as a physiologically calibrated stress
+range. The resulting bound-hit fractions, observed extrema, sample count, and
+baseline signal statistics must be reviewed after the run. The FE mechanics
+uses Pa for stress-like quantities; the calibration nevertheless operates in
+the unchanged solver units of the projected total fiber stress, so no unit
+conversion is introduced during percentile calculation.
+
+Because this range law has no homeostatic subtraction, the calibrated healthy
+baseline signal is expected to be positive at most material points between the
+1st and 99th percentiles. Collagen kinetics are inactive before 20 s, but after
+activation there can be baseline-driven accumulation even before the pressure
+ramp changes stress. `fib_baseline_signal_min/mean/max` records this explicitly.
+Composition is applied at the configured completed-cycle remodeling frequency,
+not at every 0.001-s mechanics step.
+
+Run the single job—without environment-provided stress bounds—with:
+
+```bash
+sbatch validation/run_br_signedrange_single.sh
+```
+
+It writes the time series to
+`/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/signedrange_single/sim_output/data.csv`
+and spatial output to
+`/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/signedrange_single/mesh_output`.
+The job validates the schedule and calibration block, backs up a previous
+result tree, and launches exactly one 32-rank `MyoFE.py LV_sim` process.

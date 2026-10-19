@@ -19,6 +19,7 @@ EVOLUTION = load('fibrosis_evolution',
                  'python_codes/LV_simulation/dependencies/fibrosis_evolution.py')
 MASS = load('constituent_mass_fibrosis',
             'python_codes/LV_simulation/dependencies/constituent_mass.py')
+PROTOCOL = load('protocol_fibrosis', 'python_codes/protocol/protocol.py')
 
 
 def read_json(path):
@@ -122,6 +123,84 @@ class StressDrivenFibrosisTests(unittest.TestCase):
         self.assertEqual(validated['S_ff_max'], 10.0)
 
 
+
+
+    def test_automatic_reference_percentiles_ignore_isolated_extrema(self):
+        baseline = list(range(1000)) + [-1.0e9, 1.0e9]
+        lower, upper, observed_min, observed_max = \
+            EVOLUTION.calibrated_stress_references(
+                baseline, 1.0, 99.0)
+        self.assertGreater(lower, observed_min)
+        self.assertLess(upper, observed_max)
+        self.assertLess(lower, upper)
+        self.assertEqual(observed_min, -1.0e9)
+        self.assertEqual(observed_max, 1.0e9)
+
+    def test_single_case_has_automatic_pre_activation_calibration(self):
+        case = read_json(ROOT / ('demos/base/sim_inputs/'
+            'base_instruction_Br_fibrosis_signedrange_single.json'))
+        fibrosis = case['model']['fibrosis']
+        validated = EVOLUTION.validate_fibrosis_config(fibrosis)
+        calibration = validated['stress_reference_calibration']
+        self.assertTrue(calibration['enabled'])
+        self.assertEqual(calibration['method'], 'global_spatial_percentile')
+        self.assertEqual(calibration['cycles'], 3)
+        self.assertEqual(calibration['lower_percentile'], 1.0)
+        self.assertEqual(calibration['upper_percentile'], 99.0)
+        self.assertNotIn('S_ff_min', fibrosis)
+        self.assertNotIn('S_ff_max', fibrosis)
+        self.assertNotIn('growth', case['model'])
+        passive = case['mesh']['forms_parameters'][
+            'passive_law_parameters']
+        self.assertEqual(
+            tuple(passive[name][0] for name in ('phi_m', 'phi_g', 'phi_c')),
+            (0.700, 0.274, 0.026))
+        self.assertEqual(fibrosis['phi_c_max'], [0.15])
+        self.assertEqual(fibrosis['gamma_c'], [1.5])
+        self.assertEqual(fibrosis['tau_c'], [50])
+        self.assertEqual(case['protocol']['growth']['activations'][0], {
+            't_start_s': [20], 't_stop_s': [60]})
+        perturbation = case['protocol']['perturbation']['perturbations'][0]
+        self.assertEqual(perturbation, {
+            'variable': ['aorta_resistance'], 'level': ['circulation'],
+            't_start_s': [20], 't_stop_s': [30], 'total_change': [170]})
+        self.assertEqual(case['protocol']['no_of_time_steps'], [60000])
+        self.assertEqual(case['protocol']['time_step'], [0.001])
+
+    def test_automatic_calibration_validation_rejects_bad_settings(self):
+        case = read_json(ROOT / ('demos/base/sim_inputs/'
+            'base_instruction_Br_fibrosis_signedrange_single.json'))
+        config = case['model']['fibrosis']
+        for key, value in (
+                ('method', ['extrema']), ('cycles', [0]),
+                ('lower_percentile', [99.0]),
+                ('upper_percentile', [1.0])):
+            bad = json.loads(json.dumps(config))
+            bad['stress_reference_calibration'][key] = value
+            with self.assertRaises(ValueError):
+                EVOLUTION.validate_fibrosis_config(bad)
+
+
+    def test_single_case_ramp_is_additive_and_persists(self):
+        case = read_json(ROOT / ('demos/base/sim_inputs/'
+            'base_instruction_Br_fibrosis_signedrange_single.json'))
+        spec = case['protocol']['perturbation']['perturbations'][0]
+        perturbation = PROTOCOL.perturbation(spec, 0.001)
+        resistance = 20.0
+        for step in range(60000):
+            if perturbation.data['t_start_ind'] <= step < \
+                    perturbation.data['t_stop_ind']:
+                resistance += perturbation.data['increment']
+        self.assertAlmostEqual(resistance, 190.0, places=8)
+
+    def test_automatic_calibration_uses_collective_and_freezes_once(self):
+        source = (ROOT /
+            'python_codes/LV_simulation/fibrosis/fibrosis.py').read_text()
+        self.assertIn('self.comm.gather(baseline, root=0)', source)
+        self.assertIn('self.comm.bcast(result, root=0)', source)
+        self.assertIn('self._stress_references_frozen = True', source)
+        self.assertIn('self._baseline_cycle_samples.pop(0)', source)
+        self.assertIn('Exclude the partial baseline cycle', source)
 
     def test_committed_signed_range_templates_are_safe_and_matched(self):
         names = (

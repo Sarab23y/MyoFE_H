@@ -6,7 +6,7 @@
 #SBATCH --mem=180G
 #SBATCH --account=col_jfwe223_uksr
 #SBATCH --partition=SKY32M192_L
-#SBATCH --nodelist=skylake044
+#SBATCH --nodelist=skylake051
 #SBATCH --output=/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/signedrange-tests.%J.out
 #SBATCH --error=/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/signedrange-tests.%J.err
 set -euo pipefail

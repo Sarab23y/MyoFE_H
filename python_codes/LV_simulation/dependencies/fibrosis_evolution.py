@@ -69,21 +69,51 @@ def validate_fibrosis_config(config):
             'homeostatic_cycles': homeostatic_cycles,
             'remodeling_frequency_cycles': remodeling_frequency_cycles}
     if stimulus == 'cycle_averaged_total_fiber_stress_range':
-        try:
-            stress_min = float(_first(
-                config.get('S_ff_min', []), 'fibrosis.S_ff_min'))
-            stress_max = float(_first(
-                config.get('S_ff_max', []), 'fibrosis.S_ff_max'))
-        except (TypeError, ValueError):
-            raise ValueError(
-                'fibrosis.S_ff_min and S_ff_max require measured numbers')
-        if any(math.isnan(value) or math.isinf(value)
-               for value in (stress_min, stress_max)):
-            raise ValueError('fibrosis stress references must be finite')
-        if stress_max <= stress_min:
-            raise ValueError('fibrosis.S_ff_max must exceed fibrosis.S_ff_min')
-        result['S_ff_min'] = stress_min
-        result['S_ff_max'] = stress_max
+        calibration = config.get('stress_reference_calibration', {})
+        calibration_enabled = bool(_first(
+            calibration.get('enabled', [False]),
+            'fibrosis.stress_reference_calibration.enabled'))
+        if calibration_enabled:
+            method = _first(calibration.get('method', []),
+                            'fibrosis.stress_reference_calibration.method')
+            cycles = int(_first(calibration.get('cycles', []),
+                                'fibrosis.stress_reference_calibration.cycles'))
+            lower = float(_first(
+                calibration.get('lower_percentile', []),
+                'fibrosis.stress_reference_calibration.lower_percentile'))
+            upper = float(_first(
+                calibration.get('upper_percentile', []),
+                'fibrosis.stress_reference_calibration.upper_percentile'))
+            if method != 'global_spatial_percentile':
+                raise ValueError('Unsupported stress-reference calibration')
+            if cycles < 1:
+                raise ValueError('Calibration cycles must be positive')
+            if any(math.isnan(value) or math.isinf(value)
+                   for value in (lower, upper)) or not (
+                    0.0 <= lower < upper <= 100.0):
+                raise ValueError(
+                    'Calibration percentiles must satisfy '
+                    '0 <= lower < upper <= 100')
+            result['stress_reference_calibration'] = {
+                'enabled': True, 'method': method, 'cycles': cycles,
+                'lower_percentile': lower, 'upper_percentile': upper}
+        else:
+            try:
+                stress_min = float(_first(
+                    config.get('S_ff_min', []), 'fibrosis.S_ff_min'))
+                stress_max = float(_first(
+                    config.get('S_ff_max', []), 'fibrosis.S_ff_max'))
+            except (TypeError, ValueError):
+                raise ValueError(
+                    'fibrosis.S_ff_min and S_ff_max require measured numbers')
+            if any(math.isnan(value) or math.isinf(value)
+                   for value in (stress_min, stress_max)):
+                raise ValueError('fibrosis stress references must be finite')
+            if stress_max <= stress_min:
+                raise ValueError('fibrosis.S_ff_max must exceed fibrosis.S_ff_min')
+            result['S_ff_min'] = stress_min
+            result['S_ff_max'] = stress_max
+            result['stress_reference_calibration'] = {'enabled': False}
     return result
 
 
@@ -103,6 +133,42 @@ def effective_fibrosis_stimulus(stimulus, gamma_c):
         effective.append(value)
     return effective
 
+def calibrated_stress_references(values, lower_percentile, upper_percentile):
+    """Return linear-interpolated percentiles and observed extrema.
+
+    This operates on the complete global sample assembled by the caller. It
+    deliberately reports the observed extrema separately so percentile-based
+    outlier exclusion remains visible.
+    """
+    finite_values = []
+    for value in values:
+        value = float(value)
+        if math.isnan(value) or math.isinf(value):
+            raise ValueError('Baseline fiber stress must be finite')
+        finite_values.append(value)
+    if not finite_values:
+        raise ValueError('Baseline fiber stress sample is empty')
+    lower_percentile = float(lower_percentile)
+    upper_percentile = float(upper_percentile)
+    if not (0.0 <= lower_percentile < upper_percentile <= 100.0):
+        raise ValueError('Stress percentiles are invalid')
+    finite_values.sort()
+
+    def percentile(percent):
+        position = (len(finite_values) - 1)*percent/100.0
+        lower_index = int(math.floor(position))
+        upper_index = int(math.ceil(position))
+        if lower_index == upper_index:
+            return finite_values[lower_index]
+        fraction = position - lower_index
+        return (finite_values[lower_index]*(1.0-fraction) +
+                finite_values[upper_index]*fraction)
+
+    lower = percentile(lower_percentile)
+    upper = percentile(upper_percentile)
+    if upper <= lower:
+        raise ValueError('Calibrated stress-reference range is degenerate')
+    return lower, upper, finite_values[0], finite_values[-1]
 
 def stress_range_signal(stress, stress_min, stress_max, gamma_c, tau_c):
     """Return bounded range coordinate and rate-valued fibrosis signal.

@@ -8,7 +8,8 @@ from mpi4py import MPI
 
 from ..dependencies.constituent_mass import ConstituentMassBookkeeper
 from ..dependencies.fibrosis_evolution import (
-    effective_fibrosis_stimulus, exact_collagen_update,
+    calibrated_stress_references, effective_fibrosis_stimulus,
+    exact_collagen_update,
     exact_collagen_update_from_signal, stress_range_signal,
     validate_fibrosis_config,
     validate_fraction_compatibility)
@@ -43,6 +44,11 @@ class StressDrivenFibrosis(object):
         self._stress_integral = np.zeros(point_count)
         self._cycle_duration = 0.0
         self._homeostatic_samples = []
+        self._baseline_cycle_samples = []
+        calibration = self.config.get(
+            'stress_reference_calibration', {'enabled': False})
+        self._auto_reference_calibration = calibration['enabled']
+        self._stress_references_frozen = not self._auto_reference_calibration
         self._remodeling_stress_integral = np.zeros(point_count)
         self._remodeling_duration = 0.0
         self._remodeling_cycles = 0
@@ -98,8 +104,26 @@ class StressDrivenFibrosis(object):
         self.data['fib_tau_c'] = self.config['tau_c']
         if self.config['stimulus'] == \
                 'cycle_averaged_total_fiber_stress_range':
-            self.data['fib_S_ff_min'] = self.config['S_ff_min']
-            self.data['fib_S_ff_max'] = self.config['S_ff_max']
+            if self._stress_references_frozen:
+                self.data['fib_S_ff_min'] = self.config['S_ff_min']
+                self.data['fib_S_ff_max'] = self.config['S_ff_max']
+            else:
+                self.data['fib_S_ff_min'] = np.nan
+                self.data['fib_S_ff_max'] = np.nan
+                calibration = self.config['stress_reference_calibration']
+                self.data['fib_calibration_cycles_collected'] = 0
+                self.data['fib_calibration_point_count'] = 0
+                self.data['fib_calibration_observed_min'] = np.nan
+                self.data['fib_calibration_observed_max'] = np.nan
+                self.data['fib_calibration_lower_percentile'] = \
+                    calibration['lower_percentile']
+                self.data['fib_calibration_upper_percentile'] = \
+                    calibration['upper_percentile']
+                self.data['fib_baseline_signal_mean'] = np.nan
+                self.data['fib_baseline_signal_min'] = np.nan
+                self.data['fib_baseline_signal_max'] = np.nan
+        self.data['fib_reference_calibrated'] = \
+            1 if self._stress_references_frozen else 0
         fractions = self.bookkeeper.fractions()
         self.data['fib_phi_m'] = np.asarray(fractions['phi_m'])
         self.data['fib_phi_g'] = np.asarray(fractions['phi_g'])
@@ -268,12 +292,101 @@ class StressDrivenFibrosis(object):
         if self.config['stimulus'] == \
                 'cycle_averaged_total_fiber_stress_range':
             point_count = len(cycle_stress)
+            lower = self.config.get('S_ff_min', 0.0)
+            upper = self.config.get('S_ff_max', 0.0)
             self._set_diagnostic_function(
-                'fibrosis_S_ff_min', np.full(
-                    point_count, self.config['S_ff_min']))
+                'fibrosis_S_ff_min', np.full(point_count, lower))
             self._set_diagnostic_function(
-                'fibrosis_S_ff_max', np.full(
-                    point_count, self.config['S_ff_max']))
+                'fibrosis_S_ff_max', np.full(point_count, upper))
+
+    def _record_baseline_cycle(self, cycle_average):
+        """Retain only the requested complete cycles before activation."""
+        cycles = self.config['stress_reference_calibration']['cycles']
+        self._baseline_cycle_samples.append(cycle_average.copy())
+        if len(self._baseline_cycle_samples) > cycles:
+            self._baseline_cycle_samples.pop(0)
+        self.data['fib_calibration_cycles_collected'] = \
+            len(self._baseline_cycle_samples)
+        self.data['fib_cycle_averaged_total_fiber_stress'] = \
+            cycle_average.copy()
+        zeros = np.zeros(len(cycle_average))
+        self._update_global_diagnostics(cycle_average, zeros, zeros, zeros)
+        self._publish_stress_diagnostics(cycle_average, zeros, zeros, zeros)
+
+    def _freeze_stress_references(self):
+        """Freeze robust global references from pre-activation cycles.
+
+        Per-point cycle averages are first averaged over the retained complete
+        cycles. Exact global spatial percentiles are then evaluated on rank 0
+        from owned local Quadrature-vector entries and broadcast to all ranks.
+        """
+        calibration = self.config['stress_reference_calibration']
+        cycles = calibration['cycles']
+        if len(self._baseline_cycle_samples) != cycles:
+            raise RuntimeError(
+                'Automatic stress calibration requires %d complete '
+                'pre-activation cycles; found %d' %
+                (cycles, len(self._baseline_cycle_samples)))
+        baseline = np.mean(self._baseline_cycle_samples, axis=0)
+        # All ranks enter the gather even when one rank contains invalid data;
+        # rank 0 reports the error and broadcasts one failure to every rank.
+        gathered = self.comm.gather(baseline, root=0)
+        result = None
+        if self.comm.Get_rank() == 0:
+            try:
+                global_values = np.concatenate(gathered)
+                if len(global_values) == 0 or \
+                        not np.all(np.isfinite(global_values)):
+                    raise RuntimeError(
+                        'Global baseline stress is empty or nonfinite')
+                lower, upper, observed_min, observed_max = \
+                    calibrated_stress_references(
+                        global_values, calibration['lower_percentile'],
+                        calibration['upper_percentile'])
+                result = (True, '', lower, upper,
+                          int(len(global_values)), observed_min, observed_max)
+            except Exception as error:
+                result = (False, str(error), 0.0, 0.0, 0, 0.0, 0.0)
+        result = self.comm.bcast(result, root=0)
+        if not result[0]:
+            raise RuntimeError(
+                'Automatic stress calibration failed: ' + result[1])
+        lower, upper, count, observed_min, observed_max = result[2:]
+        if not np.isfinite(lower) or not np.isfinite(upper) or upper <= lower:
+            raise RuntimeError(
+                'Automatic stress references are nonfinite or degenerate')
+        self.config['S_ff_min'] = lower
+        self.config['S_ff_max'] = upper
+        self._stress_references_frozen = True
+        self.homeostatic_stress = baseline.copy()
+        self.data['fib_homeostatic_fiber_stress'] = baseline.copy()
+        self.data['fib_S_ff_min'] = lower
+        self.data['fib_S_ff_max'] = upper
+        self.data['fib_reference_calibrated'] = 1
+        self.data['fib_calibration_point_count'] = count
+        self.data['fib_calibration_observed_min'] = observed_min
+        self.data['fib_calibration_observed_max'] = observed_max
+        self.data['fib_calibration_lower_percentile'] = \
+            calibration['lower_percentile']
+        self.data['fib_calibration_upper_percentile'] = \
+            calibration['upper_percentile']
+        normalized, effective, signal = self._calculate_stimuli(baseline)
+        mean, minimum, maximum = self._global_stats(signal)
+        self.data['fib_baseline_signal_mean'] = mean
+        self.data['fib_baseline_signal_min'] = minimum
+        self.data['fib_baseline_signal_max'] = maximum
+        self._update_global_diagnostics(
+            baseline, normalized, effective, signal)
+        self._publish_stress_diagnostics(
+            baseline, normalized, effective, signal)
+        if self.comm.Get_rank() == 0:
+            print '[StressDrivenFibrosis] fixed stress references'
+            print '  percentile method:', \
+                calibration['lower_percentile'], \
+                calibration['upper_percentile']
+            print '  S_ff_min/S_ff_max:', lower, upper
+            print '  observed min/max:', observed_min, observed_max
+            print '  baseline signal min/mean/max:', minimum, mean, maximum
 
     def set_activation_window(self, growth_activations):
         """Use protocol.growth as the fibrosis remodeling schedule only."""
@@ -295,8 +408,29 @@ class StressDrivenFibrosis(object):
         current_time = self.parent.data['time']
         active = self.activation_start <= current_time < self.activation_stop
         self.data['fib_active'] = 1 if active else 0
+        if self._auto_reference_calibration and not active:
+            if current_time >= self.activation_start:
+                return
+            stress = self._total_fiber_stress()
+            self._stress_integral += stress*time_step
+            self._cycle_duration += time_step
+            if end_diastolic:
+                if self._cycle_duration <= 0.0:
+                    raise RuntimeError(
+                        'Fibrosis calibration cycle duration is not positive')
+                cycle_average = self._stress_integral/self._cycle_duration
+                self._stress_integral[:] = 0.0
+                self._cycle_duration = 0.0
+                self._record_baseline_cycle(cycle_average)
+            return
         if not active:
             return
+        if self._auto_reference_calibration and \
+                not self._stress_references_frozen:
+            self._freeze_stress_references()
+            # Exclude the partial baseline cycle crossing activation time.
+            self._stress_integral[:] = 0.0
+            self._cycle_duration = 0.0
         stress = self._total_fiber_stress()
         self._stress_integral += stress*time_step
         self._cycle_duration += time_step
