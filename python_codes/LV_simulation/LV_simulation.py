@@ -28,6 +28,7 @@ from .dependencies.nsolver import NSolver
 from .output_handler.output_handler import output_handler as oh
 from .baroreflex import baroreflex as br
 from .growth import growth as gr
+from .fibrosis import StressDrivenFibrosis
 from .half_sarcomere import half_sarcomere as hs 
 from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
@@ -333,6 +334,15 @@ class LV_simulation():
                                 self)
         else:
             self.gr = [] 
+        if 'fibrosis' in instruction_data['model'] and \
+                instruction_data['model']['fibrosis'].get(
+                    'enabled', [False])[0]:
+            if self.comm.Get_rank() == 0:
+                print 'Initializing volume-neutral fibrosis module'
+            self.fi = StressDrivenFibrosis(
+                instruction_data['model']['fibrosis'], self)
+        else:
+            self.fi = []
         # If required, create the vad object
         self.va = []
 
@@ -417,7 +427,23 @@ class LV_simulation():
         
         if self.gr: 
             for f in list(self.gr.data.keys()):
-                if f.split('_')[-1] == 'active':
+                if f.split('_')[-1] == 'active' or f in [
+                        'gr_growth_event_number',
+                        'gr_global_mass_myofiber',
+                        'gr_global_mass_ground_matrix',
+                        'gr_global_mass_collagen',
+                        'gr_global_mass_total',
+                        'gr_mass_balance_residual',
+                        'gr_mass_balance_residual_myofiber',
+                        'gr_mass_balance_residual_ground_matrix',
+                        'gr_mass_balance_residual_collagen',
+                        'gr_pre_growth_myocardial_volume',
+                        'gr_post_growth_myocardial_volume',
+                        'gr_prescribed_positive_growth_volume']:
+                    data_fields.append(f)
+        if self.fi:
+            for f, value in self.fi.data.items():
+                if np.isscalar(value):
                     data_fields.append(f)
 
         if (self.va != []):
@@ -530,6 +556,18 @@ class LV_simulation():
     
                     self.spatial_gr_data_fields.append(k)
 
+                if k in ['gr_phi_m', 'gr_phi_g', 'gr_phi_c',
+                         'gr_density_myofiber',
+                         'gr_density_ground_matrix',
+                         'gr_density_collagen', 'gr_density_total',
+                         'gr_last_added_density_myofiber',
+                         'gr_last_added_density_ground_matrix',
+                         'gr_last_added_density_collagen',
+                         'gr_last_added_volume_ratio',
+                         'gr_growth_volume_ratio',
+                         'gr_geometric_volume_ratio']:
+                    self.spatial_gr_data_fields.append(k)
+
             '''data_field = self.spatial_hs_data_fields +\
                         self.spatial_myof_data_fields+\
                         self.spatial_memb_data_fields+ \
@@ -542,6 +580,14 @@ class LV_simulation():
             data_field = self.spatial_fiber_data_fields+\
                          self.spatial_gr_data_fields+\
                             self.spatial_extra
+
+        self.spatial_fibrosis_data_fields = []
+        if self.fi:
+            for key, value in self.fi.data.items():
+                if isinstance(value, np.ndarray) and \
+                        len(value) == self.local_n_of_int_points:
+                    self.spatial_fibrosis_data_fields.append(key)
+            data_field = data_field + self.spatial_fibrosis_data_fields
 
         if in_average:
             spatial_data = pd.DataFrame()
@@ -571,6 +617,8 @@ class LV_simulation():
 
 
         self.prot = prot.protocol(protocol_struct)
+        if self.fi:
+            self.fi.set_activation_window(self.prot.growth_activations)
 
         self.l_f00 = self.mesh.model['functions']['f00'].vector().get_local()[:] # this should be localized here sice at the end to time loop this function space also reorients automatially. to save initial fiber it should be saved here
         
@@ -670,6 +718,25 @@ class LV_simulation():
 
 
                     for m in self.mesh_obj_to_save:
+                        if m in ['phi_m', 'phi_g', 'phi_c',
+                                 'constituent_density_myofiber',
+                                 'constituent_density_ground_matrix',
+                                 'constituent_density_collagen',
+                                 'constituent_density_total',
+                                 'growth_volume_ratio',
+                                 'growth_geometric_volume_ratio',
+                                 'fibrosis_cycle_averaged_total_fiber_stress',
+                                 'fibrosis_homeostatic_fiber_stress',
+                                 'fibrosis_normalized_stimulus',
+                                 'fibrosis_effective_stimulus',
+                                 'fibrosis_stress_range_normalized',
+                                 'fibrosis_signal',
+                                 'fibrosis_S_ff_min',
+                                 'fibrosis_S_ff_max'] and \
+                                m in self.mesh.model['functions']:
+                            temp_obj = project(
+                                self.mesh.model['functions'][m],
+                                self.mesh.model['function_spaces']['scalar'])
                         if m == 'displacement':
                             temp_obj = self.mesh.model['functions']['w'].sub(0)
                         if m == 'hs_length':
@@ -808,6 +875,16 @@ class LV_simulation():
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar_for_active"],
                                         form_compiler_parameters={"representation":"uflacs"})
+                        if m == 'collagen_passive':
+                            temp_obj = project(inner(
+                                self.mesh.model['functions']['f0'],
+                                self.mesh.model['functions'][
+                                    'collagen_passive']*
+                                self.mesh.model['functions']['f0']),
+                                self.mesh.model['function_spaces'][
+                                    "scalar_for_active"],
+                                form_compiler_parameters={
+                                    "representation":"uflacs"})
 
 
                         if m in ['local_theta_vis_fiber','local_theta_vis_sheet','local_theta_vis_sheet_normal',
@@ -1183,6 +1260,9 @@ class LV_simulation():
             print 'Sff:'
             print Sff """
         """###############"""
+        if self.fi:
+            self.fi.record_time_step(time_step, self.end_diastolic)
+
         if self.gr:            
             #self.data['growth_active'] = 0
             for g in self.prot.growth_activations:
@@ -1403,8 +1483,19 @@ class LV_simulation():
                                 
                             """============================== """
                             """#######end########"""
+                            growth_volume_ratios = None
+                            if self.gr.constituent_mass_bookkeeper is not None:
+                                growth_volume_ratios = \
+                                    self.gr.incremental_growth_volume_ratios()
+
                             # Grow reference configuration
-                            self.gr.grow_reference_config()
+                            growth_event_diagnostics = \
+                                self.gr.grow_reference_config()
+                            if growth_volume_ratios is not None:
+                                self.gr.update_constituent_masses(
+                                    growth_volume_ratios,
+                                    growth_event_diagnostics[
+                                        'geometric_volume_ratios'])
 
                             # reset Fg = 1
                             for dir in ['fiber','sheet','sheet_normal']:
@@ -1427,8 +1518,14 @@ class LV_simulation():
                             #reinitialize mesh class with the geometry from growth
                             self.mesh = MeshClass(self,predefined_mesh = self.gr.mechan.model['mesh'],
                                                     predefined_functions = predefined_functions)
+                            self.gr.apply_constituent_fractions(self.mesh)
                             #reinitialize growth mechanics class with the geometry from growth
                             self.gr.reinitialize_mesh_object_for_growth(predefined_functions)
+                            self.gr.apply_constituent_fractions(self.gr.mechan)
+                            self.gr.order_spatial_mass_data_for_mesh(self.mesh)
+                            if growth_event_diagnostics is not None:
+                                self.gr.finalize_constituent_mass_event(
+                                    self.mesh, growth_event_diagnostics)
 
                             # reinitialize solver object
                             self.solver =  NSolver(self,self.mesh,self.comm)
@@ -1952,6 +2049,25 @@ class LV_simulation():
                     print 'Saving to 3d mesh'
                     
                 for m in self.mesh_obj_to_save:
+                    if m in ['phi_m', 'phi_g', 'phi_c',
+                             'constituent_density_myofiber',
+                             'constituent_density_ground_matrix',
+                             'constituent_density_collagen',
+                             'constituent_density_total',
+                             'growth_volume_ratio',
+                             'growth_geometric_volume_ratio',
+                             'fibrosis_cycle_averaged_total_fiber_stress',
+                             'fibrosis_homeostatic_fiber_stress',
+                             'fibrosis_normalized_stimulus',
+                             'fibrosis_effective_stimulus',
+                             'fibrosis_stress_range_normalized',
+                             'fibrosis_signal',
+                             'fibrosis_S_ff_min',
+                             'fibrosis_S_ff_max'] and \
+                            m in self.mesh.model['functions']:
+                        temp_obj = project(
+                            self.mesh.model['functions'][m],
+                            self.mesh.model['function_spaces']['scalar'])
                     if m == 'displacement':
                         temp_obj = self.mesh.model['functions']['w'].sub(0)
                         
@@ -2098,6 +2214,15 @@ class LV_simulation():
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar_for_active"],
                                         form_compiler_parameters={"representation":"uflacs"})                    
+                    if m == 'collagen_passive':
+                        temp_obj = project(inner(
+                            self.mesh.model['functions']['f0'],
+                            self.mesh.model['functions']['collagen_passive']*
+                            self.mesh.model['functions']['f0']),
+                            self.mesh.model['function_spaces'][
+                                "scalar_for_active"],
+                            form_compiler_parameters={
+                                "representation":"uflacs"})
 
                     
                             
@@ -2226,6 +2351,10 @@ class LV_simulation():
 
                 if f not in self.spatial_gr_data_fields:
                     self.sim_data[f][self.write_counter] = self.gr.data[f]
+        if self.fi:
+            for f, value in self.fi.data.items():
+                if f not in self.spatial_fibrosis_data_fields:
+                    self.sim_data[f][self.write_counter] = value
 
     
         self.sim_data['write_mode'] = 1
@@ -2284,6 +2413,10 @@ class LV_simulation():
                 for f in list(self.spatial_gr_data_fields):
                     data_field = self.gr.data[f]
                     self.local_spatial_sim_data.at[self.write_counter,f] = np.mean(data_field)
+            if self.fi:
+                for f in self.spatial_fibrosis_data_fields:
+                    self.local_spatial_sim_data.at[self.write_counter, f] = \
+                        np.mean(self.fi.data[f])
             
             for f in ['Sff','sff_mean','alpha_f']:
                 data_field = self.data[f]
@@ -2299,6 +2432,10 @@ class LV_simulation():
                 for f in self.spatial_gr_data_fields:
                     data_field = self.gr.data[f]
                     self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field
+            if self.fi:
+                for f in self.spatial_fibrosis_data_fields:
+                    self.local_spatial_sim_data[f].iloc[self.write_counter] = \
+                        self.fi.data[f]
 
 
             '''for f in self.spatial_hs_data_fields:
@@ -2353,9 +2490,17 @@ class LV_simulation():
             f0_z = f0_temp_3n[:,2]
 
 
-            ###since displacement is difiened in CG function space. here to get data in gauss poinst we project it to a qud vector space 
-            
-            d_temp0 = project(self.mesh.model['functions']['w'].sub(0),self.mesh.model['function_spaces']['fiber_FS'])
+            # Displacement is the vector CG2 subfield of the mixed solution.
+            # Spatial CSV data are indexed by the same degree-2 quadrature
+            # points as f0/s0/n0, so evaluate displacement in that existing
+            # vector Quadrature space.  Historical inputs called an identical
+            # space ``fiber_FS``; it was an output/data-layout space rather
+            # than a distinct fiber-disarray model input.
+            displacement_output_space = self.mesh.model[
+                'function_spaces']['material_coord_system_space']
+            d_temp0 = project(
+                self.mesh.model['functions']['w'].sub(0),
+                displacement_output_space)
             d_temp = d_temp0.vector().get_local()[:]
 
 
