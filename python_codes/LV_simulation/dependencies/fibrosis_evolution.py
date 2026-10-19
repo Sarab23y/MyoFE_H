@@ -69,10 +69,14 @@ def validate_fibrosis_config(config):
             'homeostatic_cycles': homeostatic_cycles,
             'remodeling_frequency_cycles': remodeling_frequency_cycles}
     if stimulus == 'cycle_averaged_total_fiber_stress_range':
-        stress_min = float(_first(
-            config.get('S_ff_min', []), 'fibrosis.S_ff_min'))
-        stress_max = float(_first(
-            config.get('S_ff_max', []), 'fibrosis.S_ff_max'))
+        try:
+            stress_min = float(_first(
+                config.get('S_ff_min', []), 'fibrosis.S_ff_min'))
+            stress_max = float(_first(
+                config.get('S_ff_max', []), 'fibrosis.S_ff_max'))
+        except (TypeError, ValueError):
+            raise ValueError(
+                'fibrosis.S_ff_min and S_ff_max require measured numbers')
         if any(math.isnan(value) or math.isinf(value)
                for value in (stress_min, stress_max)):
             raise ValueError('fibrosis stress references must be finite')

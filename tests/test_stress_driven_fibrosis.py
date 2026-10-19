@@ -122,6 +122,35 @@ class StressDrivenFibrosisTests(unittest.TestCase):
         self.assertEqual(validated['S_ff_max'], 10.0)
 
 
+
+    def test_committed_signed_range_templates_are_safe_and_matched(self):
+        names = (
+            'base_instruction_Br_fibrosis_signedrange_control.json',
+            'base_instruction_Br_fibrosis_signedrange_perturbed.json')
+        cases = [read_json(ROOT / 'demos/base/sim_inputs' / name)
+                 for name in names]
+        for case in cases:
+            fibrosis = case['model']['fibrosis']
+            self.assertEqual(fibrosis['stimulus'],
+                             ['cycle_averaged_total_fiber_stress_range'])
+            self.assertEqual(fibrosis['gamma_c'], [1.5])
+            self.assertEqual(fibrosis['tau_c'], [50])
+            self.assertEqual(fibrosis['S_ff_min'], [None])
+            self.assertEqual(fibrosis['S_ff_max'], [None])
+            self.assertNotIn('growth', case['model'])
+            with self.assertRaisesRegex(ValueError, 'require measured'):
+                EVOLUTION.validate_fibrosis_config(fibrosis)
+        self.assertNotIn('perturbation', cases[0]['protocol'])
+        perturbation = cases[1]['protocol']['perturbation'][
+            'perturbations'][0]
+        self.assertEqual(perturbation['variable'], ['aorta_resistance'])
+        self.assertEqual(perturbation['total_change'], [170])
+        self.assertEqual(perturbation['t_start_s'], [30])
+        self.assertEqual(perturbation['t_stop_s'], [40])
+        self.assertNotEqual(
+            cases[0]['output_handler']['output_data_path'],
+            cases[1]['output_handler']['output_data_path'])
+
     def test_range_case_generator_preserves_sources_and_sets_outputs(self):
         generator = load('prepare_stress_range_cases',
                          'validation/prepare_stress_range_cases.py')

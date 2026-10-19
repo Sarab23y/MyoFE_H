@@ -420,3 +420,9 @@ sbatch --export=ALL,S_FF_MIN,S_FF_MAX validation/run_stress_range_fibrosis.slurm
 
 This creates job-local JSON files and separate control/perturbed outputs; it
 does not alter the maintained Br inputs or enable geometric growth.
+
+The committed matched signed-range JSON templates are fail-closed: their
+`S_ff_min` and `S_ff_max` entries remain `null` until measured values are
+approved. Use `validation/run_br_signedrange_fibrosis.slurm`, with both bounds
+exported, to produce validated runtime copies and run the control and perturbed
+cases sequentially without modifying the templates.

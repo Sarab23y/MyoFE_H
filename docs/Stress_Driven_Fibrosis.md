@@ -224,3 +224,42 @@ formula, not a numerical bug. The healthy run is required to quantify this
 baseline drift; the perturbed effect must be reported relative to the matched
 healthy run. No homeostatic subtraction, threshold, clipping beyond `[0,1]`,
 or degradation has been added.
+
+## Committed signed-range test templates
+
+Two matched templates are provided:
+
+- `demos/base/sim_inputs/base_instruction_Br_fibrosis_signedrange_control.json`
+- `demos/base/sim_inputs/base_instruction_Br_fibrosis_signedrange_perturbed.json`
+
+They select the signed-range law, retain `gamma_c=1.5`, `tau_c=50 s`, the Br
+fractions and 60-second schedule, and differ in loading only by the perturbed
+case's `aorta_resistance +170` ramp from 30 to 40 seconds. Their distinct output
+roots are:
+
+- `/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/signedrange_tests/control`
+- `/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/signedrange_tests/perturbed`
+
+`S_ff_min` and `S_ff_max` are intentionally JSON `null` in both committed
+files. This is a visible, fail-closed representation of the missing scientific
+measurement—not a numerical value and not a runnable model. JSON syntax and all
+non-bound invariants can be checked with:
+
+```bash
+python validation/verify_signedrange_configurations.py \
+  --allow-unresolved-bounds \
+  demos/base/sim_inputs/base_instruction_Br_fibrosis_signedrange_control.json \
+  demos/base/sim_inputs/base_instruction_Br_fibrosis_signedrange_perturbed.json
+```
+
+After approved bounds are available, the SLURM script injects them into
+job-local JSON copies, strictly validates the resolved copies, preserves any
+previous result directories, and only then launches the control followed by
+the perturbed case:
+
+```bash
+export S_FF_MIN='<approved measured lower reference>'
+export S_FF_MAX='<approved measured upper reference>'
+sbatch --export=ALL,S_FF_MIN,S_FF_MAX \
+  validation/run_br_signedrange_fibrosis.slurm
+```
