@@ -10,7 +10,7 @@ extension and are not presented as part of that publication.
 This is an optional first sensitivity model, not a calibrated biological law.
 It reuses the loading and mechanical stimulus present in
 `demos/growth_AS/sim_inputs/input_parameters.json`: the aortic resistance is
-increased by 150 model resistance units from 30 to 40 s, total fiber-direction
+increased by 170 model resistance units from 30 to 40 s in the maintained Br perturbed case, total fiber-direction
 stress is evaluated as `f0 . total_stress . f0`, and remodeling is evaluated
 every four cardiac cycles. The historical AS example uses this stress to drive
 sheet and sheet-normal geometric growth. The new extension instead exchanges
@@ -91,14 +91,16 @@ LV cavity volume remains free to vary during each cardiac cycle.
 
 ## Validation cases
 
-- `validation/configs/as_fibrosis_healthy.json`: initial aortic resistance 20;
-  no resistance perturbation.
-- `validation/configs/as_fibrosis_aortic_stenosis.json`: identical model plus
-  the existing `+150` aortic-resistance perturbation from 30--40 s.
+- `demos/base/sim_inputs/base_instruction_Br_fibrosis_control.json`: initial
+  aortic resistance 20 and no resistance perturbation.
+- `demos/base/sim_inputs/base_instruction_Br_fibrosis_AS.json`: the matched Br
+  model plus the requested additive `+170` aortic-resistance perturbation from
+  30--40 s (20 to 190 after the ramp).
 
 Both use identical fibrosis sensitivity parameters and isolated output paths.
-They preserve the current baseline passive, active, circulation, and mesh
-inputs. They run for 150 s, matching the duration of the historical AS input.
+They preserve the Br passive, active, circulation, and mesh inputs and run for
+60 s. These committed cases continue to use the homeostatic-deviation signal;
+the fixed-range cases are generated only after reference bounds are approved.
 
 Run on the legacy cluster environment:
 
@@ -127,7 +129,7 @@ active stress.
 3. `fib_phi_m_min/mean/max` remain 0.70.
 4. At every point `phi_m+phi_g+phi_c=1`, with nonnegative ground matrix.
 5. Healthy control stimulus remains near zero after stabilization and collagen
-   remains near 0.03. This is a runtime criterion, not guaranteed by design if
+   remains near its configured initial value 0.026. This is a runtime criterion, not guaranteed by design if
    the early baseline remains transient.
 6. AS produces positive stimulus where total fiber stress exceeds the local
    homeostatic field and increases collagen only there.
@@ -155,3 +157,70 @@ activation all require scientific calibration or sensitivity analysis. The
 Sharifi--Wenk geometric growth formulation is preserved separately; this
 fibrosis equation is a new proposed extension and is not attributed to that
 publication.
+
+## Optional fixed signed-stress-range signal
+
+The implementation also supports the explicitly selected stimulus
+`cycle_averaged_total_fiber_stress_range`. It uses the same cycle average of
+`f0 . total_stress . f0`; it does **not** substitute fiber stretch or an
+instantaneous stress. For fixed, user-approved references in the stress units
+of that field,
+
+```text
+r   = clip((S_ff_avg - S_ff_min)/(S_ff_max - S_ff_min), 0, 1)
+G_c = r**gamma_c/tau_c
+phi_c(new) = phi_c + (phi_c_max-phi_c)*(1-exp(-G_c*Delta t)).
+```
+
+Thus `gamma_c` and `tau_c` occur exactly once. The range mode requires finite
+`S_ff_min` and `S_ff_max`, with `S_ff_max > S_ff_min`; it never derives them
+from the current cycle. `fib_stress_range_normalized_*` and `fib_signal_*`
+contain the global summary statistics. `fib_lower_bound_fraction` and
+`fib_upper_bound_fraction` report the fractions of local Quadrature values
+clipped to zero and one. XDMF-capable local fields are
+`fibrosis_stress_range_normalized`, `fibrosis_signal`, `fibrosis_S_ff_min`, and
+`fibrosis_S_ff_max`.
+
+### Reference bounds are deliberately not selected yet
+
+No committed result file in this repository contains a trustworthy sampled
+healthy `fibrosis_cycle_averaged_total_fiber_stress` distribution, and the
+code/configuration does not establish a physical stress unit independently of
+the target FEniCS run. Consequently, this change does not invent reference
+limits and does not switch the maintained Br control or +170 resistance case
+to range mode. Doing so would make a scientifically unsupported simulation
+look runnable.
+
+Establish the bounds from a matched, converged healthy run in the same mesh,
+material convention, and stress units. Save the local cycle-averaged field for
+several post-transient beats; inspect its sign convention and spatial maps;
+check mesh/MPI repeatability; and distinguish isolated extrema from persistent
+regions. `validation/summarize_fiber_stress_bounds.py` prints descriptive
+percentiles but intentionally does not select bounds. A robust, predeclared
+selection rule (and its sensitivity) should be approved before the bounds are
+used.
+
+After approval, submit the guarded job as follows; it refuses to start without
+both bounds and writes to a new job-specific result tree:
+
+```bash
+export S_FF_MIN='<approved lower stress reference>'
+export S_FF_MAX='<approved upper stress reference>'
+sbatch --export=ALL,S_FF_MIN,S_FF_MAX validation/run_stress_range_fibrosis.slurm
+```
+
+The helper creates transient control and perturbed JSON files from the current
+matched Br cases, changes only the stimulus mode, fixed references, added
+range-output fields, and output locations. The committed Br JSON files remain
+unchanged.
+
+### Healthy-control consequence
+
+Unlike the prior positive deviation from a homeostatic setpoint, this signal
+is positive whenever `S_ff_avg > S_ff_min`. Therefore a healthy case generally
+accumulates collagen continuously (until the cap) if its stress lies inside or
+above the prescribed range. That is a direct consequence of the requested
+formula, not a numerical bug. The healthy run is required to quantify this
+baseline drift; the perturbed effect must be reported relative to the matched
+healthy run. No homeostatic subtraction, threshold, clipping beyond `[0,1]`,
+or degradation has been added.

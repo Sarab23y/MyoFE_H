@@ -75,6 +75,71 @@ class StressDrivenFibrosisTests(unittest.TestCase):
             old, [100.0], 100.0, 50.0, 0.15)
         self.assertAlmostEqual(saturated[0], 0.15)
 
+
+    def test_signed_range_signal_at_bounds_and_midpoint(self):
+        normalized, signal = EVOLUTION.stress_range_signal(
+            [-10.0, 0.0, 10.0], -10.0, 10.0, 1.5, 50.0)
+        self.assertEqual(normalized, [0.0, 0.5, 1.0])
+        self.assertEqual(signal[0], 0.0)
+        self.assertAlmostEqual(signal[1], 0.5**1.5/50.0)
+        self.assertAlmostEqual(signal[2], 1.0/50.0)
+
+    def test_signed_range_signal_handles_negative_stress_and_clips(self):
+        normalized, signal = EVOLUTION.stress_range_signal(
+            [-20.0, -5.0, 20.0], -10.0, 10.0, 1.5, 50.0)
+        self.assertEqual(normalized, [0.0, 0.25, 1.0])
+        self.assertEqual(signal[0], 0.0)
+        self.assertAlmostEqual(signal[1], 0.25**1.5/50.0)
+        self.assertAlmostEqual(signal[2], 1.0/50.0)
+
+    def test_range_update_applies_tau_and_gamma_exactly_once(self):
+        normalized, signal = EVOLUTION.stress_range_signal(
+            [0.0], -10.0, 10.0, 1.5, 50.0)
+        updated = EVOLUTION.exact_collagen_update_from_signal(
+            [0.026], signal, 4.0, 0.15)
+        expected = 0.026 + (0.15 - 0.026)*(1.0 - math.exp(
+            -(0.5**1.5/50.0)*4.0))
+        self.assertAlmostEqual(updated[0], expected)
+        self.assertEqual(normalized, [0.5])
+
+    def test_range_configuration_requires_valid_fixed_limits(self):
+        config = read_json(
+            ROOT / 'validation/configs/as_fibrosis_healthy.json')[
+                'model']['fibrosis']
+        config['stimulus'] = ['cycle_averaged_total_fiber_stress_range']
+        for bad_limits in ((None, None), (1.0, 1.0), (2.0, 1.0),
+                           (float('nan'), 1.0), (-1.0, float('inf'))):
+            bad = dict(config)
+            if bad_limits[0] is not None:
+                bad['S_ff_min'] = [bad_limits[0]]
+                bad['S_ff_max'] = [bad_limits[1]]
+            with self.assertRaises(ValueError):
+                EVOLUTION.validate_fibrosis_config(bad)
+        config['S_ff_min'] = [-10.0]
+        config['S_ff_max'] = [10.0]
+        validated = EVOLUTION.validate_fibrosis_config(config)
+        self.assertEqual(validated['S_ff_min'], -10.0)
+        self.assertEqual(validated['S_ff_max'], 10.0)
+
+
+    def test_range_case_generator_preserves_sources_and_sets_outputs(self):
+        generator = load('prepare_stress_range_cases',
+                         'validation/prepare_stress_range_cases.py')
+        source_path = ROOT / ('demos/base/sim_inputs/'
+                              'base_instruction_Br_fibrosis_control.json')
+        original = source_path.read_bytes()
+        case = generator.configure(read_json(source_path), -10.0, 10.0,
+                                   '/tmp/new-range-control')
+        self.assertEqual(source_path.read_bytes(), original)
+        fibrosis = case['model']['fibrosis']
+        self.assertEqual(fibrosis['stimulus'],
+                         ['cycle_averaged_total_fiber_stress_range'])
+        self.assertEqual(fibrosis['S_ff_min'], [-10.0])
+        self.assertEqual(fibrosis['S_ff_max'], [10.0])
+        self.assertNotIn('growth', case['model'])
+        self.assertEqual(case['output_handler']['output_data_path'],
+                         ['/tmp/new-range-control/sim_output/data.csv'])
+
     def test_exchange_preserves_myofiber_and_total_density(self):
         bookkeeper = MASS.ConstituentMassBookkeeper(
             {'phi_m': [0.70], 'phi_g': [0.27], 'phi_c': [0.03]}, 1,

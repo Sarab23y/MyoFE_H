@@ -728,7 +728,11 @@ class LV_simulation():
                                  'fibrosis_cycle_averaged_total_fiber_stress',
                                  'fibrosis_homeostatic_fiber_stress',
                                  'fibrosis_normalized_stimulus',
-                                 'fibrosis_effective_stimulus'] and \
+                                 'fibrosis_effective_stimulus',
+                                 'fibrosis_stress_range_normalized',
+                                 'fibrosis_signal',
+                                 'fibrosis_S_ff_min',
+                                 'fibrosis_S_ff_max'] and \
                                 m in self.mesh.model['functions']:
                             temp_obj = project(
                                 self.mesh.model['functions'][m],
@@ -2055,7 +2059,11 @@ class LV_simulation():
                              'fibrosis_cycle_averaged_total_fiber_stress',
                              'fibrosis_homeostatic_fiber_stress',
                              'fibrosis_normalized_stimulus',
-                             'fibrosis_effective_stimulus'] and \
+                             'fibrosis_effective_stimulus',
+                             'fibrosis_stress_range_normalized',
+                             'fibrosis_signal',
+                             'fibrosis_S_ff_min',
+                             'fibrosis_S_ff_max'] and \
                             m in self.mesh.model['functions']:
                         temp_obj = project(
                             self.mesh.model['functions'][m],

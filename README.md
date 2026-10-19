@@ -405,3 +405,18 @@ Run the AS case from `python_codes` so its relative input-mesh path resolves:
 mpiexec -np 32 python MyoFE.py LV_sim \
   ../demos/base/sim_inputs/base_instruction_Br_fibrosis_AS.json
 ```
+
+### Signed stress-range fibrosis (experimental)
+
+The optional fixed-range signal and its guarded cluster workflow are described
+in `docs/Stress_Driven_Fibrosis.md`. Fixed stress references are mandatory and
+are not inferred from numerical extrema. After measuring and approving them:
+
+```bash
+export S_FF_MIN='<approved lower reference>'
+export S_FF_MAX='<approved upper reference>'
+sbatch --export=ALL,S_FF_MIN,S_FF_MAX validation/run_stress_range_fibrosis.slurm
+```
+
+This creates job-local JSON files and separate control/perturbed outputs; it
+does not alter the maintained Br inputs or enable geometric growth.

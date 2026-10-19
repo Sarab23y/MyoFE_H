@@ -17,9 +17,12 @@ def validate_fibrosis_config(config):
     stimulus = _first(config.get('stimulus', []), 'fibrosis.stimulus')
     if model != 'stress_driven_constant_volume':
         raise ValueError('fibrosis.model must be stress_driven_constant_volume')
-    if stimulus != 'cycle_averaged_total_fiber_stress':
+    supported_stimuli = (
+        'cycle_averaged_total_fiber_stress',
+        'cycle_averaged_total_fiber_stress_range')
+    if stimulus not in supported_stimuli:
         raise ValueError(
-            'fibrosis.stimulus must be cycle_averaged_total_fiber_stress')
+            'fibrosis.stimulus is not supported')
     tau_c = float(_first(config.get('tau_c', []), 'fibrosis.tau_c'))
     phi_c_max = float(_first(
         config.get('phi_c_max', []), 'fibrosis.phi_c_max'))
@@ -36,6 +39,10 @@ def validate_fibrosis_config(config):
         'fibrosis.remodeling_frequency_cycles'))
     activation_time = float(_first(
         config.get('activation_time', [0.0]), 'fibrosis.activation_time'))
+    if any(math.isnan(value) or math.isinf(value)
+           for value in (tau_c, stress_epsilon, density, phi_c_max,
+                         activation_time)):
+        raise ValueError('fibrosis numeric parameters must be finite')
     if tau_c <= 0.0 or stress_epsilon <= 0.0 or density <= 0.0:
         raise ValueError(
             'fibrosis tau_c, stress_epsilon, and density must be positive')
@@ -54,13 +61,26 @@ def validate_fibrosis_config(config):
         if actual != expected:
             raise ValueError('fibrosis.%s must be %s for this model' %
                              (key, str(expected).lower()))
-    return {'enabled': True, 'model': model, 'stimulus': stimulus,
+    result = {'enabled': True, 'model': model, 'stimulus': stimulus,
             'tau_c': tau_c, 'phi_c_max': phi_c_max,
             'stress_epsilon': stress_epsilon, 'gamma_c': gamma_c,
             'density': density,
             'activation_time': activation_time,
             'homeostatic_cycles': homeostatic_cycles,
             'remodeling_frequency_cycles': remodeling_frequency_cycles}
+    if stimulus == 'cycle_averaged_total_fiber_stress_range':
+        stress_min = float(_first(
+            config.get('S_ff_min', []), 'fibrosis.S_ff_min'))
+        stress_max = float(_first(
+            config.get('S_ff_max', []), 'fibrosis.S_ff_max'))
+        if any(math.isnan(value) or math.isinf(value)
+               for value in (stress_min, stress_max)):
+            raise ValueError('fibrosis stress references must be finite')
+        if stress_max <= stress_min:
+            raise ValueError('fibrosis.S_ff_max must exceed fibrosis.S_ff_min')
+        result['S_ff_min'] = stress_min
+        result['S_ff_max'] = stress_max
+    return result
 
 
 def effective_fibrosis_stimulus(stimulus, gamma_c):
@@ -78,6 +98,55 @@ def effective_fibrosis_stimulus(stimulus, gamma_c):
             raise ValueError('Effective fibrosis stimulus is not finite')
         effective.append(value)
     return effective
+
+
+def stress_range_signal(stress, stress_min, stress_max, gamma_c, tau_c):
+    """Return bounded range coordinate and rate-valued fibrosis signal.
+
+    ``r = clip((stress - stress_min)/(stress_max - stress_min), 0, 1)``
+    and ``G_c = r**gamma_c/tau_c``.
+    """
+    stress_min = float(stress_min)
+    stress_max = float(stress_max)
+    tau_c = float(tau_c)
+    if any(math.isnan(value) or math.isinf(value)
+           for value in (stress_min, stress_max, tau_c)):
+        raise ValueError('Stress limits and tau_c must be finite')
+    if stress_max <= stress_min:
+        raise ValueError('S_ff_max must exceed S_ff_min')
+    if tau_c <= 0.0:
+        raise ValueError('Fibrosis tau_c must be positive')
+    normalized = []
+    for value in stress:
+        value = float(value)
+        if math.isnan(value) or math.isinf(value):
+            raise ValueError('Cycle-averaged fiber stress must be finite')
+        ratio = (value - stress_min)/(stress_max - stress_min)
+        normalized.append(min(max(ratio, 0.0), 1.0))
+    effective = effective_fibrosis_stimulus(normalized, gamma_c)
+    signal = [value/tau_c for value in effective]
+    return normalized, signal
+
+
+def exact_collagen_update_from_signal(phi_c, signal, dt, phi_c_max):
+    """Exact bounded update when ``signal`` already has inverse-time units."""
+    if dt < 0.0:
+        raise ValueError('Fibrosis dt must be nonnegative')
+    if len(phi_c) != len(signal):
+        raise ValueError('Collagen fraction and signal sizes differ')
+    updated = []
+    for old_value, signal_value in zip(phi_c, signal):
+        old_value = float(old_value)
+        signal_value = float(signal_value)
+        if math.isnan(signal_value) or math.isinf(signal_value) or \
+                signal_value < 0.0:
+            raise ValueError('Fibrosis signal must be finite and nonnegative')
+        if old_value < 0.0 or old_value > phi_c_max + 1.0e-12:
+            raise ValueError('Current collagen fraction is outside its bounds')
+        value = old_value + (phi_c_max - old_value)*(
+            1.0 - math.exp(-signal_value*float(dt)))
+        updated.append(min(max(value, old_value), phi_c_max))
+    return updated
 
 
 def exact_collagen_update(phi_c, stimulus, dt, tau_c, phi_c_max,

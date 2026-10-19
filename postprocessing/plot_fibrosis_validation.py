@@ -20,31 +20,43 @@ def main():
     cases = [('Healthy', pd.read_csv(args.healthy_csv)),
              ('Aortic stenosis', pd.read_csv(args.as_csv))]
 
-    fig, axes = plt.subplots(4, 2, figsize=(12, 14))
+    fig, axes = plt.subplots(5, 2, figsize=(12, 17))
     for label, data in cases:
         time = data['time']
         axes[0, 0].plot(time,
             data['fib_cycle_averaged_total_fiber_stress_mean'], label=label)
         axes[0, 1].plot(time,
             data['fib_homeostatic_fiber_stress_mean'], label=label)
-        axes[1, 0].plot(time,
-            data['fib_normalized_stimulus_mean'], label=label + ' raw')
-        axes[1, 0].plot(time,
-            data['fib_effective_stimulus_mean'], '--',
-            label=label + ' effective')
+        normalized_name = ('fib_stress_range_normalized_mean'
+            if 'fib_stress_range_normalized_mean' in data else
+            'fib_normalized_stimulus_mean')
+        axes[1, 0].plot(time, data[normalized_name],
+                        label=label + ' normalized r')
+        signal_name = ('fib_signal_mean' if 'fib_signal_mean' in data else
+                       'fib_effective_stimulus_mean')
+        axes[1, 0].plot(time, data[signal_name], '--',
+                        label=label + ' final signal')
         axes[1, 1].plot(time, data['fib_phi_c_mean'], label=label)
         axes[2, 0].plot(time, data['fib_phi_g_mean'], label=label)
         axes[2, 1].plot(time, data['fib_reference_volume'], label=label)
         axes[3, 0].plot(time, data['aorta_resistance'], label=label)
         axes[3, 1].plot(time, data['fib_phi_c_max'], label=label)
+        if 'fib_lower_bound_fraction' in data:
+            axes[4, 0].plot(time, data['fib_lower_bound_fraction'],
+                            label=label)
+        if 'fib_upper_bound_fraction' in data:
+            axes[4, 1].plot(time, data['fib_upper_bound_fraction'],
+                            label=label)
     axes[0, 0].set_ylabel('Cycle-averaged total fiber stress (model units)')
     axes[0, 1].set_ylabel('Homeostatic fiber stress (model units)')
-    axes[1, 0].set_ylabel('Raw/effective fibrosis stimulus (-)')
+    axes[1, 0].set_ylabel('Normalized r (-) / final signal (1/s)')
     axes[1, 1].set_ylabel('Mean collagen fraction (-)')
     axes[2, 0].set_ylabel('Mean ground-matrix fraction (-)')
     axes[2, 1].set_ylabel('Reference myocardial volume (mesh units^3)')
     axes[3, 0].set_ylabel('Aortic resistance (model units)')
     axes[3, 1].set_ylabel('Maximum local collagen fraction (-)')
+    axes[4, 0].set_ylabel('Material points at lower bound (-)')
+    axes[4, 1].set_ylabel('Material points at upper bound (-)')
     for axis in axes.flat:
         axis.set_xlabel('Simulation/remodeling time (s)')
         axis.grid(True)
