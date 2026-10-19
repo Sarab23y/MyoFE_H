@@ -20,7 +20,7 @@ def main():
     cases = [('Healthy', pd.read_csv(args.healthy_csv)),
              ('Aortic stenosis', pd.read_csv(args.as_csv))]
 
-    fig, axes = plt.subplots(3, 2, figsize=(12, 11))
+    fig, axes = plt.subplots(4, 2, figsize=(12, 14))
     for label, data in cases:
         time = data['time']
         axes[0, 0].plot(time,
@@ -35,12 +35,16 @@ def main():
         axes[1, 1].plot(time, data['fib_phi_c_mean'], label=label)
         axes[2, 0].plot(time, data['fib_phi_g_mean'], label=label)
         axes[2, 1].plot(time, data['fib_reference_volume'], label=label)
+        axes[3, 0].plot(time, data['aorta_resistance'], label=label)
+        axes[3, 1].plot(time, data['fib_phi_c_max'], label=label)
     axes[0, 0].set_ylabel('Cycle-averaged total fiber stress (model units)')
     axes[0, 1].set_ylabel('Homeostatic fiber stress (model units)')
     axes[1, 0].set_ylabel('Raw/effective fibrosis stimulus (-)')
     axes[1, 1].set_ylabel('Mean collagen fraction (-)')
     axes[2, 0].set_ylabel('Mean ground-matrix fraction (-)')
     axes[2, 1].set_ylabel('Reference myocardial volume (mesh units^3)')
+    axes[3, 0].set_ylabel('Aortic resistance (model units)')
+    axes[3, 1].set_ylabel('Maximum local collagen fraction (-)')
     for axis in axes.flat:
         axis.set_xlabel('Simulation/remodeling time (s)')
         axis.grid(True)

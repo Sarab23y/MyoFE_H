@@ -125,3 +125,26 @@ CSV contract and creates a before/after X-Z collagen map. ParaView should be
 used with `solution.xdmf` for full 3-D collagen and passive-stress inspection.
 The `collagen_passive` XDMF field is the fiber-direction collagen contribution;
 `total_passive` is the complete passive fiber-direction response.
+
+## Severe-AS perturbation verification
+
+`base_instruction_Br_fibrosis_AS.json` is the hemodynamically perturbed input;
+the matched healthy input is `base_instruction_Br_fibrosis_control.json`.
+Neither contains `model.growth`. The AS input starts with aortic resistance 20
+and specifies one additive `+170` circulation perturbation from 30 to 40 s.
+At `dt=0.001 s`, the protocol implementation creates 10,000 increments of
+0.017, giving an expected post-ramp resistance of 190.
+
+During execution `LV_simulation.implement_time_step()` adds each increment to
+`circ.data['aorta_resistance']` and then rebuilds the circulation resistance
+array used by the flow calculation. The scalar `aorta_resistance` is also
+written directly from `circ.data`, so the CSV column is the live perturbed
+parameter. The configured baroreflex controls arteriolar resistance and venous
+compliance, but not aortic resistance; it can compensate the hemodynamic
+response without undoing the imposed aortic-resistance ramp.
+
+`validation/check_as_fibrosis_results.py` now requires the matched control to
+remain at 20 and the severe-AS run to reach 190 after 40 s. It also reports raw
+and effective stimulus ranges so large local values can be investigated rather
+than clipped. The cluster script archives any existing `sim_output` trees with
+a timestamp before reusing the JSON output paths.

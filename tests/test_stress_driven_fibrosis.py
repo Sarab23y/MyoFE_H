@@ -42,6 +42,20 @@ class StressDrivenFibrosisTests(unittest.TestCase):
         self.assertEqual(effective[2], 1.0)
         self.assertGreater(effective[3], 2.0)
 
+    def test_gamma_is_applied_once_after_positive_part(self):
+        evolution = (ROOT /
+            'python_codes/LV_simulation/dependencies/fibrosis_evolution.py'
+            ).read_text()
+        self.assertEqual(evolution.count('raw_value**gamma_c'), 1)
+        self.assertIn('raw_value = max(float(raw_value), 0.0)', evolution)
+        fibrosis = (ROOT /
+            'python_codes/LV_simulation/fibrosis/fibrosis.py').read_text()
+        self.assertIn(
+            "fractions['phi_c'], stimulus, self._remodeling_duration,",
+            fibrosis)
+        self.assertNotIn(
+            "fractions['phi_c'], effective_stimulus,", fibrosis)
+
     def test_homeostatic_and_negative_stimulus_are_invariant(self):
         old = [0.03, 0.08]
         updated = EVOLUTION.exact_collagen_update(

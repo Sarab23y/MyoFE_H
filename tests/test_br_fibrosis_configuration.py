@@ -23,6 +23,8 @@ MASS = load_module('br_mass',
     'python_codes/LV_simulation/dependencies/constituent_mass.py')
 EVOLUTION = load_module('br_fibrosis_evolution',
     'python_codes/LV_simulation/dependencies/fibrosis_evolution.py')
+RUN_CHECK = load_module('br_run_check',
+    'validation/check_as_fibrosis_results.py')
 
 
 class BrFibrosisConfigurationTests(unittest.TestCase):
@@ -70,6 +72,43 @@ class BrFibrosisConfigurationTests(unittest.TestCase):
         self.assertEqual(perturbation, {
             'variable': ['aorta_resistance'], 'level': ['circulation'],
             't_start_s': [30], 't_stop_s': [40], 'total_change': [170]})
+
+    def test_as_increment_reaches_expected_resistance(self):
+        protocol_path = ROOT / 'python_codes/protocol/protocol.py'
+        protocol_module = load_module('br_protocol', protocol_path.relative_to(ROOT))
+        parsed = protocol_module.protocol(self.stenosis['protocol'])
+        perturbation = parsed.perturbations[0].data
+        resistance = 20.0
+        for step in range(self.stenosis['protocol']['no_of_time_steps'][0]):
+            if perturbation['t_start_ind'] <= step < \
+                    perturbation['t_stop_ind']:
+                resistance += perturbation['increment']
+        self.assertAlmostEqual(perturbation['increment'], 0.017)
+        self.assertAlmostEqual(resistance, 190.0, places=8)
+
+    def test_live_aortic_resistance_is_saved_and_rebuilt(self):
+        simulation = (ROOT /
+            'python_codes/LV_simulation/LV_simulation.py').read_text()
+        self.assertIn("self.circ.data[p.data['variable']] +=", simulation)
+        self.assertIn('self.rebuild_from_perturbations()', simulation)
+        self.assertIn("for f in list(self.circ.data.keys()):", simulation)
+        controls = self.stenosis['model']['baroreflex']['controls']['control']
+        controlled = {(entry['level'][0], entry['variable'][0])
+                      for entry in controls}
+        self.assertNotIn(('circulation', 'aorta_resistance'), controlled)
+        healthy_rows = [
+            {'time': '0', 'aorta_resistance': '20'},
+            {'time': '40', 'aorta_resistance': '20'}]
+        as_rows = [
+            {'time': '0', 'aorta_resistance': '20'},
+            {'time': '40', 'aorta_resistance': '190'},
+            {'time': '60', 'aorta_resistance': '190'}]
+        self.assertEqual(
+            RUN_CHECK.verify_aortic_resistance(healthy_rows, False, 1e-10),
+            (20.0, 20.0))
+        self.assertEqual(
+            RUN_CHECK.verify_aortic_resistance(as_rows, True, 1e-10),
+            (20.0, 190.0))
 
     def test_fibrosis_parameters_and_output_paths(self):
         for case in (self.control, self.stenosis):
