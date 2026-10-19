@@ -2,6 +2,7 @@
     "protocol":
     {
         "no_of_time_steps": [1000],
+        "no_of_time_steps": [40000],
         "time_step": [0.001],
         "baroreflex": 
         {
@@ -9,6 +10,8 @@
                 {
                     "t_start_s": [20],
                     "t_stop_s": [40]
+                    "t_start_s": [200],
+                    "t_stop_s": [400]
                 }
             ]
         }
@@ -56,6 +59,219 @@
                 "degree": [2]
             }
         ],
+        "t_quiescent_period": [0.92],
+        "t_first_activation": [0.1]
+    },
+    "mesh":
+    {
+        "solver": {
+            "params": {
+                "debugging_mode": [
+                    false
+                ], 
+                "rel_tol": [
+                    1e-08
+                ], 
+                "max_iter": [
+                    100
+                ], 
+                "abs_tol": [
+                    1e-08
+                ]
+            }
+        }, 
+        "function_spaces": [
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "stimulusFS"
+                ], 
+                "degree": [
+                    1
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "scalar"
+                ], 
+                "degree": [
+                    1
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "tensor"
+                ], 
+                "name": [
+                    "tensor_space"
+                ], 
+                "degree": [
+                    1
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "growth_scalar_FS"
+                ], 
+                "degree": [
+                    1
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "scalar_for_growth"
+                ], 
+                "degree": [
+                    0
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "scalar_for_active"
+                ], 
+                "degree": [
+                    0
+                ]
+            }, 
+            {
+                "element_type": [
+                    "DG"
+                ], 
+                "type": [
+                    "tensor"
+                ], 
+                "name": [
+                    "growth_tensor_FS"
+                ], 
+                "degree": [
+                    1
+                ]
+            }, 
+            {
+                "element_type": [
+                    "Quadrature"
+                ], 
+                "type": [
+                    "vector"
+                ], 
+                "name": [
+                    "material_coord_system_space"
+                ], 
+                "degree": [
+                    2
+                ]
+            }, 
+            {
+                "element_type": [
+                    "Quadrature"
+                ], 
+                "type": [
+                    "scalar"
+                ], 
+                "name": [
+                    "quadrature_space"
+                ], 
+                "degree": [
+                    2
+                ]
+            },
+            {
+                "name": ["fiber_FS"],
+                "type": ["vector" ],
+                "element_type": ["Quadrature" ],
+                "degree": [2]
+            },
+            {
+                "name": ["scalar_CG"],
+                "type": ["scalar"],
+                "element_type": ["CG"],
+                "degree": [1]
+            },
+            {
+                "name": [
+                    "scalar_DG0"
+                ],
+                "type": [
+                    "scalar"
+                ],
+                "element_type": [
+                    "DG"
+                ],
+                "degree": [
+                    0
+                ]
+            }
+        ], 
+        "apex_contractility": {
+            "components": [
+                {
+                    "variable": [
+                        "k_1"
+                    ], 
+                    "level": [
+                        "myofilaments"
+                    ], 
+                    "radius_ratio": [
+                        0.4
+                    ], 
+                    "factor": [
+                        1
+                    ]
+                }, 
+                {
+                    "variable": [
+                        "k_on"
+                    ], 
+                    "level": [
+                        "myofilaments"
+                    ], 
+                    "radius_ratio": [
+                        0.4
+                    ], 
+                    "factor": [
+                        1
+                    ]
+                }
+            ]
+        }, 
+        "mesh_path": [
+            "../demos/HCM_paper/simulations_baseline_final/baseline_final_Kappa_4_k1_3.7/sim_inputs/ellipsoidal.hdf5"
+        ], 
+        "relative_path": [
+            true
+        ], 
         "forms_parameters": 
         {
             "passive_law_parameters": {
@@ -105,6 +321,7 @@
                 {
                     "name": ["arterioles"],
                     "resistance": [700],
+                    "resistance": [787],
                     "compliance": [1e-3],
                     "slack_volume": [0.1]
                 },
@@ -130,6 +347,7 @@
                 {
                     "name": ["ventricle"],
                     "resistance": [5],
+                    "resistance": [10],
                     "slack_volume": [0.06],
                     "wall_density": [1055],
                     "initial_ed_volume":[0.15]
@@ -146,6 +364,7 @@
                 "k_leak": [6e-4],
                 "k_act": [8.2e-2],
                 "k_serca": [8],
+                "k_serca": [7.866],
                 "t_open": [0.01],
                 "implementation":
                 {
@@ -166,6 +385,13 @@
                 "k_cb": [0.001],
                 "x_ps": [5],
                 "k_on": [1.0e8],
+                "k_2": [200],
+                "k_3": [80],
+                "k_4_0": [80],
+                "k_4_1": [1.5],
+                "k_cb": [0.001],
+                "x_ps": [5.2],
+                "k_on": [1.735e8],
                 "k_off": [200],
                 "k_coop": [5],
                 "int_passive_exp_sigma": [100],
@@ -276,6 +502,8 @@
     {
         "output_data_path": ["../demos/base/kon_1e8/sim_output/data.csv"],
         "mesh_output_path": ["../demos/base/kon_1e8/sim_output/mesh_output"],
+        "output_data_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base_mix3/sim_output/data.csv"],
+        "mesh_output_path": ["/mnt/gpfs2_4m/scratch/sba431/demos/Fibrosis/base_mix3/mesh_output"],
         "mesh_object_to_save":
         [
             "displacement",
@@ -284,6 +512,8 @@
         ],
         "dumping_spatial_in_average":[true],
         "frequency_n": [5]
+        "dumping_spatial_in_average":[false],
+        "frequency_n": [20]
         
         
     }
