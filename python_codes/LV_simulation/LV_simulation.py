@@ -28,7 +28,7 @@ from .dependencies.nsolver import NSolver
 from .output_handler.output_handler import output_handler as oh
 from .baroreflex import baroreflex as br
 from .growth import growth as gr
-from .fibrosis import StressDrivenFibrosis
+from .fibrosis import StressDrivenFibrosis, ECMStressDiagnostic
 from .half_sarcomere import half_sarcomere as hs 
 from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
@@ -343,6 +343,13 @@ class LV_simulation():
                 instruction_data['model']['fibrosis'], self)
         else:
             self.fi = []
+        if 'ecm_stress_diagnostic' in instruction_data['model'] and \
+                instruction_data['model']['ecm_stress_diagnostic'].get(
+                    'enabled', [False])[0]:
+            self.ecm_diag = ECMStressDiagnostic(
+                instruction_data['model']['ecm_stress_diagnostic'], self)
+        else:
+            self.ecm_diag = []
         # If required, create the vad object
         self.va = []
 
@@ -443,6 +450,10 @@ class LV_simulation():
                     data_fields.append(f)
         if self.fi:
             for f, value in self.fi.data.items():
+                if np.isscalar(value):
+                    data_fields.append(f)
+        if self.ecm_diag:
+            for f, value in self.ecm_diag.data.items():
                 if np.isscalar(value):
                     data_fields.append(f)
 
@@ -732,7 +743,13 @@ class LV_simulation():
                                  'fibrosis_stress_range_normalized',
                                  'fibrosis_signal',
                                  'fibrosis_S_ff_min',
-                                 'fibrosis_S_ff_max'] and \
+                                 'fibrosis_S_ff_max',
+                                 'ecm_instantaneous_fiber_stress',
+                                 'ecm_cycle_averaged_fiber_stress',
+                                 'ecm_homeostatic_fiber_stress',
+                                 'ecm_signed_stress_deviation',
+                                 'ecm_positive_excess_stress',
+                                 'ecm_cycle_averaged_total_fiber_stress'] and \
                                 m in self.mesh.model['functions']:
                             temp_obj = project(
                                 self.mesh.model['functions'][m],
@@ -1262,6 +1279,8 @@ class LV_simulation():
         """###############"""
         if self.fi:
             self.fi.record_time_step(time_step, self.end_diastolic)
+        if self.ecm_diag:
+            self.ecm_diag.record_time_step(time_step, self.end_diastolic)
 
         if self.gr:            
             #self.data['growth_active'] = 0
@@ -2063,7 +2082,13 @@ class LV_simulation():
                              'fibrosis_stress_range_normalized',
                              'fibrosis_signal',
                              'fibrosis_S_ff_min',
-                             'fibrosis_S_ff_max'] and \
+                             'fibrosis_S_ff_max',
+                             'ecm_instantaneous_fiber_stress',
+                             'ecm_cycle_averaged_fiber_stress',
+                             'ecm_homeostatic_fiber_stress',
+                             'ecm_signed_stress_deviation',
+                             'ecm_positive_excess_stress',
+                             'ecm_cycle_averaged_total_fiber_stress'] and \
                             m in self.mesh.model['functions']:
                         temp_obj = project(
                             self.mesh.model['functions'][m],
@@ -2354,6 +2379,10 @@ class LV_simulation():
         if self.fi:
             for f, value in self.fi.data.items():
                 if f not in self.spatial_fibrosis_data_fields:
+                    self.sim_data[f][self.write_counter] = value
+        if self.ecm_diag:
+            for f, value in self.ecm_diag.data.items():
+                if np.isscalar(value):
                     self.sim_data[f][self.write_counter] = value
 
     
