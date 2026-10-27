@@ -40,8 +40,17 @@ if [ -e "$RESULT" ]; then
 fi
 mkdir -p "$RESULT/sim_output" "$RESULT/mesh_output"
 cd "$REPO/python_codes"
-singularity exec --cleanenv "$IMAGE" mpiexec -np "$SLURM_NTASKS" \
-  python MyoFE.py LV_sim "$JSON" || { echo 'ERROR: MyoFE solver failed' >&2; exit 1; }
+if ! singularity exec --cleanenv "$IMAGE" mpiexec -np "$SLURM_NTASKS" \
+  python MyoFE.py LV_sim "$JSON"; then
+  echo 'ERROR: MyoFE solver failed' >&2
+  if [ -f "$RESULT/sim_output/data.csv" ]; then
+    singularity exec --cleanenv "$IMAGE" python \
+      "$REPO/validation/diagnose_ecm_baseline_stability.py" "$RESULT" || true
+  else
+    echo 'No data.csv was flushed; inspect ecm_baseline_stability.json and the SLURM log.' >&2
+  fi
+  exit 1
+fi
 singularity exec --cleanenv "$IMAGE" python \
   "$REPO/postprocessing/plot_ecm_stress_diagnostic.py" \
   "$RESULT/sim_output/data.csv" "$RESULT/plots" || \

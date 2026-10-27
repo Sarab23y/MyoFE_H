@@ -1,9 +1,14 @@
 """Diagnostic-only passive-ECM fiber-stress measurement."""
 from __future__ import division
+import json
+import os
+import sys
 import numpy as np
 from dolfin import Function, assemble, dx, inner, interpolate, project
 from mpi4py import MPI
-from ..dependencies.ecm_stress_diagnostic import positive_excess, relative_span, three_cycle_homeostatic_reference
+from ..dependencies.ecm_stress_diagnostic import (positive_excess,
+    three_cycle_homeostatic_reference)
+from ..dependencies.ecm_stability import stability_results
 
 
 class ECMStressDiagnostic(object):
@@ -84,29 +89,101 @@ class ECMStressDiagnostic(object):
     def _finish_cycle(self, end_time):
         if self._duration <= 0: return
         cycle, total, scalars = self._ecm_integral/self._duration, self._total_integral/self._duration, self._scalar_integrals/self._duration
+        mean, minimum, maximum = self._global_stats(cycle)
+        l2 = self._field_l2(cycle)
         self._completed.append({'ecm': cycle.copy(), 'total': total.copy(), 'pressure': scalars[0],
                                 'volume': scalars[1], 'heart_rate': scalars[2],
-                                'start': self._cycle_start, 'stop': end_time})
+                                'start': self._cycle_start, 'stop': end_time,
+                                'duration': self._duration, 'ecm_min': minimum,
+                                'ecm_mean': mean, 'ecm_max': maximum,
+                                'ecm_l2': l2})
         self._completed = self._completed[-self.cycles:]
         self._ecm_integral[:] = 0; self._total_integral[:] = 0; self._scalar_integrals[:] = 0
         self._duration, self._cycle_start = 0.0, end_time
         signed, positive = positive_excess(cycle, self.homeostatic)
         self._publish(self.data[self.FIELD_NAMES[0]], cycle, self.homeostatic, signed, positive, total)
 
+    def _field_l2(self, values):
+        """Physical L2 norm using the FE integration measure (global assemble)."""
+        qspace = self.mesh.model['function_spaces']['quadrature_space']
+        fn = Function(qspace)
+        fn.vector().set_local(np.asarray(values)); fn.vector().apply('insert')
+        squared = float(assemble(fn*fn*dx(domain=self.mesh.model['mesh']),
+                                 form_compiler_parameters={'representation': 'uflacs'}))
+        return np.sqrt(max(squared, 0.0))
+
+    def _field_relative_change(self, previous, current):
+        qspace = self.mesh.model['function_spaces']['quadrature_space']
+        old, new = Function(qspace), Function(qspace)
+        old.vector().set_local(previous); old.vector().apply('insert')
+        new.vector().set_local(current); new.vector().apply('insert')
+        domain = self.mesh.model['mesh']
+        num = float(assemble((new-old)*(new-old)*dx(domain=domain),
+                             form_compiler_parameters={'representation': 'uflacs'}))
+        old2 = float(assemble(old*old*dx(domain=domain),
+                              form_compiler_parameters={'representation': 'uflacs'}))
+        new2 = float(assemble(new*new*dx(domain=domain),
+                              form_compiler_parameters={'representation': 'uflacs'}))
+        scale = max(old2, new2)
+        if scale == 0.0:
+            return 0.0
+        return np.sqrt(max(num, 0.0)/scale)
+
+    def _write_stability_report(self, report):
+        if self.comm.Get_rank() != 0:
+            return
+        print '\n[ECMBaselineStability]'
+        for index, record in enumerate(report['cycles']):
+            print ('  Cycle %d: start=%.6g s stop=%.6g s duration=%.6g s '
+                   'pressure=%.9g volume=%.9g HR=%.9g ECM[min/mean/max/L2]='
+                   '%.9g/%.9g/%.9g/%.9g' %
+                   (index+1, record['start'], record['stop'], record['duration'],
+                    record['pressure'], record['volume'], record['heart_rate'],
+                    record['ecm_min'], record['ecm_mean'], record['ecm_max'],
+                    record['ecm_l2']))
+        print '  Consecutive-cycle stability (tolerance %.3f%%):' % (100.0*self.tolerance)
+        for pair in report['pairs']:
+            print '    Cycle %d -> %d' % (pair['previous_cycle']+1, pair['current_cycle']+1)
+            for key in ('pressure', 'volume', 'heart_rate', 'ecm_stress_field'):
+                value = pair['changes'][key]
+                print '      %-16s %12.6f%%  %s' % (key, 100.0*value,
+                                                    'PASS' if pair['passed'][key] else 'FAIL')
+        print '  Combined decision: %s' % ('PASS' if report['stable'] else 'FAIL')
+        if report['failed_criteria']:
+            print '  Failed criteria: %s' % ', '.join(report['failed_criteria'])
+        sys.stdout.flush(); sys.stderr.flush()
+        output_path = self.parent.instruction_data['output_handler']['output_data_path'][0]
+        directory = os.path.dirname(output_path)
+        if directory and not os.path.isdir(directory):
+            os.makedirs(directory)
+        with open(os.path.join(directory, 'ecm_baseline_stability.json'), 'w') as handle:
+            json.dump(report, handle, indent=2, sort_keys=True)
+
     def _freeze(self):
         if len(self._completed) != self.cycles:
             raise RuntimeError('Fewer than three complete cycles before ECM calibration')
         records = self._completed
         self.homeostatic = three_cycle_homeostatic_reference([r['ecm'] for r in records])
-        checks = [relative_span([r[key] for r in records]) for key in ('pressure', 'volume', 'heart_rate')]
-        for previous, current in zip(records[:-1], records[1:]):
-            num = self.comm.allreduce(float(np.sum((current['ecm']-previous['ecm'])**2)), op=MPI.SUM)
-            den = self.comm.allreduce(float(np.sum(previous['ecm']**2)), op=MPI.SUM)
-            checks.append(np.sqrt(num/max(den, np.finfo(float).eps)))
+        field_changes = [self._field_relative_change(previous['ecm'], current['ecm'])
+                         for previous, current in zip(records[:-1], records[1:])]
+        pairs = stability_results(records, field_changes, self.tolerance)
+        checks = [value for pair in pairs for value in pair['changes'].values()]
         maximum = max(checks); self.data['ecm_baseline_max_relative_change'] = maximum
         self.data['ecm_baseline_stable'] = int(maximum <= self.tolerance)
+        failed = sorted(set(key for pair in pairs for key, passed in pair['passed'].items()
+                            if not passed))
+        report_cycles = []
+        for record in records:
+            report_cycles.append(dict((key, float(record[key])) for key in
+                ('start', 'stop', 'duration', 'pressure', 'volume', 'heart_rate',
+                 'ecm_min', 'ecm_mean', 'ecm_max', 'ecm_l2')))
+        report = {'activation_time': self.activation_time,
+                  'tolerance': self.tolerance, 'cycles': report_cycles,
+                  'pairs': pairs, 'stable': not failed,
+                  'failed_criteria': failed}
+        self._write_stability_report(report)
         if maximum > self.tolerance:
-            raise RuntimeError('ECM baseline did not satisfy configured stability tolerance')
+            raise RuntimeError('ECM baseline stability failed: %s' % ', '.join(failed))
         self._frozen = True; self.data['ecm_reference_frozen'] = 1
         self.data['ecm_reference_cycle_count'] = self.cycles
         self.data['ecm_reference_interval_start'], self.data['ecm_reference_interval_stop'] = records[0]['start'], records[-1]['stop']
