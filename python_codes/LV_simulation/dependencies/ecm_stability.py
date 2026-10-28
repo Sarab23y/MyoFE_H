@@ -17,6 +17,11 @@ def symmetric_relative_change(previous, current):
 def stability_results(records, field_changes, tolerance):
     if len(records) < 2 or len(field_changes) != len(records)-1:
         raise ValueError('Stability requires matching consecutive cycle data')
+    if tolerance <= 0.0 or math.isnan(tolerance) or math.isinf(tolerance):
+        raise ValueError('Stability tolerance must be positive and finite')
+    if any(math.isnan(float(value)) or math.isinf(float(value))
+           for value in field_changes):
+        raise ValueError('ECM field stability changes must be finite')
     results = []
     for index, (previous, current) in enumerate(zip(records[:-1], records[1:])):
         changes = {
@@ -29,3 +34,14 @@ def stability_results(records, field_changes, tolerance):
                         'passed': dict((key, value <= tolerance)
                                        for key, value in changes.items())})
     return results
+
+
+def calibration_decision(failed_criteria, mode):
+    """Return whether to freeze and whether that reference is provisional."""
+    mode = str(mode).lower()
+    if mode not in ('strict', 'warn'):
+        raise ValueError('ECM baseline stability mode must be strict or warn')
+    failed = bool(failed_criteria)
+    return {'freeze': not failed or mode == 'warn',
+            'provisional': failed and mode == 'warn',
+            'raise': failed and mode == 'strict'}

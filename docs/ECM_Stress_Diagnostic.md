@@ -57,3 +57,21 @@ the schedule, runs one MPI simulation, and generates temporal and PV plots.
 Spatial fields are written to `mesh_output/solution.xdmf` for ParaView. A full
 legacy-FEniCS run is required to decide whether the baseline passes the 5%
 criterion and whether the post-ramp ECM excess is mechanically plausible.
+
+## Strict and provisional reference modes
+
+`baseline_stability_mode` defaults to `strict`. In strict mode, any pressure,
+volume, heart-rate, or integrated ECM-field change above the configured 5%
+tolerance writes `ecm_baseline_stability.json` and stops calibration. The
+independent `ECM_40s_provisional` case selects `warn`: the same calculations,
+PASS/FAIL output, failed-criterion names, and pointwise change hotspots are
+retained, but a finite three-cycle reference is frozen for diagnostic use.
+Missing cycles, nonfinite values, inconsistent local field sizes, and MPI/FE
+integration failures remain fatal in both modes.
+
+The CSV status columns distinguish existence from validation:
+`ecm_reference_frozen`, `ecm_baseline_stable`, and
+`ecm_reference_provisional`. Before calibration,
+`ecm_excess_valid == 0`; signed and positive excess fields contain finite zero
+placeholders solely for PETSc/XDMF safety. The plotting tool masks those
+placeholders and only displays excess stress after the reference is frozen.

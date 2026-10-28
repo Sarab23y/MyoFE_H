@@ -8,7 +8,7 @@ from dolfin import Function, assemble, dx, inner, interpolate, project
 from mpi4py import MPI
 from ..dependencies.ecm_stress_diagnostic import (positive_excess,
     three_cycle_homeostatic_reference)
-from ..dependencies.ecm_stability import stability_results
+from ..dependencies.ecm_stability import calibration_decision, stability_results
 
 
 class ECMStressDiagnostic(object):
@@ -22,7 +22,9 @@ class ECMStressDiagnostic(object):
         self.activation_time = float(config['activation_time'][0])
         self.cycles = int(config.get('homeostatic_cycles', [3])[0])
         self.tolerance = float(config.get('baseline_stability_relative_tolerance', [0.05])[0])
-        if self.cycles != 3 or self.activation_time <= 0 or self.tolerance <= 0:
+        self.stability_mode = str(config.get('baseline_stability_mode', ['strict'])[0]).lower()
+        if (self.cycles != 3 or self.activation_time <= 0 or self.tolerance <= 0 or
+                self.stability_mode not in ('strict', 'warn')):
             raise ValueError('Invalid ECM diagnostic calibration settings')
         qspace = self.mesh.model['function_spaces']['quadrature_space']
         count = len(Function(qspace).vector().get_local())
@@ -32,7 +34,10 @@ class ECMStressDiagnostic(object):
         self._frozen, self.homeostatic = False, np.zeros(count)
         self.data = {'ecm_reference_frozen': 0, 'ecm_reference_cycle_count': 0,
                      'ecm_reference_interval_start': np.nan, 'ecm_reference_interval_stop': np.nan,
-                     'ecm_baseline_stable': 0, 'ecm_baseline_max_relative_change': np.nan}
+                     'ecm_baseline_stable': 0, 'ecm_reference_provisional': 0,
+                     'ecm_excess_valid': 0,
+                     'ecm_baseline_failed_criterion_count': 0,
+                     'ecm_baseline_max_relative_change': np.nan}
         passive = self.mesh.model['functions']['dolfin_functions']['passive_params']
         self._initial_fractions = {}
         for name in ('phi_m', 'phi_g', 'phi_c'):
@@ -100,7 +105,12 @@ class ECMStressDiagnostic(object):
         self._completed = self._completed[-self.cycles:]
         self._ecm_integral[:] = 0; self._total_integral[:] = 0; self._scalar_integrals[:] = 0
         self._duration, self._cycle_start = 0.0, end_time
-        signed, positive = positive_excess(cycle, self.homeostatic)
+        if self._frozen:
+            signed, positive = positive_excess(cycle, self.homeostatic)
+        else:
+            # Zero-valued placeholders keep PETSc/XDMF output finite.  The
+            # validity flag prevents these from being interpreted as excess.
+            signed, positive = np.zeros_like(cycle), np.zeros_like(cycle)
         self._publish(self.data[self.FIELD_NAMES[0]], cycle, self.homeostatic, signed, positive, total)
 
     def _field_l2(self, values):
@@ -151,6 +161,13 @@ class ECMStressDiagnostic(object):
         print '  Combined decision: %s' % ('PASS' if report['stable'] else 'FAIL')
         if report['failed_criteria']:
             print '  Failed criteria: %s' % ', '.join(report['failed_criteria'])
+        if report['reference_provisional']:
+            if 'ecm_stress_field' in report['failed_criteria']:
+                print ('  WARNING: ECM stress field exceeds the %.3f%% stability '
+                       'tolerance.' % (100.0*self.tolerance))
+            print ('  WARNING: baseline stability tolerance exceeded (%s). '
+                   'A provisional ECM reference was frozen for diagnostic-only use.' %
+                   ', '.join(report['failed_criteria']))
         sys.stdout.flush(); sys.stderr.flush()
         output_path = self.parent.instruction_data['output_handler']['output_data_path'][0]
         directory = os.path.dirname(output_path)
@@ -159,11 +176,35 @@ class ECMStressDiagnostic(object):
         with open(os.path.join(directory, 'ecm_baseline_stability.json'), 'w') as handle:
             json.dump(report, handle, indent=2, sort_keys=True)
 
+    def _field_change_hotspots(self, previous, current, count=10):
+        """Return the largest owned pointwise changes with global DOF IDs."""
+        difference = np.abs(np.asarray(current)-np.asarray(previous))
+        if not np.all(np.isfinite(difference)):
+            raise RuntimeError('Nonfinite ECM pointwise field difference')
+        local_count = min(int(count), len(difference))
+        indices = np.argsort(difference)[-local_count:]
+        dofmap = self.mesh.model['function_spaces']['quadrature_space'].dofmap()
+        local = []
+        for index in indices:
+            local.append({'global_quadrature_dof': int(dofmap.local_to_global_index(int(index))),
+                          'previous': float(previous[index]),
+                          'current': float(current[index]),
+                          'absolute_change': float(difference[index])})
+        gathered = self.comm.gather(local, root=0)
+        if self.comm.Get_rank() != 0:
+            return []
+        combined = [item for rank_items in gathered for item in rank_items]
+        return sorted(combined, key=lambda item: item['absolute_change'], reverse=True)[:count]
+
     def _freeze(self):
         if len(self._completed) != self.cycles:
             raise RuntimeError('Fewer than three complete cycles before ECM calibration')
         records = self._completed
-        self.homeostatic = three_cycle_homeostatic_reference([r['ecm'] for r in records])
+        for record in records:
+            if (len(record['ecm']) != len(self.homeostatic) or
+                    not np.all(np.isfinite(record['ecm']))):
+                raise RuntimeError('Invalid or mismatched ECM cycle field before calibration')
+        candidate = three_cycle_homeostatic_reference([r['ecm'] for r in records])
         field_changes = [self._field_relative_change(previous['ecm'], current['ecm'])
                          for previous, current in zip(records[:-1], records[1:])]
         pairs = stability_results(records, field_changes, self.tolerance)
@@ -172,19 +213,33 @@ class ECMStressDiagnostic(object):
         self.data['ecm_baseline_stable'] = int(maximum <= self.tolerance)
         failed = sorted(set(key for pair in pairs for key, passed in pair['passed'].items()
                             if not passed))
+        self.data['ecm_baseline_failed_criterion_count'] = len(failed)
         report_cycles = []
         for record in records:
             report_cycles.append(dict((key, float(record[key])) for key in
                 ('start', 'stop', 'duration', 'pressure', 'volume', 'heart_rate',
                  'ecm_min', 'ecm_mean', 'ecm_max', 'ecm_l2')))
+        decision = calibration_decision(failed, self.stability_mode)
+        provisional = decision['provisional']
+        hotspots = []
+        for pair_index, (previous, current) in enumerate(zip(records[:-1], records[1:])):
+            hotspots.append({'previous_cycle': pair_index,
+                             'current_cycle': pair_index+1,
+                             'points': self._field_change_hotspots(previous['ecm'], current['ecm'])})
         report = {'activation_time': self.activation_time,
                   'tolerance': self.tolerance, 'cycles': report_cycles,
                   'pairs': pairs, 'stable': not failed,
-                  'failed_criteria': failed}
+                  'failed_criteria': failed, 'stability_mode': self.stability_mode,
+                  'reference_frozen': decision['freeze'],
+                  'reference_provisional': provisional,
+                  'field_change_hotspots': hotspots if self.comm.Get_rank() == 0 else []}
         self._write_stability_report(report)
-        if maximum > self.tolerance:
+        if decision['raise']:
             raise RuntimeError('ECM baseline stability failed: %s' % ', '.join(failed))
+        self.homeostatic = candidate
         self._frozen = True; self.data['ecm_reference_frozen'] = 1
+        self.data['ecm_reference_provisional'] = int(provisional)
+        self.data['ecm_excess_valid'] = 1
         self.data['ecm_reference_cycle_count'] = self.cycles
         self.data['ecm_reference_interval_start'], self.data['ecm_reference_interval_stop'] = records[0]['start'], records[-1]['stop']
         signed, positive = positive_excess(self.data[self.FIELD_NAMES[1]], self.homeostatic)

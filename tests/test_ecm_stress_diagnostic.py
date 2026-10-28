@@ -5,8 +5,8 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'python_codes'))
-from LV_simulation.dependencies.ecm_stability import (stability_results,
-    symmetric_relative_change)
+from LV_simulation.dependencies.ecm_stability import (calibration_decision,
+    stability_results, symmetric_relative_change)
 from validation.diagnose_ecm_baseline_stability import (scalar_cycles,
     time_weighted_mean)
 
@@ -32,6 +32,29 @@ class ECMStressDiagnosticTests(unittest.TestCase):
         records = [dict(pressure=10.0, volume=100.0, heart_rate=60.0)]*3
         result = stability_results(records, [0.0, 0.0], 0.05)
         self.assertTrue(all(all(pair['passed'].values()) for pair in result))
+
+    def test_strict_and_warning_calibration_decisions(self):
+        strict = calibration_decision(['ecm_stress_field'], 'strict')
+        self.assertEqual(strict, {'freeze': False, 'provisional': False,
+                                  'raise': True})
+        warning = calibration_decision(['ecm_stress_field'], 'warn')
+        self.assertEqual(warning, {'freeze': True, 'provisional': True,
+                                   'raise': False})
+        stable = calibration_decision([], 'warn')
+        self.assertEqual(stable, {'freeze': True, 'provisional': False,
+                                  'raise': False})
+
+    def test_invalid_stability_data_never_reaches_warning_decision(self):
+        records = [dict(pressure=10.0, volume=100.0, heart_rate=60.0),
+                   dict(pressure=10.0, volume=100.0, heart_rate=60.0)]
+        with self.assertRaises(ValueError):
+            stability_results(records, [float('nan')], 0.05)
+        with self.assertRaises(ValueError):
+            stability_results(records, [], 0.05)
+        with self.assertRaises(ValueError):
+            stability_results(records, [0.0], float('inf'))
+        with self.assertRaises(ValueError):
+            calibration_decision([], 'ignore')
 
     def test_time_weighted_mean_and_complete_cycle_selection(self):
         self.assertAlmostEqual(time_weighted_mean([0.0, 1.0, 3.0],
@@ -106,12 +129,53 @@ class ECMStressDiagnosticTests(unittest.TestCase):
         self.assertEqual(source.count('python MyoFE.py LV_sim'), 1)
         self.assertIn('--baseline-end 40 --ramp-end 50 --simulation-end 80', source)
 
+    def test_provisional_case_is_nonblocking_and_independent(self):
+        path = os.path.join(ROOT, 'demos', 'ECM', 'sim_input',
+                            'base_instruction_Br_ECM_40s_provisional.json')
+        case = json.load(open(path))
+        diagnostic = case['model']['ecm_stress_diagnostic']
+        self.assertEqual(diagnostic['baseline_stability_mode'], ['warn'])
+        self.assertEqual(diagnostic['baseline_stability_relative_tolerance'], [0.05])
+        self.assertEqual(diagnostic['activation_time'], [40.0])
+        self.assertFalse(diagnostic['composition_updates_enabled'][0])
+        self.assertNotIn('growth', case['model'])
+        self.assertNotIn('fibrosis', case['model'])
+        self.assertIn('ECM_40s_provisional',
+                      case['output_handler']['output_data_path'][0])
+
+    def test_provisional_script_preserves_schedule_and_email(self):
+        path = os.path.join(ROOT, 'demos', 'ECM',
+                            'run_br_ecm_40s_provisional.sh')
+        source = open(path).read()
+        self.assertIn("assert first(diag,'baseline_stability_mode') == 'warn'", source)
+        self.assertIn('#SBATCH --mail-user=Sara.b@uky.edu', source)
+        self.assertIn('#SBATCH --mail-type=END,FAIL', source)
+        self.assertEqual(source.count('python MyoFE.py LV_sim'), 1)
+
     def test_ecm_tensor_source_excludes_xi_active_and_pressure(self):
         source = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
                                    'fibrosis', 'ecm_stress.py')).read()
         expression = "f['ground_matrix_passive'] + f['collagen_passive']"
         self.assertIn(expression, source)
         self.assertIn("inner(f0, (" + expression + ")*f0)", source)
+
+    def test_precalibration_excess_is_explicitly_invalid(self):
+        source = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                   'fibrosis', 'ecm_stress.py')).read()
+        self.assertIn("'ecm_excess_valid': 0", source)
+        self.assertIn('signed, positive = np.zeros_like(cycle), np.zeros_like(cycle)',
+                      source)
+        self.assertIn("self.data['ecm_excess_valid'] = 1", source)
+        plot = open(os.path.join(ROOT, 'postprocessing',
+                                'plot_ecm_stress_diagnostic.py')).read()
+        self.assertIn("frame['ecm_excess_valid'] > 0.5", plot)
+
+    def test_warning_mode_does_not_change_growth_implementation(self):
+        growth = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                   'growth', 'growth.py')).read()
+        self.assertIn('def store_setpoint(self,store_active):', growth)
+        self.assertIn('def assign_setpoint(self):', growth)
+        self.assertNotIn('baseline_stability_mode', growth)
 
 
 if __name__ == '__main__':
