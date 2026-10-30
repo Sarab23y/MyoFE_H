@@ -600,6 +600,19 @@ class LV_simulation():
                     self.spatial_fibrosis_data_fields.append(key)
             data_field = data_field + self.spatial_fibrosis_data_fields
 
+        # ECM material-point CSV history is opt-in because a full 80-second
+        # history is large.  Diagnostic calculations remain active regardless
+        # of this recording choice.
+        self.spatial_ecm_data_fields = []
+        requested_ecm_fields = getattr(self, 'ecm_spatial_csv_fields', [])
+        if self.ecm_diag:
+            for field in requested_ecm_fields:
+                if (field in self.ecm_diag.data and
+                        isinstance(self.ecm_diag.data[field], np.ndarray) and
+                        len(self.ecm_diag.data[field]) == self.local_n_of_int_points):
+                    self.spatial_ecm_data_fields.append(field)
+            data_field = data_field + self.spatial_ecm_data_fields
+
         if in_average:
             spatial_data = pd.DataFrame()
             data_field.append('time')
@@ -641,6 +654,7 @@ class LV_simulation():
         self.save_outputs_mode = None
         self.spatial_data_to_mean = False
         self.dumping_data_frequency = 1
+        self.ecm_spatial_csv_fields = []
         if output_struct:
             if 'save_outputs' in output_struct:
                 self.save_outputs_mode = output_struct['save_outputs']
@@ -659,6 +673,9 @@ class LV_simulation():
             if 'frequency_n' in output_struct:
                 self.dumping_data_frequency = \
                     output_struct['frequency_n'][0]
+            if 'ecm_spatial_csv_fields' in output_struct:
+                self.ecm_spatial_csv_fields = \
+                    output_struct['ecm_spatial_csv_fields']
 
 
         # Define simulation data holders for storing 
@@ -981,6 +998,13 @@ class LV_simulation():
         # Now build up global data holders for 
         # spatial variables if multiple cores have been used
         self.handle_output(output_struct)
+        # Close parallel output handles while MPI is still active.  mpi4py
+        # performs finalization after Python objects are torn down; explicit
+        # MPI.Finalize() in the entry point previously reversed that order.
+        if hasattr(self, 'solution_mesh'):
+            self.solution_mesh.close()
+        if hasattr(self, 'growth_mesh'):
+            self.growth_mesh.close()
        
 
     def implement_time_step(self, time_step):
@@ -1964,12 +1988,6 @@ class LV_simulation():
         diastole_time = 0.970 + (self.cnt * 0.937)
         systole_time = 1.190 + (self.cnt * 0.937)
 
-        Ell = Function(self.mesh.model['function_spaces']['quadrature_space'])
-        Ecc = Function(self.mesh.model['function_spaces']['quadrature_space'])
-        Err = Function(self.mesh.model['function_spaces']['quadrature_space'])
-        self.mesh.model['functions']["Ell"] = Ell
-        self.mesh.model['functions']["Err"] = Ecc
-        self.mesh.model['functions']["Ecc"] = Err
         # Check if the time is within the tolerance range
         if abs(self.data['time'] - diastole_time) < EPSILON:
 
@@ -2011,9 +2029,16 @@ class LV_simulation():
             err = self.mesh.model['functions']["err"]
             ecc = self.mesh.model['functions']["ecc"]
 
-            self.mesh.model['functions']["Ell"] = ell[i]*self.Ecycle[i,j]*ell[j]
-            self.mesh.model['functions']["Err"] = err[i]*self.Ecycle[i,j]*err[j]
-            self.mesh.model['functions']["Ecc"] = ecc[i]*self.Ecycle[i,j]*ecc[j]
+            cycle_strains = {
+                "Ell": ell[i]*self.Ecycle[i,j]*ell[j],
+                "Err": err[i]*self.Ecycle[i,j]*err[j],
+                "Ecc": ecc[i]*self.Ecycle[i,j]*ecc[j]}
+            for name, expression in cycle_strains.items():
+                snapshot = project(
+                    expression,
+                    self.mesh.model['function_spaces']['quadrature_space'])
+                self.mesh.model['functions'][name].vector()[:] = \
+                    snapshot.vector().get_local()[:]
 
 
 
@@ -2465,6 +2490,10 @@ class LV_simulation():
                 for f in self.spatial_fibrosis_data_fields:
                     self.local_spatial_sim_data[f].iloc[self.write_counter] = \
                         self.fi.data[f]
+            if self.ecm_diag:
+                for f in self.spatial_ecm_data_fields:
+                    self.local_spatial_sim_data[f].iloc[self.write_counter] = \
+                        self.ecm_diag.data[f]
 
 
             '''for f in self.spatial_hs_data_fields:
@@ -2507,7 +2536,16 @@ class LV_simulation():
                 self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field
 
 
-            for f in ['Sff','sff_mean','alpha_f']:
+            total_stress_expression = inner(
+                self.mesh.model['functions']['f0'],
+                self.mesh.model['functions']['total_stress'] *
+                self.mesh.model['functions']['f0'])
+            self.data['total_stress_spatial'] = project(
+                total_stress_expression,
+                self.mesh.model['function_spaces']['quadrature_space'],
+                form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
+
+            for f in ['Sff','sff_mean','alpha_f','total_stress_spatial']:
                 data_field = list(map(lambda x: round(float(x), 2), self.data[f]))
                 self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field
 
@@ -2653,7 +2691,10 @@ class LV_simulation():
                                         self.mesh.model['functions']['passive_total_stress']*
                                         self.mesh.model['functions']['f0'])
 
-            total_passive = project(temp,self.mesh.model['function_spaces']["scalar"],form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
+            total_passive = project(
+                temp,
+                self.mesh.model['function_spaces']["quadrature_space"],
+                form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
 
             #total_passive = interpolate(temp_DG, self.mesh.model['function_spaces']["quadrature_space"])
 
@@ -2678,8 +2719,10 @@ class LV_simulation():
             temp = inner(self.mesh.model['functions']['f0'],
                         self.mesh.model['functions']['bulk_passive']*
                         self.mesh.model['functions']['f0'])
-            bulk_passive = project(temp,
-                    self.mesh.model['function_spaces']["scalar"],form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
+            bulk_passive = project(
+                temp,
+                self.mesh.model['function_spaces']["quadrature_space"],
+                form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
 
             temp = inner(self.mesh.model['functions']['f0'],
                         self.mesh.model['functions']['incomp_stress']*
@@ -2921,6 +2964,12 @@ class LV_simulation():
         else:
             required_fields = [field for field in canonical_fields
                                if field in self.spatial_sim_data]
+        requested_material_fields = [
+            field for field in getattr(self, 'spatial_ecm_data_fields', [])
+            if field in self.spatial_sim_data]
+        ordered_fields = required_fields + [
+            field for field in requested_material_fields
+            if field not in required_fields]
         missing_fields = [field for field in required_fields
                           if field not in self.spatial_sim_data]
         if missing_fields:
@@ -2930,7 +2979,7 @@ class LV_simulation():
 
         expected_columns = list(np.arange(self.global_n_of_int_points))
         output_columns = {}
-        for field in required_fields:
+        for field in ordered_fields:
             output_columns[field] = [column for column in
                                      self.spatial_sim_data[field].columns
                                      if column != 'time']
@@ -2958,9 +3007,9 @@ class LV_simulation():
                 'Missing or out-of-range global quadrature DOFs detected '
                 'during MPI output assembly')
 
-        coordinate_fiber_ordering = (not required_fields or all(
-            output_columns[field] == output_columns[required_fields[0]]
-            for field in required_fields[1:]))
+        coordinate_fiber_ordering = (not ordered_fields or all(
+            output_columns[field] == output_columns[ordered_fields[0]]
+            for field in ordered_fields[1:]))
         if not coordinate_fiber_ordering:
             raise RuntimeError(
                 'Coordinate, fiber, and material-direction outputs use '
@@ -2992,7 +3041,7 @@ class LV_simulation():
                     'in global quadrature DOF order')
 
         point_counts = dict((field, len(output_columns[field]))
-                            for field in required_fields)
+                            for field in ordered_fields)
 
         print 'GLOBAL OUTPUT DIAGNOSTICS'
         print 'Global owned mesh cells:', self.global_owned_cells
@@ -3026,6 +3075,8 @@ class LV_simulation():
         print '    ecc points:', point_counts.get('eccx', 'not requested')
         print '    err points:', point_counts.get('errx', 'not requested')
         print '    ell points:', point_counts.get('ellx', 'not requested')
+        for field in requested_material_fields:
+            print '    %s points: %s' % (field, point_counts[field])
         print 'Saved states:', saved_states
         print 'Coordinates/fibers point-count match: PASS'
         print 'Shared requested-field DOF ordering check: PASS'
@@ -3118,6 +3169,8 @@ class LV_simulation():
         if not os.path.isdir(output_dir):
             os.makedirs(output_dir)
         arrays = (
+            ('quadrature_global_dof.npy',
+             np.arange(self.global_n_of_int_points, dtype=np.int64)),
             ('quadrature_dof.npy', quadrature_dof), ('ecc.npy', ecc),
             ('err.npy', err), ('ell.npy', ell),
             ('norm_dist_endo.npy', norm_dist_endo),

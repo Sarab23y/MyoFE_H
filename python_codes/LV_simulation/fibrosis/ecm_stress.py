@@ -11,6 +11,12 @@ from ..dependencies.ecm_stress_diagnostic import (positive_excess,
 from ..dependencies.ecm_stability import calibration_decision, stability_results
 
 
+QUADRATURE_FORM_COMPILER_PARAMETERS = {
+    'representation': 'quadrature',
+    'quadrature_degree': 2
+}
+
+
 class ECMStressDiagnostic(object):
     """Measure fraction-weighted ECM PK2 fiber stress without remodeling."""
     FIELD_NAMES = ('ecm_instantaneous_fiber_stress', 'ecm_cycle_averaged_fiber_stress',
@@ -66,9 +72,20 @@ class ECMStressDiagnostic(object):
                        inner(f0, f['total_stress']*f0))
         values = []
         for expression in expressions:
-            dg = project(expression, self.mesh.model['function_spaces']['growth_scalar_FS'],
-                         form_compiler_parameters={'representation': 'uflacs'})
-            q = interpolate(dg, self.mesh.model['function_spaces']['quadrature_space'])
+            # Evaluate in the material-point space used by the cycle history.
+            # The former DG1 projection followed by Quadrature interpolation
+            # was a smoothing operation, not a pointwise-equivalent transfer.
+            # This is a legacy DOLFIN Quadrature element, not a DG element.
+            # FEniCS 2019.1 must compile the projection with the quadrature
+            # representation and the same degree/scheme used to construct the
+            # material-point space.  Compiling this projection with uflacs is
+            # not a supported compatibility assumption for Quadrature
+            # elements and can fail before a numerical comparison is made.
+            q = project(
+                expression,
+                self.mesh.model['function_spaces']['quadrature_space'],
+                form_compiler_parameters=
+                    QUADRATURE_FORM_COMPILER_PARAMETERS)
             values.append(q.vector().get_local())
         return values
 
@@ -118,8 +135,11 @@ class ECMStressDiagnostic(object):
         qspace = self.mesh.model['function_spaces']['quadrature_space']
         fn = Function(qspace)
         fn.vector().set_local(np.asarray(values)); fn.vector().apply('insert')
-        squared = float(assemble(fn*fn*dx(domain=self.mesh.model['mesh']),
-                                 form_compiler_parameters={'representation': 'uflacs'}))
+        squared = float(assemble(
+            fn*fn*dx(domain=self.mesh.model['mesh'],
+                     metadata={'quadrature_degree': 2,
+                               'quadrature_scheme': 'default'}),
+            form_compiler_parameters=QUADRATURE_FORM_COMPILER_PARAMETERS))
         return np.sqrt(max(squared, 0.0))
 
     def _field_relative_change(self, previous, current):
@@ -128,12 +148,18 @@ class ECMStressDiagnostic(object):
         old.vector().set_local(previous); old.vector().apply('insert')
         new.vector().set_local(current); new.vector().apply('insert')
         domain = self.mesh.model['mesh']
-        num = float(assemble((new-old)*(new-old)*dx(domain=domain),
-                             form_compiler_parameters={'representation': 'uflacs'}))
-        old2 = float(assemble(old*old*dx(domain=domain),
-                              form_compiler_parameters={'representation': 'uflacs'}))
-        new2 = float(assemble(new*new*dx(domain=domain),
-                              form_compiler_parameters={'representation': 'uflacs'}))
+        material_dx = dx(domain=domain,
+                         metadata={'quadrature_degree': 2,
+                                   'quadrature_scheme': 'default'})
+        num = float(assemble(
+            (new-old)*(new-old)*material_dx,
+            form_compiler_parameters=QUADRATURE_FORM_COMPILER_PARAMETERS))
+        old2 = float(assemble(
+            old*old*material_dx,
+            form_compiler_parameters=QUADRATURE_FORM_COMPILER_PARAMETERS))
+        new2 = float(assemble(
+            new*new*material_dx,
+            form_compiler_parameters=QUADRATURE_FORM_COMPILER_PARAMETERS))
         scale = max(old2, new2)
         if scale == 0.0:
             return 0.0

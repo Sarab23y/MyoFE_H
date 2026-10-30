@@ -6,7 +6,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'python_codes'))
 from LV_simulation.dependencies.ecm_stability import (calibration_decision,
-    stability_results, symmetric_relative_change)
+    stability_results, symmetric_relative_change, weighted_relative_l2)
 from validation.diagnose_ecm_baseline_stability import (scalar_cycles,
     time_weighted_mean)
 
@@ -32,6 +32,15 @@ class ECMStressDiagnosticTests(unittest.TestCase):
         records = [dict(pressure=10.0, volume=100.0, heart_rate=60.0)]*3
         result = stability_results(records, [0.0, 0.0], 0.05)
         self.assertTrue(all(all(pair['passed'].values()) for pair in result))
+
+    def test_weighted_l2_detects_point_permutation(self):
+        self.assertEqual(weighted_relative_l2([1.0, 2.0], [1.0, 2.0],
+                                              [0.25, 0.75]), 0.0)
+        changed = weighted_relative_l2([1.0, 2.0], [2.0, 1.0],
+                                       [0.25, 0.75])
+        self.assertGreater(changed, 0.0)
+        self.assertAlmostEqual(changed,
+                               ((0.25 + 0.75)/(0.25 + 0.75*4.0))**0.5)
 
     def test_strict_and_warning_calibration_decisions(self):
         strict = calibration_decision(['ecm_stress_field'], 'strict')
@@ -158,6 +167,18 @@ class ECMStressDiagnosticTests(unittest.TestCase):
         expression = "f['ground_matrix_passive'] + f['collagen_passive']"
         self.assertIn(expression, source)
         self.assertIn("inner(f0, (" + expression + ")*f0)", source)
+        self.assertIn("['quadrature_space']", source)
+        self.assertNotIn('dg = project(expression', source)
+
+    def test_direct_quadrature_path_uses_legacy_compatible_compiler(self):
+        source = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                   'fibrosis', 'ecm_stress.py')).read()
+        self.assertIn("'representation': 'quadrature'", source)
+        self.assertIn("'quadrature_degree': 2", source)
+        self.assertIn("'quadrature_scheme': 'default'", source)
+        fiber_block = source[source.index('def _fiber_stresses'):
+                             source.index('def _global_stats')]
+        self.assertNotIn("'representation': 'uflacs'", fiber_block)
 
     def test_precalibration_excess_is_explicitly_invalid(self):
         source = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
@@ -176,6 +197,33 @@ class ECMStressDiagnosticTests(unittest.TestCase):
         self.assertIn('def store_setpoint(self,store_active):', growth)
         self.assertIn('def assign_setpoint(self):', growth)
         self.assertNotIn('baseline_stability_mode', growth)
+
+    def test_optional_ecm_recording_does_not_gate_diagnostic_calculation(self):
+        driver = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                   'LV_simulation.py')).read()
+        diagnostic = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                       'fibrosis', 'ecm_stress.py')).read()
+        self.assertIn("'ecm_spatial_csv_fields'", driver)
+        self.assertIn('self.ecm_diag.record_time_step', driver)
+        self.assertNotIn('ecm_spatial_csv_fields', diagnostic)
+        self.assertIn('quadrature_global_dof.npy', driver)
+        self.assertIn('requested_material_fields', driver)
+
+    def test_total_stress_spatial_is_populated_and_mpi_is_not_finalized_early(self):
+        driver = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                   'LV_simulation.py')).read()
+        entry = open(os.path.join(ROOT, 'python_codes', 'MyoFE.py')).read()
+        self.assertIn("self.data['total_stress_spatial'] = project", driver)
+        total_block = driver[driver.index('total_passive = project('):
+                             driver.index('#total_passive = interpolate')]
+        bulk_block = driver[driver.index('bulk_passive = project('):
+                            driver.index("temp = inner(self.mesh.model['functions']['f0'],\n                        self.mesh.model['functions']['incomp_stress']")]
+        self.assertIn('["quadrature_space"]', total_block)
+        self.assertIn('["quadrature_space"]', bulk_block)
+        self.assertNotIn('["scalar"]', total_block)
+        self.assertNotIn('["scalar"]', bulk_block)
+        self.assertIn('self.solution_mesh.close()', driver)
+        self.assertNotIn('MPI.Finalize()', entry)
 
 
 if __name__ == '__main__':

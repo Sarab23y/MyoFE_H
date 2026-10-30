@@ -3,6 +3,23 @@ from __future__ import division
 import math
 
 
+def weighted_relative_l2(previous, current, weights):
+    """Dependency-light equivalent of the integrated FE relative L2 metric."""
+    if not (len(previous) == len(current) == len(weights)) or not previous:
+        raise ValueError('Weighted L2 fields and weights must have equal size')
+    numerator = old_norm = new_norm = 0.0
+    for old, new, weight in zip(previous, current, weights):
+        old, new, weight = float(old), float(new), float(weight)
+        if not all(not (math.isnan(value) or math.isinf(value))
+                   for value in (old, new, weight)) or weight < 0.0:
+            raise ValueError('Weighted L2 inputs must be finite with nonnegative weights')
+        numerator += weight*(new-old)*(new-old)
+        old_norm += weight*old*old
+        new_norm += weight*new*new
+    scale = max(old_norm, new_norm)
+    return 0.0 if scale == 0.0 else math.sqrt(numerator/scale)
+
+
 def symmetric_relative_change(previous, current):
     previous, current = float(previous), float(current)
     if (math.isnan(previous) or math.isinf(previous) or
