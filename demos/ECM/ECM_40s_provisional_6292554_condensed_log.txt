@@ -1,0 +1,306 @@
+ECM_40s_provisional, SLURM job 6292554 — CONDENSED DIAGNOSTIC LOG
+Source: ECM_40s_provisional.6292554.out and .err supplied by user
+This is not a complete log; repeated solver iteration output omitted.
+Original stdout size: 314M
+
+===== JOB START / PRE-FLIGHT (FIRST 55 LINES) =====
+PASS: provisional 80-s ECM diagnostic, 40-s calibration, and 40-50-s +170 ramp verified
+32 numbers of core is called!
+creating necessary function spaces
+[FibrosisConfiguration]
+  Passive law: Xi-ground-collagen
+  Ground matrix: a_g=352.7, b_g=0.1158
+  Myofiber Xi: c2=80.0, c3=25.0
+  Collagen: a_cf=29772.0, b_cf=4.0985, a_cs=54744.0, b_cs=2.4095, a_cn=54744.0, b_cn=2.4095
+  Fractions: phi_m=0.7, phi_g=0.274, phi_c=0.026, sum=1.0
+  Available function spaces: ['fiber_FS', 'growth_scalar_FS', 'growth_tensor_FS', 'material_coord_system_space', 'quad_vectorized_space', 'quadrature_space', 'scalar', 'scalar_CG', 'scalar_DG0', 'scalar_for_active', 'scalar_for_growth', 'solution_space', 'stimulusFS', 'tensor_quadrature', 'tensor_space']
+function spaces are defined
+Loaded material-coordinate diagnostics (rank 0 local vectors):
+  fiber f0 flat/logical shape: (456,) (152, 3)
+  sheet s0 flat/logical shape: (456,) (152, 3)
+  normal n0 flat/logical shape: (456,) (152, 3)
+string, not creating function
+[FibrosisMeshDiagnostics]
+  MPI ranks: 32
+  Topological/geometric dimension: 3 3
+  Local cells on rank 0 (owned/ghost/total): 38 0 38
+  Owned cells per rank (min/max): 38 40
+  Ghost cells per rank (min/max): 0 0
+  Global mesh cells: 1252
+  Global mesh vertices: 442
+  Quadrature degree: 2
+  Quadrature element: <Quadrature2(default) on a tetrahedron>
+  Quadrature points per cell: 4
+  Expected/actual global material points: 5008 5008
+  f0 flat/logical shape: (456,) / (152, 3)
+  s0 flat/logical shape: (456,) / (152, 3)
+  n0 flat/logical shape: (456,) / (152, 3)
+  f0/s0/n0 representation: vectors at quadrature points
+  Material-coordinate vectors on rank 0: 152
+  Spatial coordinates on rank 0: 152
+  Global unique spatial coordinate DOFs: 5008
+  Coordinate/field count match: True
+  Mesh/material-point consistency: PASS
+creating weak form
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+Myofiber
+
+===== BASELINE STABILITY, PROVISIONAL FREEZE (WITH CONTEXT) =====
+Core: 0, num of points with negative Sff:0
+Core: 1, num of points with negative Sff:0
+Core: 4, num of points with negative Sff:0
+Core: 13, num of points with negative Sff:0
+Core: 31, num of points with negative Sff:0
+Core: 2, num of points with negative Sff:0
+
+
+[ECMBaselineStability]
+  Cycle 1: start=37.477 s stop=38.308 s duration=0.831 s pressure=26.320889 volume=0.0835195374 HR=72.2954435 ECM[min/mean/max/L2]=90.0413556/189.369763/1322.08182/78.2302823
+  Cycle 2: start=38.308 s stop=39.138 s duration=0.83 s pressure=26.7409322 volume=0.083146136 HR=72.327368 ECM[min/mean/max/L2]=89.9406876/184.887739/1366.51879/75.6251962
+  Cycle 3: start=39.138 s stop=39.968 s duration=0.83 s pressure=26.6324899 volume=0.0833759479 HR=72.35106 ECM[min/mean/max/L2]=89.9907917/187.335101/1314.04196/76.5752397
+  Consecutive-cycle stability (tolerance 5.000%):
+    Cycle 1 -> 2
+      pressure             1.570787%  PASS
+      volume               0.447083%  PASS
+      heart_rate           0.044139%  PASS
+      ecm_stress_field    43.397887%  FAIL
+    Cycle 2 -> 3
+      pressure             0.405529%  PASS
+      volume               0.275633%  PASS
+      heart_rate           0.032746%  PASS
+      ecm_stress_field    41.307326%  FAIL
+  Combined decision: FAIL
+  Failed criteria: ecm_stress_field
+  WARNING: ECM stress field exceeds the 5.000% stability tolerance.
+  WARNING: baseline stability tolerance exceeded (ecm_stress_field). A provisional ECM reference was frozen for diagnostic-only use.
+('time', 40.000999999997475)
+('cnt', 42)
+******** NEW TIME STEP ********
+40.002
+Myocardium Vol is: 0.128419
+Solving MyoSim ODEs across the mesh
+0% of integer points are updated
+Required time for solving myosim was
+0.379114151001
+solving weak form
+Process 0: Solving nonlinear variational problem.
+Process 6: Solving nonlinear variational problem.Process 3: Solving nonlinear variational problem.
+Process 5: Solving nonlinear variational problem.
+
+Process 8: Solving nonlinear variational problem.
+Process 11: Solving nonlinear variational problem.Process 14: Solving nonlinear variational problem.
+Process 15: Solving nonlinear variational problem.
+Process 18: Solving nonlinear variational problem.
+Process 19: Solving nonlinear variational problem.
+Process 22: Solving nonlinear variational problem.
+Process 23: Solving nonlinear variational problem.
+Process 25: Solving nonlinear variational problem.
+Process 26: Solving nonlinear variational problem.
+Process 27: Solving nonlinear variational problem.
+Process 28: Solving nonlinear variational problem.
+Process 30: Solving nonlinear variational problem.
+Process 31: Solving nonlinear variational problem.
+Process 1: Solving nonlinear variational problem.
+Process 2: Solving nonlinear variational problem.
+Process 4: Solving nonlinear variational problem.
+Process 7: Solving nonlinear variational problem.
+Process 9: Solving nonlinear variational problem.
+Process 10: Solving nonlinear variational problem.
+Process 12: Solving nonlinear variational problem.
+Process 13: Solving nonlinear variational problem.
+Process 17: Solving nonlinear variational problem.
+Process 20: Solving nonlinear variational problem.
+Process 21: Solving nonlinear variational problem.
+Process 24: Solving nonlinear variational problem.
+Process 29: Solving nonlinear variational problem.
+
+Process 16: Solving nonlinear variational problem.
+  Process 0: Newton iteration 0: r (abs) = 4.308e+02 (tol = 1.000e-08) r (rel) = 1.000e+00 (tol = 1.000e-08)
+  Process 0: Newton iteration 1: r (abs) = 3.679e+00 (tol = 1.000e-08) r (rel) = 8.539e-03 (tol = 1.000e-08)
+  Process 0: Newton iteration 2: r (abs) = 1.071e-02 (tol = 1.000e-08) r (rel) = 2.487e-05 (tol = 1.000e-08)
+  Process 0: Newton iteration 3: r (abs) = 7.300e-08 (tol = 1.000e-08) r (rel) = 1.695e-10 (tol = 1.000e-08)
+  Process 0: Newton solver finished in 3 iterations and 3 linear solver iterations.
+LU solver
+Checking Sff values
+Core: 0, num of points with negative Sff:0
+Core: 1, num of points with negative Sff:0
+Core: 3, num of points with negative Sff:0
+
+===== OUTPUT CHECKPOINT / SUMMARY EVENTS =====
+PASS: provisional 80-s ECM diagnostic, 40-s calibration, and 40-50-s +170 ramp verified
+Saved states: 1
+Saved spatial states: 1
+Saved states: 2001
+Saved spatial states: 2001
+Saved states: 4001
+Saved spatial states: 4001
+Saved states: 6001
+Saved spatial states: 6001
+Sim time (s): 80  99% complete
+Sim time (s): 80  100% complete
+Saved states: 8001
+Saved spatial states: 8001
+
+===== JOB END (LAST 80 STDOUT LINES) =====
+myofiber_passive
+eccy
+eccx
+eccz
+k_1
+bulk_passive
+fiber_strain
+Sff_mesh
+hs_length
+('Out_path:', '/mnt/gpfs2_4m/scratch/sba431/demos/ECM/ECM_40s_provisional/sim_output/hs_length_data.csv')
+Batch run time
+100814.015441
+Batch run time
+100814.016112
+Batch run time
+100814.016574
+Batch run time
+100814.016769
+Batch run time
+100814.01735
+Batch run time
+100814.017316
+Batch run time
+100814.017314
+Batch run time
+100814.017872
+Batch run time
+100814.018009
+Batch run time
+100814.018151Batch run time
+100814.018337
+
+Batch run time
+100814.018495
+Batch run time
+100814.018456
+Batch run timeBatch run time
+100814.018418
+
+100814.017014
+Batch run time
+Batch run time
+100814.018776
+100814.018757Batch run time
+100814.019258
+
+Batch run time
+Batch run time
+100814.018916100814.01887
+
+Batch run time
+Batch run time
+100814.019414
+100814.019328
+Batch run time
+100814.019641
+Batch run time
+100814.019426
+Batch run time
+100814.019565
+Batch run time
+100814.019799
+Batch run time
+100814.019554
+Batch run time
+100814.020112
+Batch run time
+100814.019739
+Batch run time
+100814.020629
+Batch run time
+100814.020963
+Batch run time
+100814.042975
+Recovered scalar cycle means from /mnt/gpfs2_4m/scratch/sba431/demos/ECM/ECM_40s_provisional/sim_output/data.csv:
+  1: {"duration": 8.32999999998776, "heart_rate": 72.1196174799249, "pressure": 26.32203814078182, "start": 29.980000000013657, "stop": 38.310000000001416, "volume": 0.08335590794411685}
+  2: {"duration": 0.8299999999980656, "heart_rate": 72.32758756342585, "pressure": 26.77965066723087, "start": 38.310000000001416, "stop": 39.13999999999948, "volume": 0.08314736206911058}
+  3: {"duration": 0.8299999999980656, "heart_rate": 72.35119719762345, "pressure": 26.690100962861933, "start": 39.13999999999948, "stop": 39.96999999999755, "volume": 0.08337744609209148}
+ECM field check unavailable: no saved cycle-averaged spatial CSV found.
+Scalar pressure/volume/heart-rate checks can be reconstructed; the physical FE L2 check cannot.
+
+===== STDERR (COMPLETE; REPEATED MPI LINES RETAINED) =====
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+Attempting to use an MPI routine after finalizing MPICH
+ERROR: MyoFE solver failed
