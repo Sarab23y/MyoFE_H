@@ -196,6 +196,8 @@ class MechanicalHealthDiagnostic(object):
                 local.append({'time_s': float(self.parent.data['time']),
                     'reason': 'tracked_current_partition_dof', 'field': 'fiber_stretch_raw',
                     'value': float(fields['fiber_stretch_raw'][index]),
+                    'values': dict((name, float(values[index]))
+                                   for name, values in fields.items()),
                     'global_quadrature_dof_current_partition': gid,
                     'reference_coordinate': [float(x) for x in coordinates[index]],
                     'mpi_rank': int(self.comm.Get_rank()),

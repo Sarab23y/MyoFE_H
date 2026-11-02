@@ -214,14 +214,13 @@ class ECMStressDiagnosticTests(unittest.TestCase):
                                    'LV_simulation.py')).read()
         entry = open(os.path.join(ROOT, 'python_codes', 'MyoFE.py')).read()
         self.assertIn("self.data['total_stress_spatial'] = project", driver)
-        total_block = driver[driver.index('total_passive = project('):
-                             driver.index('#total_passive = interpolate')]
-        bulk_block = driver[driver.index('bulk_passive = project('):
-                            driver.index("temp = inner(self.mesh.model['functions']['f0'],\n                        self.mesh.model['functions']['incomp_stress']")]
-        self.assertIn('["quadrature_space"]', total_block)
-        self.assertIn('["quadrature_space"]', bulk_block)
-        self.assertNotIn('["scalar"]', total_block)
-        self.assertNotIn('["scalar"]', bulk_block)
+        self.assertIn("'total_passive': inner(f0", driver)
+        self.assertIn("'bulk_passive': inner(f0", driver)
+        lazy_block = driver[driver.index('requested_extra = set('):
+                            driver.index('for f in self.spatial_extra:',
+                                         driver.index('requested_extra = set('))]
+        self.assertIn('qspace', lazy_block)
+        self.assertNotIn('["scalar"]', lazy_block)
         self.assertIn('self.solution_mesh.close()', driver)
         self.assertNotIn('MPI.Finalize()', entry)
 

@@ -59,8 +59,8 @@ class FibrosisMeshExecutionPathTests(unittest.TestCase):
         self.assertIn(
             "'function_spaces']['material_coord_system_space']", writer)
         self.assertIn(
-            "self.mesh.model['functions']['w'].sub(0),\n"
-            "                displacement_output_space", writer)
+            "self.mesh.model['functions']['w'].sub(0),", writer)
+        self.assertIn("displacement_output_space)", writer)
 
 
 if __name__ == "__main__":
