@@ -1,0 +1,19 @@
+{
+  "input_json": "demos/base/sim_inputs/base_instruction.json",
+  "output_directory": "../results/material",
+  "stretch_min": 1.0,
+  "stretch_max": 1.25,
+  "shear_min": 0.0,
+  "shear_max": 0.3,
+  "number_of_points": 26,
+  "biaxial_paths": [
+    "equal_biaxial",
+    "fiber_dominant",
+    "sheet_dominant"
+  ],
+  "shear_directions": [
+    "fiber_along_sheet",
+    "sheet_along_fiber",
+    "fiber_along_normal"
+  ]
+}

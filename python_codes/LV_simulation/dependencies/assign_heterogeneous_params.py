@@ -37,9 +37,6 @@ class assign_heterogeneous_params(object):
         #rint dolfin_functions
         het_dolfin_dict = self.iterate_dolfin_keys(dolfin_functions,het_dolfin_dict)
 
-        print('het_dolfin_dict')
-        print(het_dolfin_dict)
-
         # assign heterogeneous parametrs based on the desired law
         dolfin_functions = self.assign_dolfin_functions(dolfin_functions,het_dolfin_dict,no_of_cells,endo_dist,xq)
 
