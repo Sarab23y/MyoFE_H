@@ -28,6 +28,11 @@ DEFAULT_FIELDS = (
 DEFAULT_WINDOWS = ((35.0, 40.0), (39.0, 40.0), (40.0, 50.0),
                    (75.0, 80.0))
 
+MATPLOTLIB_UNAVAILABLE_MESSAGE = (
+    'PNG files were not generated because Matplotlib is not available. '
+    'Install matplotlib in the analysis environment and rerun without '
+    '--no-plots to create PNG files.')
+
 
 def _finite(value):
     return not (math.isnan(value) or math.isinf(value))
@@ -91,11 +96,15 @@ def inspect_header(path):
             'time_index': time_index}
 
 
-def _window_for_time(time_value, windows):
-    for index, (start, stop) in enumerate(windows):
-        if start <= time_value <= stop:
-            return index
-    return None
+def _windows_for_time(time_value, windows):
+    """Return every summary window containing ``time_value``.
+
+    Windows are intentionally inclusive at both ends to preserve the existing
+    boundary convention.  Returning all matches is important for nested
+    windows such as 35--40 s and 39--40 s.
+    """
+    return [index for index, (start, stop) in enumerate(windows)
+            if start <= time_value <= stop]
 
 
 def stream_field(path, targets, windows, fallback_times):
@@ -128,7 +137,7 @@ def stream_field(path, targets, windows, fallback_times):
             for target, history in histories.items():
                 raw = row[point_lookup[int(target)]]
                 history.append([time_value, float(raw) if raw else None])
-            window_index = _window_for_time(time_value, windows)
+            window_indices = _windows_for_time(time_value, windows)
             for point_id, column_index in zip(point_ids, point_indices):
                 raw = row[column_index]
                 if raw == '':
@@ -143,7 +152,7 @@ def stream_field(path, targets, windows, fallback_times):
                     extreme_min = item
                 if extreme_max is None or value > extreme_max['value']:
                     extreme_max = item
-                if window_index is not None:
+                for window_index in window_indices:
                     summary = summaries[window_index]
                     summary['count'] += 1
                     summary['sum'] += value
@@ -211,7 +220,7 @@ def make_plots(output_directory, results, targets):
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
     except ImportError:
-        return 'matplotlib unavailable; plots skipped'
+        return MATPLOTLIB_UNAVAILABLE_MESSAGE
     for target in targets:
         fig, axes = plt.subplots(4, 1, figsize=(11, 12), sharex=True)
         groups = (('ecm_', 'bulk_passive', 'myofiber_passive', 'total_passive',
@@ -268,6 +277,15 @@ def main(argv=None):
         print('Reading %s' % path)
         results[field] = stream_field(path, args.dofs, windows, main_times)
     mapping = verify_mapping(results, args.dofs)
+    historical_ordering_fields = [
+        field for field in ('bulk_passive', 'total_passive')
+        if field in results]
+    historical_ordering_warning = (
+        'Historical bulk_passive and total_passive CSV files may contain '
+        'DG1 values labeled with scalar-quadrature column headers. Matching '
+        'headers alone do not prove matching material-point ordering; do not '
+        'use these fields for pointwise cross-field comparisons unless their '
+        'producer version and DOF mapping have been independently verified.')
     report = {'source_directory': source, 'windows': [list(w) for w in windows],
               'target_global_quadrature_dofs': args.dofs,
               'mapping': mapping, 'missing_fields': missing,
@@ -281,7 +299,12 @@ def main(argv=None):
                   'Absent ECM-only CSV fields are not replaced with Sff, bulk, or '
                   'total stress because those are different stress definitions.',
                   'XDMF fields are visualization projections and are not lossless '
-                  'quadrature-point histories.']}
+                  'quadrature-point histories.',
+                  historical_ordering_warning]}
+    if historical_ordering_fields:
+        report['historical_ordering_warning_fields'] = \
+            historical_ordering_fields
+        print('WARNING: %s' % historical_ordering_warning)
     stability_candidates = [os.path.join(source, 'ecm_baseline_stability.json'),
                             os.path.join(os.path.dirname(source),
                                          'ecm_baseline_stability.json')]
