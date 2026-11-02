@@ -22,6 +22,9 @@ class ECMStressDiagnostic(object):
     FIELD_NAMES = ('ecm_instantaneous_fiber_stress', 'ecm_cycle_averaged_fiber_stress',
                    'ecm_homeostatic_fiber_stress', 'ecm_signed_stress_deviation',
                    'ecm_positive_excess_stress', 'ecm_cycle_averaged_total_fiber_stress')
+    REFERENCE_CYCLE_FIELD_NAMES = ('ecm_reference_cycle_1',
+                                   'ecm_reference_cycle_2',
+                                   'ecm_reference_cycle_3')
 
     def __init__(self, config, parent):
         self.parent, self.mesh, self.comm = parent, parent.mesh, parent.comm
@@ -29,6 +32,8 @@ class ECMStressDiagnostic(object):
         self.cycles = int(config.get('homeostatic_cycles', [3])[0])
         self.tolerance = float(config.get('baseline_stability_relative_tolerance', [0.05])[0])
         self.stability_mode = str(config.get('baseline_stability_mode', ['strict'])[0]).lower()
+        self.save_reference_cycle_snapshot = bool(
+            config.get('save_reference_cycle_snapshot', [False])[0])
         if (self.cycles != 3 or self.activation_time <= 0 or self.tolerance <= 0 or
                 self.stability_mode not in ('strict', 'warn')):
             raise ValueError('Invalid ECM diagnostic calibration settings')
@@ -58,6 +63,10 @@ class ECMStressDiagnostic(object):
             form_compiler_parameters={'representation': 'uflacs'}))
         self.data['ecm_fraction_max_change'] = 0.0
         for name in self.FIELD_NAMES:
+            self.data[name] = np.zeros(count)
+            fn = Function(qspace); fn.rename(name, '')
+            self.mesh.model['functions'][name] = fn
+        for name in self.REFERENCE_CYCLE_FIELD_NAMES:
             self.data[name] = np.zeros(count)
             fn = Function(qspace); fn.rename(name, '')
             self.mesh.model['functions'][name] = fn
@@ -263,6 +272,10 @@ class ECMStressDiagnostic(object):
         if decision['raise']:
             raise RuntimeError('ECM baseline stability failed: %s' % ', '.join(failed))
         self.homeostatic = candidate
+        for name, record in zip(self.REFERENCE_CYCLE_FIELD_NAMES, records):
+            values = record['ecm'].copy(); self.data[name] = values
+            fn = self.mesh.model['functions'][name]
+            fn.vector().set_local(values); fn.vector().apply('insert')
         self._frozen = True; self.data['ecm_reference_frozen'] = 1
         self.data['ecm_reference_provisional'] = int(provisional)
         self.data['ecm_excess_valid'] = 1
@@ -271,6 +284,38 @@ class ECMStressDiagnostic(object):
         signed, positive = positive_excess(self.data[self.FIELD_NAMES[1]], self.homeostatic)
         self._publish(self.data[self.FIELD_NAMES[0]], self.data[self.FIELD_NAMES[1]], self.homeostatic,
                       signed, positive, self.data[self.FIELD_NAMES[5]])
+        if self.save_reference_cycle_snapshot:
+            self._write_reference_cycle_snapshot(records)
+
+    def _write_reference_cycle_snapshot(self, records):
+        """Save one compact, mapped calibration snapshot rather than history."""
+        qspace = self.mesh.model['function_spaces']['quadrature_space']
+        dofmap = qspace.dofmap()
+        coordinates = qspace.tabulate_dof_coordinates().reshape(
+            (-1, self.mesh.model['mesh'].geometry().dim()))
+        local_count = len(records[0]['ecm'])
+        local = {'global_dof': np.asarray([
+                    dofmap.local_to_global_index(index)
+                    for index in range(local_count)], dtype=np.int64),
+                 'coordinate': np.asarray(coordinates[:local_count]),
+                 'cycle_1': records[0]['ecm'],
+                 'cycle_2': records[1]['ecm'],
+                 'cycle_3': records[2]['ecm'],
+                 'homeostatic': self.homeostatic}
+        gathered = self.comm.gather(local, root=0)
+        if self.comm.Get_rank() != 0:
+            return
+        merged = dict((key, np.concatenate([part[key] for part in gathered], axis=0))
+                      for key in local)
+        order = np.argsort(merged['global_dof'])
+        global_dof = merged['global_dof'][order]
+        if len(np.unique(global_dof)) != len(global_dof):
+            raise RuntimeError('Duplicate global quadrature DOF in ECM reference snapshot')
+        output = self.parent.instruction_data['output_handler']['output_data_path'][0]
+        path = os.path.join(os.path.dirname(output),
+                            'ecm_reference_cycle_fields.npz')
+        np.savez(path, **dict((key, values[order])
+                              for key, values in merged.items()))
 
     def record_time_step(self, time_step, end_diastolic):
         now = float(self.parent.data['time'])

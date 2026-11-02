@@ -1043,6 +1043,11 @@ class MeshClass():
         #    project(sqrt(dot(f0, Cmat*f0)),self.model['function_spaces']['quadrature_space'])
         
         self.model['functions']['myofiber_stretch'] = conditional(alpha_f > 1.0, alpha_f ,1.0)
+        # Keep the historical tension-only expression unchanged, but expose
+        # the actual kinematic stretch under an unambiguous diagnostic name.
+        self.model['functions']['fiber_stretch_raw'] = alpha_f
+        self.model['functions']['fiber_stretch_tension_only'] = \
+            self.model['functions']['myofiber_stretch']
         print 'Myofiber'
         '''print project(self.model['functions']['myofiber_stretch'],
                 self.model['function_spaces']['quadrature_space']).vector()[:].get_local()'''

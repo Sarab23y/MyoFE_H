@@ -29,6 +29,7 @@ from .output_handler.output_handler import output_handler as oh
 from .baroreflex import baroreflex as br
 from .growth import growth as gr
 from .fibrosis import StressDrivenFibrosis, ECMStressDiagnostic
+from .dependencies.mechanical_health import MechanicalHealthDiagnostic
 from .half_sarcomere import half_sarcomere as hs 
 from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
@@ -350,6 +351,13 @@ class LV_simulation():
                 instruction_data['model']['ecm_stress_diagnostic'], self)
         else:
             self.ecm_diag = []
+        health_config = instruction_data['model'].get(
+            'mechanical_health_diagnostic', {})
+        if health_config.get('enabled', [False])[0]:
+            self.mechanical_health = MechanicalHealthDiagnostic(
+                health_config, self)
+        else:
+            self.mechanical_health = []
         # If required, create the vad object
         self.va = []
 
@@ -402,6 +410,10 @@ class LV_simulation():
 
         self.data['alpha_f'] = project(self.mesh.model['functions']['alpha_f'], 
                     self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+        self.data['fiber_stretch_raw'] = self.data['alpha_f'].copy()
+        self.data['fiber_stretch_tension_only'] = project(
+            self.mesh.model['functions']['fiber_stretch_tension_only'],
+            self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
         inner_p = inner(self.mesh.model['functions']['f0'],
                         self.mesh.model['functions']['total_stress']*\
                             self.mesh.model['functions']['f0'])
@@ -537,7 +549,8 @@ class LV_simulation():
             for f in ['active_stress','total_passive','myofiber_passive',
                       'Sff_mesh','bulk_passive','incomp_stress',
                       'cb_number_density','k_1','hs_length',
-                      'fiber_strain','Ell','Err','Ecc']:
+                      'fiber_strain','fiber_stretch_raw',
+                      'fiber_stretch_tension_only','Ell','Err','Ecc']:
                 self.spatial_extra.append(f)
             
             
@@ -1291,6 +1304,13 @@ class LV_simulation():
         #self.data['hsl0'] = hsl0
         self.data['hsl'] = new_hs_length_list
         self.data['alpha_f'] = myo_stretch
+        raw_stretch = project(
+            self.mesh.model['functions']['fiber_stretch_raw'],
+            self.mesh.model['function_spaces']['quadrature_space'],
+            form_compiler_parameters={'representation': 'quadrature',
+                                      'quadrature_degree': 2}).vector().get_local()[:]
+        self.data['fiber_stretch_raw'] = raw_stretch
+        self.data['fiber_stretch_tension_only'] = myo_stretch
         """if self.comm.Get_rank() == 0:
             print 'Checking myofiber stretch'
             print 'hsl:'
@@ -1305,6 +1325,8 @@ class LV_simulation():
             self.fi.record_time_step(time_step, self.end_diastolic)
         if self.ecm_diag:
             self.ecm_diag.record_time_step(time_step, self.end_diastolic)
+        if self.mechanical_health:
+            self.mechanical_health.record_time_step(time_step)
 
         if self.gr:            
             #self.data['growth_active'] = 0
@@ -2113,7 +2135,12 @@ class LV_simulation():
                              'ecm_homeostatic_fiber_stress',
                              'ecm_signed_stress_deviation',
                              'ecm_positive_excess_stress',
-                             'ecm_cycle_averaged_total_fiber_stress'] and \
+                             'ecm_cycle_averaged_total_fiber_stress',
+                             'ecm_reference_cycle_1',
+                             'ecm_reference_cycle_2',
+                             'ecm_reference_cycle_3',
+                             'fiber_stretch_raw',
+                             'fiber_stretch_tension_only'] and \
                             m in self.mesh.model['functions']:
                         temp_obj = project(
                             self.mesh.model['functions'][m],
@@ -2745,6 +2772,16 @@ class LV_simulation():
 
             fiber_strain = project(self.mesh.model['functions']['fiber_strain'],
                               self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+            fiber_stretch_raw = project(
+                self.mesh.model['functions']['fiber_stretch_raw'],
+                self.mesh.model['function_spaces']["quadrature_space"],
+                form_compiler_parameters={'representation': 'quadrature',
+                                          'quadrature_degree': 2}).vector().get_local()[:]
+            fiber_stretch_tension_only = project(
+                self.mesh.model['functions']['fiber_stretch_tension_only'],
+                self.mesh.model['function_spaces']["quadrature_space"],
+                form_compiler_parameters={'representation': 'quadrature',
+                                          'quadrature_degree': 2}).vector().get_local()[:]
             
             Ell = project(self.mesh.model['functions']['Ell'],
                               self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
@@ -2764,6 +2801,8 @@ class LV_simulation():
             'cb_number_density': cb_number_density,
             'k_1': k_1,
             'hs_length' : hs_length
+            , 'fiber_stretch_raw': fiber_stretch_raw
+            , 'fiber_stretch_tension_only': fiber_stretch_tension_only
             }
 
 
