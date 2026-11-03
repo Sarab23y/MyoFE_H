@@ -62,6 +62,13 @@ class BufferedOutputTests(unittest.TestCase):
                       launcher)
         self.assertIn('refusing to overwrite $RUN_ROOT', launcher)
 
+    def test_buffered_spatial_csv_preserves_legacy_zero_index(self):
+        source = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                  'LV_simulation.py')).read()
+        self.assertIn('legacy_spatial_index=False', source)
+        self.assertIn('frame.index = np.zeros(len(frame), dtype=int)', source)
+        self.assertIn('legacy_spatial_index=True', source)
+
     def _buffered(self, count, frequency, batch_size):
         buffer = BoundedRowBuffer(('time', 'pressure', 'volume'), batch_size)
         written = []
@@ -142,6 +149,12 @@ class BufferedOutputTests(unittest.TestCase):
         self.assertEqual(cases[0]['protocol']['time_step'][0], 0.001)
         self.assertNotIn('output_mode', outputs[0])
         self.assertEqual(outputs[1]['output_mode'][0], 'buffered')
+        required_ecm = set(('ecm_instantaneous_fiber_stress',
+                            'ecm_cycle_averaged_fiber_stress',
+                            'ecm_homeostatic_fiber_stress'))
+        for output in outputs:
+            self.assertTrue(required_ecm.issubset(set(
+                output['ecm_spatial_csv_fields'])))
 
 
 if __name__ == '__main__':

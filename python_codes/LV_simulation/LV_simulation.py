@@ -3019,10 +3019,19 @@ class LV_simulation():
         return data_dict
     
     
-    def _append_frame(self, frame, path, row_offset):
+    def _append_frame(self, frame, path, row_offset,
+                      legacy_spatial_index=False):
         """Append a bounded frame while preserving the legacy CSV layout."""
         frame = frame.copy()
-        frame.index = np.arange(row_offset, row_offset + len(frame))
+        # Historical spatial DataFrames were constructed with
+        # ``index=np.zeros(rows)``.  Their CSV index column is therefore zero
+        # for every saved state, whereas global data.csv uses a sequential
+        # RangeIndex.  Preserve both conventions in buffered mode; the index
+        # is part of the public CSV format even though it is not physics data.
+        if legacy_spatial_index:
+            frame.index = np.zeros(len(frame), dtype=int)
+        else:
+            frame.index = np.arange(row_offset, row_offset + len(frame))
         frame.to_csv(path, mode='a', header=not os.path.exists(path),
                      index=True)
 
@@ -3065,7 +3074,8 @@ class LV_simulation():
                         columns=np.arange(self.global_n_of_int_points))
                     frame['time'] = float(self.data['time'])
                     self._append_frame(frame, os.path.join(
-                        output_dir, name + '_data.csv'), 0)
+                        output_dir, name + '_data.csv'), 0,
+                        legacy_spatial_index=True)
                 self._buffered_static_written = True
             except Exception as error:
                 error_message = '%s: %s' % (
@@ -3227,7 +3237,9 @@ class LV_simulation():
                         path = os.path.join(os.path.dirname(
                             self.output_data_str), field + '_data.csv')
                         csv_start = time.time()
-                        self._append_frame(frame, path, self.spatial_rows_written)
+                        self._append_frame(
+                            frame, path, self.spatial_rows_written,
+                            legacy_spatial_index=True)
                         if self.output_profiling:
                             self.performance['csv_writing'] += (
                                 time.time()-csv_start)

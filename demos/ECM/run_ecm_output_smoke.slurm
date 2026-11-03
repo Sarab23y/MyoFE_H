@@ -48,6 +48,12 @@ for case in (legacy, buffered):
     assert case['protocol']['time_step'][0] == 0.001
     assert case['protocol']['no_of_time_steps'][0] == 200
 assert buffered['output_handler']['output_mode'][0] == 'buffered'
+required_ecm = set(('ecm_instantaneous_fiber_stress',
+                    'ecm_cycle_averaged_fiber_stress',
+                    'ecm_homeostatic_fiber_stress'))
+for case in (legacy, buffered):
+    assert required_ecm.issubset(set(
+        case['output_handler']['ecm_spatial_csv_fields']))
 for case, path, root in zip((legacy, buffered), output_jsons, output_roots):
     case['output_handler']['output_data_path'] = [
         root + '/sim_output/data.csv']

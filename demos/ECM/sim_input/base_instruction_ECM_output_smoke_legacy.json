@@ -777,6 +777,11 @@
     "dumping_spatial_in_average": [
       false
     ],
+    "ecm_spatial_csv_fields": [
+      "ecm_instantaneous_fiber_stress",
+      "ecm_cycle_averaged_fiber_stress",
+      "ecm_homeostatic_fiber_stress"
+    ],
     "frequency_n": [
       10
     ],
