@@ -10,7 +10,7 @@ import json
 import math
 import os
 import sys
-
+from mpi4py import MPI as MPI4PY
 
 def compare_reports(first_path, second_path, output_path):
     first = json.load(open(first_path)); second = json.load(open(second_path))
@@ -87,7 +87,7 @@ def run(output_path):
               'element': point_metadata.get(index, {}),
               'direct_ecm': float(values[index]), 'historical_dg1_transfer': float(old[index])}
              for index in range(len(values))]
-    comm = mesh.mpi_comm(); gathered = comm.gather(local, root=0)
+    comm = mesh.mpi_comm(); gathered = MPI4PY.COMM_WORLD.gather(local, root=0))
     if MPI.rank(comm) != 0:
         return 0
     points = [item for rank_items in gathered for item in rank_items]
