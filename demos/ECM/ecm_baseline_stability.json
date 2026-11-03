@@ -1,0 +1,217 @@
+{
+  "activation_time": 40.0, 
+  "cycles": [
+    {
+      "duration": 0.8310000000000006, 
+      "ecm_l2": 78.2302823148504, 
+      "ecm_max": 1322.081823691085, 
+      "ecm_mean": 189.36976258780606, 
+      "ecm_min": 90.04135561522217, 
+      "heart_rate": 72.29544350391096, 
+      "pressure": 26.320889013678563, 
+      "start": 37.47700000000336, 
+      "stop": 38.30800000000142, 
+      "volume": 0.08351953743133617
+    }, 
+    {
+      "duration": 0.8300000000000006, 
+      "ecm_l2": 75.62519616505296, 
+      "ecm_max": 1366.5187940268493, 
+      "ecm_mean": 184.88773923976703, 
+      "ecm_min": 89.94068761437293, 
+      "heart_rate": 72.32736804509591, 
+      "pressure": 26.740932212533252, 
+      "start": 38.30800000000142, 
+      "stop": 39.13799999999949, 
+      "volume": 0.08314613601823945
+    }, 
+    {
+      "duration": 0.8300000000000006, 
+      "ecm_l2": 76.57523973482213, 
+      "ecm_max": 1314.041959302823, 
+      "ecm_mean": 187.33510122650304, 
+      "ecm_min": 89.99079173291624, 
+      "heart_rate": 72.35106000846535, 
+      "pressure": 26.63248990009362, 
+      "start": 39.13799999999949, 
+      "stop": 39.96799999999755, 
+      "volume": 0.08337594791397332
+    }
+  ], 
+  "failed_criteria": [
+    "ecm_stress_field"
+  ], 
+  "field_change_hotspots": [
+    {
+      "current_cycle": 1, 
+      "points": [
+        {
+          "absolute_change": 945.796912237236, 
+          "current": 205.9709149383728, 
+          "global_quadrature_dof": 1757, 
+          "previous": 1151.7678271756088
+        }, 
+        {
+          "absolute_change": 928.9023563431884, 
+          "current": 1134.3297524367872, 
+          "global_quadrature_dof": 1773, 
+          "previous": 205.42739609359876
+        }, 
+        {
+          "absolute_change": 901.0010244522513, 
+          "current": 250.47239295056636, 
+          "global_quadrature_dof": 2437, 
+          "previous": 1151.4734174028176
+        }, 
+        {
+          "absolute_change": 895.5544338678731, 
+          "current": 426.5273898232119, 
+          "global_quadrature_dof": 2448, 
+          "previous": 1322.081823691085
+        }, 
+        {
+          "absolute_change": 842.6417749114524, 
+          "current": 994.2750601073518, 
+          "global_quadrature_dof": 2522, 
+          "previous": 151.63328519589936
+        }, 
+        {
+          "absolute_change": 810.6318890912619, 
+          "current": 1076.6393660288845, 
+          "global_quadrature_dof": 1827, 
+          "previous": 266.00747693762264
+        }, 
+        {
+          "absolute_change": 793.9901654378683, 
+          "current": 243.116993114434, 
+          "global_quadrature_dof": 1810, 
+          "previous": 1037.1071585523023
+        }, 
+        {
+          "absolute_change": 773.6373434113609, 
+          "current": 240.0954847053427, 
+          "global_quadrature_dof": 2663, 
+          "previous": 1013.7328281167037
+        }, 
+        {
+          "absolute_change": 771.5085368290911, 
+          "current": 448.4669266628034, 
+          "global_quadrature_dof": 1815, 
+          "previous": 1219.9754634918945
+        }, 
+        {
+          "absolute_change": 753.2416909801407, 
+          "current": 928.7165255401056, 
+          "global_quadrature_dof": 4901, 
+          "previous": 175.474834559965
+        }
+      ], 
+      "previous_cycle": 0
+    }, 
+    {
+      "current_cycle": 2, 
+      "points": [
+        {
+          "absolute_change": 1092.3823362358303, 
+          "current": 274.136457791019, 
+          "global_quadrature_dof": 2496, 
+          "previous": 1366.5187940268493
+        }, 
+        {
+          "absolute_change": 1062.1350538209963, 
+          "current": 262.88911161692556, 
+          "global_quadrature_dof": 2317, 
+          "previous": 1325.0241654379217
+        }, 
+        {
+          "absolute_change": 1025.4337952619194, 
+          "current": 1273.1649894447216, 
+          "global_quadrature_dof": 1829, 
+          "previous": 247.7311941828023
+        }, 
+        {
+          "absolute_change": 899.1476129987044, 
+          "current": 235.1821394380828, 
+          "global_quadrature_dof": 1773, 
+          "previous": 1134.3297524367872
+        }, 
+        {
+          "absolute_change": 810.9077506303938, 
+          "current": 227.83390587626243, 
+          "global_quadrature_dof": 2630, 
+          "previous": 1038.7416565066562
+        }, 
+        {
+          "absolute_change": 809.0562233780117, 
+          "current": 366.37313765436215, 
+          "global_quadrature_dof": 5005, 
+          "previous": 1175.429361032374
+        }, 
+        {
+          "absolute_change": 757.348050431692, 
+          "current": 1205.8149770944954, 
+          "global_quadrature_dof": 1815, 
+          "previous": 448.4669266628034
+        }, 
+        {
+          "absolute_change": 745.870638933954, 
+          "current": 949.2668254407738, 
+          "global_quadrature_dof": 4398, 
+          "previous": 203.39618650681987
+        }, 
+        {
+          "absolute_change": 738.1303549900011, 
+          "current": 190.5861705501045, 
+          "global_quadrature_dof": 4901, 
+          "previous": 928.7165255401056
+        }, 
+        {
+          "absolute_change": 736.758593863566, 
+          "current": 949.2359400882615, 
+          "global_quadrature_dof": 1755, 
+          "previous": 212.47734622469548
+        }
+      ], 
+      "previous_cycle": 1
+    }
+  ], 
+  "pairs": [
+    {
+      "changes": {
+        "ecm_stress_field": 0.4339788733317119, 
+        "heart_rate": 0.00044138950507703395, 
+        "pressure": 0.015707874187640254, 
+        "volume": 0.004470827121183508
+      }, 
+      "current_cycle": 1, 
+      "passed": {
+        "ecm_stress_field": false, 
+        "heart_rate": true, 
+        "pressure": true, 
+        "volume": true
+      }, 
+      "previous_cycle": 0
+    }, 
+    {
+      "changes": {
+        "ecm_stress_field": 0.4130732628134417, 
+        "heart_rate": 0.00032745841410854344, 
+        "pressure": 0.004055292896214203, 
+        "volume": 0.002756333228990579
+      }, 
+      "current_cycle": 2, 
+      "passed": {
+        "ecm_stress_field": false, 
+        "heart_rate": true, 
+        "pressure": true, 
+        "volume": true
+      }, 
+      "previous_cycle": 1
+    }
+  ], 
+  "reference_frozen": true, 
+  "reference_provisional": true, 
+  "stability_mode": "warn", 
+  "stable": false, 
+  "tolerance": 0.05
+}

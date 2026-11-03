@@ -6,7 +6,7 @@
 #SBATCH --mem=16G
 #SBATCH --account=col_jfwe223_uksr
 #SBATCH --partition=CAC48M192_L
-#SBATCH --nodelist=cascadeb022
+#SBATCH --nodelist=cascadeb024
 #SBATCH --output=/home/sba431/MyoFE_H/demos/ECM/logs/ECM_quad_check.%J.out
 #SBATCH --error=/home/sba431/MyoFE_H/demos/ECM/logs/ECM_quad_check.%J.err
 set -euo pipefail
