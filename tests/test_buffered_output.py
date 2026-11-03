@@ -4,7 +4,8 @@ import tempfile
 import unittest
 
 from python_codes.LV_simulation.dependencies.buffered_output import (
-    BoundedRowBuffer, estimated_numeric_buffer_bytes,
+    BoundedRowBuffer, estimated_numeric_buffer_bytes, is_scalar_output_value,
+    scalar_field_names,
     validate_global_dof_partition)
 
 
@@ -12,6 +13,36 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class BufferedOutputTests(unittest.TestCase):
+    def test_scalar_spatial_classification(self):
+        class ZeroDimensionalNumeric(object):
+            ndim = 0
+            dtype = type('DType', (), {'kind': 'f'})()
+        self.assertTrue(is_scalar_output_value(1.0))
+        self.assertTrue(is_scalar_output_value(ZeroDimensionalNumeric()))
+        self.assertFalse(is_scalar_output_value([1.0]))
+        self.assertEqual(scalar_field_names(
+            {'pressure': 10.0, 'fiber_stretch_raw': [1.0]*4}),
+            ['pressure'])
+
+    def test_global_writer_rejects_shape_change(self):
+        source = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                  'LV_simulation.py')).read()
+        self.assertIn('Global output field %s changed from a', source)
+        self.assertIn('if is_scalar_output_value(value)', source)
+
+    def test_fenics_2017_diagnostic_reuses_evaluated_stretch(self):
+        source = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                  'LV_simulation.py')).read()
+        block = source[source.index('# hsl and hsl0 are stored'):
+                       source.index('if self.fi:', source.index(
+                           '# hsl and hsl0 are stored'))]
+        self.assertIn('new_hs_length_list', block)
+        self.assertNotIn('project(', block)
+        health = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+            'dependencies', 'mechanical_health.py')).read()
+        self.assertIn("self.parent.data['fiber_stretch_raw']", health)
+        self.assertNotIn("'representation': 'quadrature'", health)
+
     def _buffered(self, count, frequency, batch_size):
         buffer = BoundedRowBuffer(('time', 'pressure', 'volume'), batch_size)
         written = []
@@ -79,6 +110,19 @@ class BufferedOutputTests(unittest.TestCase):
                       output['spatial_csv_fields'])
         self.assertIn('fiber_stretch_raw', output['spatial_csv_fields'])
         self.assertEqual(case['protocol']['perturbation']['perturbations'], [])
+
+    def test_smoke_cases_have_identical_physics(self):
+        import json
+        root = os.path.join(ROOT, 'demos', 'ECM', 'sim_input')
+        cases = [json.load(open(os.path.join(root, name))) for name in (
+            'base_instruction_ECM_output_smoke_legacy.json',
+            'base_instruction_ECM_output_smoke_buffered.json')]
+        outputs = [case.pop('output_handler') for case in cases]
+        self.assertEqual(cases[0], cases[1])
+        self.assertEqual(cases[0]['protocol']['no_of_time_steps'][0], 200)
+        self.assertEqual(cases[0]['protocol']['time_step'][0], 0.001)
+        self.assertNotIn('output_mode', outputs[0])
+        self.assertEqual(outputs[1]['output_mode'][0], 'buffered')
 
 
 if __name__ == '__main__':

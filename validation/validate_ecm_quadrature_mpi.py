@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""FEniCS-2019.1/Python-2.7 validation of direct Quadrature evaluation.
+"""FEniCS-2017.1/Python-2.7 validation of direct Quadrature evaluation.
 
 This deliberately reports, rather than asserts away, the difference between
 the historical DG1-to-Quadrature transfer and direct Quadrature projection.
@@ -10,17 +10,26 @@ import json
 import math
 import os
 import sys
-from mpi4py import MPI as MPI4PY
+
 
 def compare_reports(first_path, second_path, output_path):
     first = json.load(open(first_path)); second = json.load(open(second_path))
-    a = dict((tuple(item['coordinate']), item['direct_ecm']) for item in first['points'])
-    b = dict((tuple(item['coordinate']), item['direct_ecm']) for item in second['points'])
+    first_keys = [tuple(item['coordinate']) for item in first['points']]
+    second_keys = [tuple(item['coordinate']) for item in second['points']]
+    a = dict((tuple(item['coordinate']), item['direct_fields']) for item in first['points'])
+    b = dict((tuple(item['coordinate']), item['direct_fields']) for item in second['points'])
     missing = sorted(set(a).symmetric_difference(set(b)))
-    difference = max([abs(a[key]-b[key]) for key in set(a).intersection(b)] or [0.0])
+    duplicates = sorted(set([key for key in first_keys
+                             if first_keys.count(key) > 1] +
+                            [key for key in second_keys
+                             if second_keys.count(key) > 1]))
+    difference = max([abs(a[key][field]-b[key][field])
+        for key in set(a).intersection(b) for field in a[key]] or [0.0])
+    bad_coordinates = sorted(set(missing + duplicates))
     report = {'mode': 'cross_mpi_comparison', 'missing_or_duplicate_coordinates':
-              [list(key) for key in missing], 'maximum_direct_value_difference': difference,
-              'passed': not missing and difference <= 1.0e-10}
+              [list(key) for key in bad_coordinates],
+              'maximum_direct_value_difference': difference,
+              'passed': not bad_coordinates and difference <= 1.0e-10}
     with open(output_path, 'w') as handle:
         json.dump(report, handle, indent=2, sort_keys=True)
     return 0 if report['passed'] else 1
@@ -30,8 +39,8 @@ def run(output_path):
     import numpy as np
     from dolfin import (Constant, FiniteElement, FunctionSpace, Identity,
                         MPI, SpatialCoordinate, UnitCubeMesh, VectorFunctionSpace,
-                        as_tensor, conditional, diff, dx, exp, inner, interpolate,
-                        project, tr, variable, assemble)
+                        as_tensor, conditional, det, diff, dx, exp, inner,
+                        interpolate, inv, project, sqrt, tr, variable, assemble)
     mesh = UnitCubeMesh(2, 2, 2)
     cell = mesh.ufl_cell()
     qelement = FiniteElement('Quadrature', cell, degree=2,
@@ -56,6 +65,18 @@ def run(output_path):
     expression = inner(f0, secm*f0)
     qparams = {'representation': 'quadrature', 'quadrature_degree': 2}
     direct = project(expression, qspace, form_compiler_parameters=qparams)
+    pressure = Constant(12.0)
+    diagnostic_expressions = {
+        'ecm_fiber_stress': expression,
+        'fiber_stretch_raw': sqrt(inner(f0, C*f0)),
+        'fiber_strain': 0.5*(inner(f0, C*f0)-1.0),
+        'J': sqrt(det(C)),
+        'local_pressure': pressure,
+        'incompressibility_fiber_stress': inner(
+            f0, (-pressure*inv(C))*f0)}
+    diagnostic_values = dict((name, project(value, qspace,
+        form_compiler_parameters=qparams).vector().get_local())
+        for name, value in diagnostic_expressions.items())
     historical = interpolate(project(expression, dg1,
         form_compiler_parameters={'representation': 'uflacs'}), qspace)
     difference = direct-historical
@@ -85,14 +106,19 @@ def run(output_path):
                     'quadrature_point_in_cell': int(quadrature_point)}
     local = [{'coordinate': [round(float(v), 14) for v in coordinates[index]],
               'element': point_metadata.get(index, {}),
-              'direct_ecm': float(values[index]), 'historical_dg1_transfer': float(old[index])}
+              'direct_ecm': float(values[index]),
+              'direct_fields': dict((name, float(field_values[index]))
+                                    for name, field_values in
+                                    diagnostic_values.items()),
+              'historical_dg1_transfer': float(old[index])}
              for index in range(len(values))]
-    comm = mesh.mpi_comm(); gathered = MPI4PY.COMM_WORLD.gather(local, root=0))
+    comm = mesh.mpi_comm(); gathered = comm.gather(local, root=0)
     if MPI.rank(comm) != 0:
         return 0
     points = [item for rank_items in gathered for item in rank_items]
     keys = [tuple(item['coordinate']) for item in points]
-    finite = all(np.isfinite(item['direct_ecm']) and
+    finite = all(all(np.isfinite(value) for value in
+                     item['direct_fields'].values()) and
                  np.isfinite(item['historical_dg1_transfer']) for item in points)
     report = {'mode': 'fenics_quadrature_validation', 'mpi_size': MPI.size(comm),
               'point_count': len(points), 'unique_coordinate_count': len(set(keys)),

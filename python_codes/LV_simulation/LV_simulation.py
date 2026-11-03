@@ -30,7 +30,8 @@ from .baroreflex import baroreflex as br
 from .growth import growth as gr
 from .fibrosis import StressDrivenFibrosis, ECMStressDiagnostic
 from .dependencies.mechanical_health import MechanicalHealthDiagnostic
-from .dependencies.buffered_output import validate_global_dof_partition
+from .dependencies.buffered_output import (is_scalar_output_value,
+    validate_global_dof_partition)
 from .half_sarcomere import half_sarcomere as hs 
 from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
@@ -430,13 +431,18 @@ class LV_simulation():
         # First build up the field data
         # Prune some fields from the self_data
         sk = []
-        for k in self.circ.data.keys():
-            if (k not in ['p','v','s','compliance','resistance','f']):
+        for k, value in self.circ.data.items():
+            if (k not in ['p','v','s','compliance','resistance','f'] and
+                    is_scalar_output_value(value)):
                 sk.append(k)
 
-        data_fields = sk + \
-            list(self.data.keys()) + \
-            list(self.hr.data.keys()) 
+        # Global CSV columns must contain exactly one numeric value per saved
+        # state.  Classify by value shape rather than maintaining a fragile
+        # exclusion list of known quadrature fields.
+        data_fields = sk + [name for name, value in self.data.items()
+                            if is_scalar_output_value(value)] + \
+            [name for name, value in self.hr.data.items()
+             if is_scalar_output_value(value)]
             #list(self.circ.data.keys()) 
             #list(self.hs.data.keys()) + \
             #list(self.hs.memb.data.keys()) + \
@@ -445,7 +451,8 @@ class LV_simulation():
 
         # Add in fields from optional modules
         if (self.br != []):
-            data_fields = data_fields + list(self.br.data.keys())
+            data_fields = data_fields + [name for name, value in
+                self.br.data.items() if is_scalar_output_value(value)]
         
         if self.gr: 
             for f in list(self.gr.data.keys()):
@@ -465,17 +472,19 @@ class LV_simulation():
                     data_fields.append(f)
         if self.fi:
             for f, value in self.fi.data.items():
-                if np.isscalar(value):
+                if is_scalar_output_value(value):
                     data_fields.append(f)
         if self.ecm_diag:
             for f, value in self.ecm_diag.data.items():
-                if np.isscalar(value):
+                if is_scalar_output_value(value):
                     data_fields.append(f)
 
         if (self.va != []):
-            data_fields = data_fields + list(self.va.data.keys())
+            data_fields = data_fields + [name for name, value in
+                self.va.data.items() if is_scalar_output_value(value)]
         if (self.fr != []):
-            data_fields = data_fields + list(self.fr.data.keys())
+            data_fields = data_fields + [name for name, value in
+                self.fr.data.items() if is_scalar_output_value(value)]
         if getattr(self, 'optimized_output', False):
             requested = getattr(self, 'requested_global_csv_fields', [])
             if requested:
@@ -1428,11 +1437,15 @@ class LV_simulation():
         #self.data['hsl0'] = hsl0
         self.data['hsl'] = new_hs_length_list
         self.data['alpha_f'] = myo_stretch
-        raw_stretch = project(
-            self.mesh.model['functions']['fiber_stretch_raw'],
-            self.mesh.model['function_spaces']['quadrature_space'],
-            form_compiler_parameters={'representation': 'quadrature',
-                                      'quadrature_degree': 2}).vector().get_local()[:]
+        # hsl and hsl0 are stored in the material Quadrature space.  Their
+        # pointwise ratio is exactly alpha_f because mechanics defines
+        # hsl = alpha_f*hsl0.  Reusing those already evaluated values avoids a
+        # second JIT form solely for diagnostic output (important for legacy
+        # FFC 2017) without changing the kinematics or solver state.
+        hsl0_values = self.mesh.model['functions']['hsl0'].vector().get_local()
+        if np.any(hsl0_values == 0.0):
+            raise RuntimeError('Cannot calculate fiber stretch: hsl0 contains zero')
+        raw_stretch = np.asarray(new_hs_length_list)/hsl0_values
         self.data['fiber_stretch_raw'] = raw_stretch
         self.data['fiber_stretch_tension_only'] = myo_stretch
         """if self.comm.Get_rank() == 0:
@@ -2550,30 +2563,30 @@ class LV_simulation():
 
     def write_complete_data_to_sim_data(self):
         """ Writes full data to data frame """
-        
-    
+        def store(name, value):
+            if name not in self.sim_data:
+                return
+            if not is_scalar_output_value(value):
+                raise RuntimeError('Global output field %s changed from a '
+                    'scalar to a spatial/sequence value' % name)
+            self.sim_data[name][self.write_counter] = value
 
         for f in list(self.data.keys()):
-
-
-            if (f in self.sim_data and
-                    f not in ['Sff','sff_mean','hsl','alpha_f',
-                              'total_stress_spatial','fr_active']):
-                self.sim_data[f][self.write_counter] = self.data[f]
+            store(f, self.data[f])
 
         for f in list(self.circ.data.keys()):
             if (f not in ['p', 'v', 's', 'compliance', 'resistance',
                             'inertance', 'f']):
                 if f in self.sim_data:
-                    self.sim_data[f][self.write_counter] = self.circ.data[f]
+                    store(f, self.circ.data[f])
         for f in list(self.hr.data.keys()):
             if f in self.sim_data:
-                self.sim_data[f][self.write_counter] = self.hr.data[f]
+                store(f, self.hr.data[f])
 
         if (self.br):
             for f in list(self.br.data.keys()):
                 if f in self.sim_data:
-                    self.sim_data[f][self.write_counter] = self.br.data[f]
+                    store(f, self.br.data[f])
         if (self.gr):
             for f in list(self.gr.data.keys()):
 
@@ -2585,15 +2598,14 @@ class LV_simulation():
 
 
                 if f in self.sim_data and f not in self.spatial_gr_data_fields:
-                    self.sim_data[f][self.write_counter] = self.gr.data[f]
+                    store(f, self.gr.data[f])
         if self.fi:
             for f, value in self.fi.data.items():
                 if f in self.sim_data and f not in self.spatial_fibrosis_data_fields:
-                    self.sim_data[f][self.write_counter] = value
+                    store(f, value)
         if self.ecm_diag:
             for f, value in self.ecm_diag.data.items():
-                if f in self.sim_data and np.isscalar(value):
-                    self.sim_data[f][self.write_counter] = value
+                store(f, value)
 
     
         if 'write_mode' in self.sim_data:
@@ -2899,19 +2911,20 @@ class LV_simulation():
                 'k_1': self.mesh.model['functions']['k_1'],
                 'hs_length': self.mesh.model['functions']['hsl'],
                 'fiber_strain': self.mesh.model['functions']['fiber_strain'],
-                'fiber_stretch_raw': self.mesh.model['functions']['fiber_stretch_raw'],
-                'fiber_stretch_tension_only': self.mesh.model['functions']['fiber_stretch_tension_only'],
                 'Ell': self.mesh.model['functions']['Ell'],
                 'Err': self.mesh.model['functions']['Err'],
                 'Ecc': self.mesh.model['functions']['Ecc']}
             for field in requested_extra:
-                if field in expressions:
-                    compiler = {'representation': 'quadrature',
-                                'quadrature_degree': 2} if field in (
-                        'fiber_stretch_raw', 'fiber_stretch_tension_only') else                         {'representation': 'uflacs'}
+                if field in ('fiber_stretch_raw',
+                             'fiber_stretch_tension_only'):
+                    # Already evaluated at these material points during the
+                    # mechanics timestep; do not compile an output-only form.
+                    data_mapping[field] = np.asarray(self.data[field])
+                elif field in expressions:
                     data_mapping[field] = project(
                         expressions[field], qspace,
-                        form_compiler_parameters=compiler).vector().get_local()[:]
+                        form_compiler_parameters={
+                            'representation': 'uflacs'}).vector().get_local()[:]
 
             for f in self.spatial_extra:
                 data_field = []

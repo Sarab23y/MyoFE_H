@@ -54,6 +54,10 @@ class MechanicalHealthDiagnosticTests(unittest.TestCase):
             'validate_ecm_quadrature_mpi.py')).read()
         self.assertIn("tuple(item['coordinate'])", source)
         self.assertIn('relative_weighted_l2_difference', source)
+        self.assertIn("'fiber_stretch_raw'", source)
+        self.assertIn("'incompressibility_fiber_stress'", source)
+        self.assertIn("'local_pressure'", source)
+        self.assertIn("'direct_fields'", source)
         self.assertIn('missing_or_duplicate_coordinates', source)
         self.assertIn("'quadrature_point_in_cell'", source)
 

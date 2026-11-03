@@ -5,8 +5,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=16G
 #SBATCH --account=col_jfwe223_uksr
-#SBATCH --partition=SKY32M192_L
-#SBATCH --nodelist=skylake051
+#SBATCH --partition=CAC48M192_L
+#SBATCH --nodelist=cascadeb024
 #SBATCH --output=/home/sba431/MyoFE_H/demos/ECM/logs/ECM_quad_check.%J.out
 #SBATCH --error=/home/sba431/MyoFE_H/demos/ECM/logs/ECM_quad_check.%J.err
 set -euo pipefail

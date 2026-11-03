@@ -5,8 +5,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=180G
 #SBATCH --account=col_jfwe223_uksr
-#SBATCH --partition=SKY32M192_L
-#SBATCH --nodelist=skylake051
+#SBATCH --partition=CAC48M192_L
+#SBATCH --nodelist=cascadeb022
 #SBATCH --mail-user=Sara.b@uky.edu
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=/home/sba431/MyoFE_H/demos/ECM/logs/ECM_healthy_opt.%J.out
