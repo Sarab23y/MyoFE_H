@@ -15,31 +15,46 @@ set -euo pipefail
 
 REPO=/home/sba431/MyoFE_H
 IMAGE=/home/sba431/fenics.img
-LEGACY_JSON=$REPO/demos/ECM/sim_input/base_instruction_ECM_output_smoke_legacy.json
-BUFFERED_JSON=$REPO/demos/ECM/sim_input/base_instruction_ECM_output_smoke_buffered.json
+LEGACY_TEMPLATE=$REPO/demos/ECM/sim_input/base_instruction_ECM_output_smoke_legacy.json
+BUFFERED_TEMPLATE=$REPO/demos/ECM/sim_input/base_instruction_ECM_output_smoke_buffered.json
 ROOT=/mnt/gpfs2_4m/scratch/sba431/demos/ECM
-LEGACY=$ROOT/ECM_output_smoke_legacy
-BUFFERED=$ROOT/ECM_output_smoke_buffered
-REPORT=$ROOT/ECM_output_smoke_comparison.json
+RUN_ROOT=$ROOT/ECM_output_smoke_${SLURM_JOB_ID}
+LEGACY=$RUN_ROOT/legacy
+BUFFERED=$RUN_ROOT/buffered
+LEGACY_JSON=$RUN_ROOT/config/legacy.json
+BUFFERED_JSON=$RUN_ROOT/config/buffered.json
+REPORT=$RUN_ROOT/comparison.json
 
-for path in "$IMAGE" "$LEGACY_JSON" "$BUFFERED_JSON"; do
+for path in "$IMAGE" "$LEGACY_TEMPLATE" "$BUFFERED_TEMPLATE"; do
   [ -f "$path" ] || { echo "ERROR: missing $path" >&2; exit 2; }
 done
-for result in "$LEGACY" "$BUFFERED" "$REPORT"; do
-  [ ! -e "$result" ] || { echo "ERROR: refusing to overwrite $result" >&2; exit 3; }
-done
+[ ! -e "$RUN_ROOT" ] || {
+  echo "ERROR: refusing to overwrite $RUN_ROOT" >&2; exit 3;
+}
 mkdir -p "$REPO/demos/ECM/logs" \
+  "$RUN_ROOT/config" \
   "$LEGACY/sim_output" "$LEGACY/mesh_output" \
   "$BUFFERED/sim_output" "$BUFFERED/mesh_output"
 
-singularity exec --cleanenv "$IMAGE" python - "$LEGACY_JSON" "$BUFFERED_JSON" <<'PY'
+singularity exec --cleanenv "$IMAGE" python - \
+  "$LEGACY_TEMPLATE" "$BUFFERED_TEMPLATE" \
+  "$LEGACY_JSON" "$BUFFERED_JSON" "$LEGACY" "$BUFFERED" <<'PY'
 from __future__ import print_function
 import json, sys
-legacy, buffered = [json.load(open(path)) for path in sys.argv[1:]]
+legacy, buffered = [json.load(open(path)) for path in sys.argv[1:3]]
+output_jsons = sys.argv[3:5]
+output_roots = sys.argv[5:7]
 for case in (legacy, buffered):
     assert case['protocol']['time_step'][0] == 0.001
     assert case['protocol']['no_of_time_steps'][0] == 200
 assert buffered['output_handler']['output_mode'][0] == 'buffered'
+for case, path, root in zip((legacy, buffered), output_jsons, output_roots):
+    case['output_handler']['output_data_path'] = [
+        root + '/sim_output/data.csv']
+    case['output_handler']['mesh_output_path'] = [root + '/mesh_output']
+    with open(path, 'w') as handle:
+        json.dump(case, handle, indent=2, sort_keys=True)
+        handle.write('\n')
 print('PASS: matched 200-step smoke configurations')
 PY
 

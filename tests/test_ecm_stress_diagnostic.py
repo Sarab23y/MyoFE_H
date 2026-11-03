@@ -212,9 +212,15 @@ class ECMStressDiagnosticTests(unittest.TestCase):
     def test_total_stress_spatial_is_populated_and_mpi_is_not_finalized_early(self):
         driver = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
                                    'LV_simulation.py')).read()
+        compat = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+                                   'dependencies',
+                                   'fenics_2017_compat.py')).read()
         entry = open(os.path.join(ROOT, 'python_codes', 'MyoFE.py')).read()
-        self.assertIn("self.data['total_stress_spatial'] = project", driver)
-        self.assertIn("'total_passive': inner(f0", driver)
+        self.assertIn("self.data['total_stress_spatial'] = \\", driver)
+        self.assertIn("output_stress_values['total_fiber_stress']", driver)
+        self.assertIn('fiber_stress_components(', driver)
+        self.assertIn("values['total_passive_stress'] = (", compat)
+        self.assertIn("values['total_fiber_stress'] = (", compat)
         self.assertIn("'bulk_passive': inner(f0", driver)
         lazy_block = driver[driver.index('requested_extra = set('):
                             driver.index('for f in self.spatial_extra:',

@@ -43,6 +43,25 @@ class BufferedOutputTests(unittest.TestCase):
         self.assertIn("self.parent.data['fiber_stretch_raw']", health)
         self.assertNotIn("'representation': 'quadrature'", health)
 
+    def test_fenics_2017_mixed_pressure_avoids_variational_projection(self):
+        compat = open(os.path.join(ROOT, 'python_codes', 'LV_simulation',
+            'dependencies', 'fenics_2017_compat.py')).read()
+        self.assertIn("'representation': 'quadrature'", compat)
+        self.assertIn("mixed_function.sub(1, deepcopy=True)", compat)
+        self.assertIn('interpolate(pressure, space)', compat)
+        pressure_block = compat[compat.index('def mixed_pressure_quadrature'):
+                                compat.index('def fiber_stress_components')]
+        self.assertNotIn('project(', pressure_block)
+        self.assertIn("-values['local_pressure']", compat)
+
+    def test_smoke_launcher_uses_unique_job_directory_and_container_first_mpi(self):
+        launcher = open(os.path.join(ROOT, 'demos', 'ECM',
+                                    'run_ecm_output_smoke.slurm')).read()
+        self.assertIn('ECM_output_smoke_${SLURM_JOB_ID}', launcher)
+        self.assertIn('singularity exec --cleanenv "$IMAGE" mpiexec -np',
+                      launcher)
+        self.assertIn('refusing to overwrite $RUN_ROOT', launcher)
+
     def _buffered(self, count, frequency, batch_size):
         buffer = BoundedRowBuffer(('time', 'pressure', 'volume'), batch_size)
         written = []

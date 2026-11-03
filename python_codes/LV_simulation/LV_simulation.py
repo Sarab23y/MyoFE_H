@@ -32,6 +32,8 @@ from .fibrosis import StressDrivenFibrosis, ECMStressDiagnostic
 from .dependencies.mechanical_health import MechanicalHealthDiagnostic
 from .dependencies.buffered_output import (is_scalar_output_value,
     validate_global_dof_partition)
+from .dependencies.fenics_2017_compat import (fiber_stress_components,
+    project_quadrature)
 from .half_sarcomere import half_sarcomere as hs 
 from .fiber_reorientation import fiber_reorientation as fr
 from .dependencies.assign_local_coordinate_system import assign_local_coordinate_system as lcs
@@ -408,16 +410,21 @@ class LV_simulation():
         self.solver.solvenonlinear()"""
 
         self.sff_tracker = []
-        Sff = project(self.mesh.model['functions']['Sff'], 
-                    self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+        Sff = project_quadrature(self.mesh.model['functions']['Sff'],
+                    self.mesh.model['function_spaces']["quadrature_space"],
+                    'initial_Sff', self.comm).vector().get_local()[:]
         self.data['sff_mean']= Sff
 
-        self.data['alpha_f'] = project(self.mesh.model['functions']['alpha_f'], 
-                    self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+        self.data['alpha_f'] = project_quadrature(
+                    self.mesh.model['functions']['alpha_f'],
+                    self.mesh.model['function_spaces']["quadrature_space"],
+                    'initial_alpha_f', self.comm).vector().get_local()[:]
         self.data['fiber_stretch_raw'] = self.data['alpha_f'].copy()
-        self.data['fiber_stretch_tension_only'] = project(
+        self.data['fiber_stretch_tension_only'] = project_quadrature(
             self.mesh.model['functions']['fiber_stretch_tension_only'],
-            self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+            self.mesh.model['function_spaces']["quadrature_space"],
+            'initial_fiber_stretch_tension_only',
+            self.comm).vector().get_local()[:]
         inner_p = inner(self.mesh.model['functions']['f0'],
                         self.mesh.model['functions']['total_stress']*\
                             self.mesh.model['functions']['f0'])
@@ -1005,11 +1012,11 @@ class LV_simulation():
                         
 
                         if m == 'total_stress':
-                            temp_obj = project(inner(self.mesh.model['functions']['f0'],
+                            temp_obj = project_quadrature(inner(self.mesh.model['functions']['f0'],
                                         self.mesh.model['functions']['total_stress']*
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar"],
-                                        form_compiler_parameters={"representation":"uflacs"})
+                                        'initial_mesh_total_stress', self.comm)
                             
                         if m == 'total_stress_vector':
 
@@ -1017,15 +1024,17 @@ class LV_simulation():
                             Velem0._quad_scheme = 'default'
                             Velem_FS = FunctionSpace(self.mesh.model['mesh'],Velem0)
 
-                            temp_obj = project((self.mesh.model['functions']['total_stress']*self.mesh.model['functions']['f0']),Velem_FS,
-                                        form_compiler_parameters={"representation":"uflacs"})
+                            temp_obj = project_quadrature(
+                                self.mesh.model['functions']['total_stress']*
+                                self.mesh.model['functions']['f0'], Velem_FS,
+                                'initial_mesh_total_stress_vector', self.comm)
                             
                         if m == 'total_passive':
-                            temp_obj = project(inner(self.mesh.model['functions']['f0'],
+                            temp_obj = project_quadrature(inner(self.mesh.model['functions']['f0'],
                                         self.mesh.model['functions']['passive_total_stress']*
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar_for_active"],
-                                        form_compiler_parameters={"representation":"uflacs"})
+                                        'initial_mesh_total_passive', self.comm)
                         if m == 'myofiber_passive':
                             temp_obj = project(inner(self.mesh.model['functions']['f0'],
                                         self.mesh.model['functions']['Sff']*
@@ -1368,16 +1377,20 @@ class LV_simulation():
 
         # Then update FE function for cross-bridge stress, hs_length, and passive stress
         # across the mesh
-        self.cb_stress_list = project(self.mesh.model['functions']['cb_stress'],
-                                self.mesh.model['function_spaces']['quadrature_space']).vector().get_local()[:]
+        qspace = self.mesh.model['function_spaces']['quadrature_space']
+        self.cb_stress_list = project_quadrature(
+                                self.mesh.model['functions']['cb_stress'],
+                                qspace, 'timestep_cb_stress', self.comm
+                                ).vector().get_local()[:]
 
         self.mesh.model['functions']['hsl_old'].vector()[:] = \
-            project(self.mesh.model['functions']['hsl'], 
-            self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+            project_quadrature(self.mesh.model['functions']['hsl'],
+                qspace, 'timestep_hsl_old', self.comm
+                ).vector().get_local()[:]
 
         new_hs_length_list = \
-            project(self.mesh.model['functions']['hsl'], 
-            self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+            project_quadrature(self.mesh.model['functions']['hsl'],
+                qspace, 'timestep_hsl', self.comm).vector().get_local()[:]
 
         self.delta_hs_length_list = new_hs_length_list - self.hs_length_list
         self.hs_length_list = new_hs_length_list
@@ -1400,8 +1413,9 @@ class LV_simulation():
         # check Sff
         if self.comm.Get_rank() == 0:
             print 'Checking Sff values'
-        Sff = project(self.mesh.model['functions']['Sff'], 
-                    self.mesh.model['function_spaces']["quadrature_space"]).vector().get_local()[:]
+        Sff = project_quadrature(self.mesh.model['functions']['Sff'],
+                    qspace, 'timestep_Sff_diagnostic', self.comm
+                    ).vector().get_local()[:]
 
         inner_p = inner(self.mesh.model['functions']['f0'],
                         self.mesh.model['functions']['total_stress']*\
@@ -1432,8 +1446,10 @@ class LV_simulation():
         #alpha_f = project(self.mesh.model['functions']['alpha_f'], 
         #            FunctionSpace(self.mesh.model['mesh'], "DG", 1), 
         #            form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
-        myo_stretch = project(self.mesh.model['functions']['myofiber_stretch'], 
-                    self.mesh.model['function_spaces']['quadrature_space']).vector().get_local()[:]
+        myo_stretch = project_quadrature(
+                    self.mesh.model['functions']['myofiber_stretch'], qspace,
+                    'timestep_fiber_stretch_tension_only', self.comm
+                    ).vector().get_local()[:]
         #self.data['hsl0'] = hsl0
         self.data['hsl'] = new_hs_length_list
         self.data['alpha_f'] = myo_stretch
@@ -2426,11 +2442,11 @@ class LV_simulation():
 
                         #dolfin.parameters["form_compiler"]["representation"] = "quadrature"
                     if m == 'total_stress':
-                        temp_obj = project(inner(self.mesh.model['functions']['f0'],
+                        temp_obj = project_quadrature(inner(self.mesh.model['functions']['f0'],
                                         self.mesh.model['functions']['total_stress']*
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar"],
-                                        form_compiler_parameters={"representation":"uflacs"})
+                                        'mesh_total_stress', self.comm)
 
                     if m == 'total_stress_vector':
 
@@ -2438,15 +2454,17 @@ class LV_simulation():
                             Velem0._quad_scheme = 'default'
                             Velem_FS = FunctionSpace(self.mesh.model['mesh'],Velem0)
                             
-                            temp_obj = project((self.mesh.model['functions']['total_stress']*self.mesh.model['functions']['f0']),Velem_FS,
-                                        form_compiler_parameters={"representation":"uflacs"})
+                            temp_obj = project_quadrature(
+                                self.mesh.model['functions']['total_stress']*
+                                self.mesh.model['functions']['f0'], Velem_FS,
+                                'mesh_total_stress_vector', self.comm)
                             
                     if m == 'total_passive':
-                        temp_obj = project(inner(self.mesh.model['functions']['f0'],
+                        temp_obj = project_quadrature(inner(self.mesh.model['functions']['f0'],
                                         self.mesh.model['functions']['passive_total_stress']*
                                         self.mesh.model['functions']['f0']),
                                         self.mesh.model['function_spaces']["scalar_for_active"],
-                                        form_compiler_parameters={"representation":"uflacs"})
+                                        'mesh_total_passive', self.comm)
                     if m == 'myofiber_passive':
                         temp_obj = project(inner(self.mesh.model['functions']['f0'],
                                         self.mesh.model['functions']['Sff']*
@@ -2737,15 +2755,14 @@ class LV_simulation():
                 self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field
 
 
+            output_stress_values = None
             if 'total_stress_spatial' in self.local_spatial_sim_data:
-                total_stress_expression = inner(
-                    self.mesh.model['functions']['f0'],
-                    self.mesh.model['functions']['total_stress'] *
-                    self.mesh.model['functions']['f0'])
-                self.data['total_stress_spatial'] = project(
-                    total_stress_expression,
+                output_stress_values = fiber_stress_components(
+                    self.mesh.model['functions'],
                     self.mesh.model['function_spaces']['quadrature_space'],
-                    form_compiler_parameters={"representation":"uflacs"}).vector().get_local()[:]
+                    self.comm, 'spatial_output')
+                self.data['total_stress_spatial'] = \
+                    output_stress_values['total_fiber_stress']
 
             for f in ['Sff','sff_mean','alpha_f','total_stress_spatial']:
                 if f not in self.local_spatial_sim_data:
@@ -2901,12 +2918,8 @@ class LV_simulation():
             f0 = self.mesh.model['functions']['f0']
             data_mapping = {}
             expressions = {
-                'active_stress': inner(f0, self.mesh.model['functions']['Pactive']*f0),
-                'total_passive': inner(f0, self.mesh.model['functions']['passive_total_stress']*f0),
-                'myofiber_passive': inner(f0, self.mesh.model['functions']['myo_passive_PK2']*f0),
                 'Sff_mesh': self.mesh.model['functions']['Sff'],
                 'bulk_passive': inner(f0, self.mesh.model['functions']['bulk_passive']*f0),
-                'incomp_stress': inner(f0, self.mesh.model['functions']['incomp_stress']*f0),
                 'cb_number_density': self.mesh.model['functions']['cb_number_density'],
                 'k_1': self.mesh.model['functions']['k_1'],
                 'hs_length': self.mesh.model['functions']['hsl'],
@@ -2914,6 +2927,21 @@ class LV_simulation():
                 'Ell': self.mesh.model['functions']['Ell'],
                 'Err': self.mesh.model['functions']['Err'],
                 'Ecc': self.mesh.model['functions']['Ecc']}
+            stress_field_names = set(('active_stress', 'total_passive',
+                'myofiber_passive', 'incomp_stress'))
+            if requested_extra.intersection(stress_field_names):
+                if output_stress_values is None:
+                    output_stress_values = fiber_stress_components(
+                        self.mesh.model['functions'], qspace, self.comm,
+                        'spatial_output')
+                data_mapping.update({
+                    'active_stress': output_stress_values['active_stress'],
+                    'total_passive': output_stress_values[
+                        'total_passive_stress'],
+                    'myofiber_passive': output_stress_values[
+                        'xi_passive_stress'],
+                    'incomp_stress': output_stress_values[
+                        'incompressibility_stress']})
             for field in requested_extra:
                 if field in ('fiber_stretch_raw',
                              'fiber_stretch_tension_only'):
@@ -2921,10 +2949,10 @@ class LV_simulation():
                     # mechanics timestep; do not compile an output-only form.
                     data_mapping[field] = np.asarray(self.data[field])
                 elif field in expressions:
-                    data_mapping[field] = project(
+                    data_mapping[field] = project_quadrature(
                         expressions[field], qspace,
-                        form_compiler_parameters={
-                            'representation': 'uflacs'}).vector().get_local()[:]
+                        'spatial_output_' + field,
+                        self.comm).vector().get_local()[:]
 
             for f in self.spatial_extra:
                 data_field = []

@@ -109,9 +109,9 @@ class MechanicalHealthDiagnostic(object):
         return metadata
 
     def _values(self):
-        from dolfin import inner, project
+        from .fenics_2017_compat import (fiber_stress_components,
+            project_quadrature)
         f = self.mesh.model['functions']; qspace = self.mesh.model['function_spaces']['quadrature_space']
-        f0 = f['f0']
         # These fields have already been evaluated at the identical material
         # points by the normal mechanics timestep.  Reuse them instead of
         # asking FFC 2017 to compile duplicate diagnostic forms.
@@ -119,29 +119,15 @@ class MechanicalHealthDiagnostic(object):
             'fiber_stretch_raw': np.asarray(
                 self.parent.data['fiber_stretch_raw']).copy(),
             'hsl': np.asarray(self.parent.data['hsl']).copy(),
-            'hsl0': f['hsl0'].vector().get_local().copy(),
-            'xi_passive_stress': np.asarray(
-                self.parent.data['Sff']).copy()}
+            'hsl0': f['hsl0'].vector().get_local().copy()}
         expressions = {
-            'fiber_strain': f['fiber_strain'], 'J': f['J'],
-            'local_pressure': f['p'],
-            'incompressibility_stress': inner(f0, f['incomp_stress']*f0),
-            'ground_matrix_stress': inner(f0, f['ground_matrix_passive']*f0),
-            'collagen_stress': inner(f0, f['collagen_passive']*f0),
-            'active_stress': inner(f0, f['Pactive']*f0),
-            'total_passive_stress': inner(f0, f['passive_total_stress']*f0),
-            'total_fiber_stress': inner(f0, f['total_stress']*f0)}
-        # Existing 2017 production code successfully projects comparable
-        # expressions into this Quadrature space without forcing a compiler
-        # representation.  Allow DOLFIN/FFC 2017 to select its compatible
-        # backend; the explicit direct-quadrature ECM path remains unchanged.
+            'fiber_strain': f['fiber_strain'], 'J': f['J']}
         for name, expression in expressions.items():
-            try:
-                values[name] = project(
-                    expression, qspace).vector().get_local()
-            except Exception as error:
-                raise RuntimeError('Mechanical-health projection failed for '
-                    '%s: %s' % (name, str(error)))
+            values[name] = project_quadrature(
+                expression, qspace, 'mechanical_health_' + name,
+                self.comm).vector().get_local()
+        values.update(fiber_stress_components(
+            f, qspace, self.comm, 'mechanical_health'))
         return values
 
     def record_time_step(self, unused_time_step):

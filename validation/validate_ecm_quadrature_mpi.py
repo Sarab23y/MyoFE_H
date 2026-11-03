@@ -37,10 +37,12 @@ def compare_reports(first_path, second_path, output_path):
 
 def run(output_path):
     import numpy as np
-    from dolfin import (Constant, FiniteElement, FunctionSpace, Identity,
-                        MPI, SpatialCoordinate, UnitCubeMesh, VectorFunctionSpace,
+    from dolfin import (Constant, FiniteElement, Function, FunctionSpace,
+                        Identity, MPI, MixedElement, SpatialCoordinate,
+                        UnitCubeMesh, VectorElement, VectorFunctionSpace,
                         as_tensor, conditional, det, diff, dx, exp, inner,
-                        interpolate, inv, project, sqrt, tr, variable, assemble)
+                        grad, interpolate, inv, project, split, sqrt, tr,
+                        variable, assemble)
     mesh = UnitCubeMesh(2, 2, 2)
     cell = mesh.ufl_cell()
     qelement = FiniteElement('Quadrature', cell, degree=2,
@@ -77,6 +79,24 @@ def run(output_path):
     diagnostic_values = dict((name, project(value, qspace,
         form_compiler_parameters=qparams).vector().get_local())
         for name, value in diagnostic_expressions.items())
+    # Reproduce the production mixed CG2-displacement/CG1-pressure coefficient
+    # types. The pressure is deliberately extracted as a Function and
+    # interpolated, avoiding the FFC-2017 mixed-coefficient Quadrature bug.
+    mixed_space = FunctionSpace(mesh, MixedElement([
+        VectorElement('CG', cell, 2), FiniteElement('CG', cell, 1)]))
+    mixed_state = Function(mixed_space)
+    displacement, unused_pressure = split(mixed_state)
+    F_mixed = Identity(3) + grad(displacement)
+    C_mixed = F_mixed.T*F_mixed
+    mixed_expressions = {
+        'mixed_fiber_stretch_raw': sqrt(inner(f0, C_mixed*f0)),
+        'mixed_J': det(F_mixed),
+        'mixed_inverse_C_fiber_factor': inner(f0, inv(C_mixed)*f0)}
+    for name, value in mixed_expressions.items():
+        diagnostic_values[name] = project(value, qspace,
+            form_compiler_parameters=qparams).vector().get_local()
+    diagnostic_values['mixed_pressure_safe'] = interpolate(
+        mixed_state.sub(1, deepcopy=True), qspace).vector().get_local()
     historical = interpolate(project(expression, dg1,
         form_compiler_parameters={'representation': 'uflacs'}), qspace)
     difference = direct-historical
