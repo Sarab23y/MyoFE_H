@@ -1,0 +1,16 @@
+{
+  "input_json": "demos/base/sim_inputs/base_instruction.json",
+  "output_directory": "../results/passive_inflation",
+  "pressures_mmHg": [0.0, 1.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 15.0, 20.0],
+  "minimum_pressure_increment_mmHg": 0.125,
+  "volume_scale_to_ml": null,
+  "overwrite": false,
+  "reference_assumption": "The input HDF5 mesh is treated as the zero-pressure reference geometry; no inverse unloading is performed.",
+  "newton_solver": {
+    "relative_tolerance": 1e-7,
+    "absolute_tolerance": 1e-7,
+    "maximum_iterations": 50,
+    "report": true,
+    "error_on_nonconvergence": true
+  }
+}
