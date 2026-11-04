@@ -1,0 +1,13 @@
+{
+  "constituent_mass_bookkeeping": {
+    "enabled": [true],
+    "density": [1.0],
+    "mass_balance_tolerance": [1e-6],
+    "positive_growth_allocation": {
+      "mode": ["fixed"],
+      "myofiber": [0.20],
+      "ground_matrix": [0.10],
+      "collagen": [0.70]
+    }
+  }
+}
