@@ -32,21 +32,33 @@ class MaterialPointDiagnosticTests(unittest.TestCase):
         self.assertLess(source.index('singularity exec'),
                         source.index('mpiexec -np 1'))
 
-    def test_displacement_script_is_python3_and_refuses_overwrite(self):
+    def test_displacement_script_is_python2_lcc_and_refuses_overwrite(self):
         source = read('validation/compare_cycle_displacements.py')
-        ast.parse(source)
-        self.assertIn('output.mkdir(parents=True, exist_ok=False)', source)
-        self.assertIn('best_fit_rigid', source)
-        self.assertIn('affine_tetra_gradient', source)
+        self.assertIn('from __future__ import division, print_function', source)
+        self.assertIn("attr.get('Name','')", source)
+        self.assertIn("if name!=field", source)
+        self.assertIn('conflicting displacement records', source)
+        self.assertIn('refusing to overwrite', source)
+        self.assertIn('rigid(', source)
+        self.assertIn('deformation_gradient', source)
+        self.assertIn('quadratic_tetra10', source)
         self.assertIn('containing_tetra', source)
-        self.assertIn('phase_selection_passed', source)
         self.assertIn('source_files_modified', source)
 
     def test_quadrature_ids_are_mapped_through_coordinates(self):
         source = read('validation/compare_cycle_displacements.py')
-        self.assertIn('quadrature_dof.npy ordered by global q-DOF', source)
-        self.assertIn('containing_tetra(coordinate, points, tetrahedra)', source)
+        self.assertIn("coordinates=np.load(args.quadrature_coordinates)", source)
+        self.assertIn('containing_tetra(coordinate,points,cells', source)
         self.assertNotIn('points[global_id]', source)
+
+    def test_displacement_launcher_is_read_only_and_job_specific(self):
+        source = read('validation/run_cycle_displacement_analysis.slurm')
+        self.assertIn('displacement_cycle_analysis_${SLURM_JOB_ID}', source)
+        self.assertIn('ECM_40s_healthy_quad_validation_optimized', source)
+        self.assertIn('mesh_output/solution.xdmf', source)
+        self.assertIn('sim_output/quadrature_dof.npy', source)
+        self.assertIn('singularity exec --cleanenv "$IMAGE" python', source)
+        self.assertNotIn('MyoFE.py', source)
 
 
 if __name__ == '__main__':

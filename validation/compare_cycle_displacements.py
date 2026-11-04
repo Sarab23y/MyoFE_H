@@ -1,346 +1,234 @@
-#!/usr/bin/env python3
-"""Compare existing healthy-cycle displacement fields without altering them.
+#!/usr/bin/env python
+"""Read-only Python-2.7 analysis of displacement across reference cycles.
 
-The script reads DOLFIN's temporal solution XDMF/HDF5 through meshio, selects
-the saved snapshot nearest each requested cycle phase, removes the best-fit
-rigid motion, compares affine deformation gradients on tetrahedra, and maps
-requested Quadrature IDs by their saved reference coordinates (never by mesh
-node number).
+Only XDMF Attributes named ``displacement`` are selected. Other fields may
+legitimately occur at the same timestamp and are ignored rather than mistaken
+for duplicate displacement snapshots.
 """
-from __future__ import annotations
-
-import argparse
-import csv
-import json
-import math
-from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple
-
+from __future__ import division, print_function
+import argparse, csv, json, os, sys
+import xml.etree.ElementTree as ET
 import numpy as np
 
+CYCLES=((37.484,38.316),(38.316,39.147),(39.147,39.978))
+PHASES=(.10,.30,.50,.70)
+HOTSPOTS=(1643,1694,2404,4751,4844,5004)
 
-DEFAULT_CYCLES = ((37.484, 38.316),
-                  (38.316, 39.147),
-                  (39.147, 39.978))
-DEFAULT_PHASES = (0.10, 0.30, 0.50, 0.70)
-DEFAULT_HOTSPOTS = (1643, 1694, 2404, 4751, 4844, 5004)
+def descendants(e,name):
+    return [x for x in e.iter() if x.tag.split('}')[-1]==name]
+def children(e,name):
+    return [x for x in list(e) if x.tag.split('}')[-1]==name]
 
+def read_item(item,xdmf,handles):
+    import h5py
+    nested=descendants(item,'DataItem')
+    if nested:
+        hdf=[x for x in nested if x.get('Format','').upper()=='HDF']
+        if len(hdf)!=1: raise ValueError('unsupported nested XDMF DataItem')
+        item=hdf[0]
+    text=(item.text or '').strip()
+    if ':' not in text: raise ValueError('unsupported non-HDF DataItem %r'%text)
+    filename,dataset=text.split(':',1)
+    if not os.path.isabs(filename): filename=os.path.join(os.path.dirname(xdmf),filename)
+    filename=os.path.abspath(filename)
+    if filename not in handles: handles[filename]=h5py.File(filename,'r')
+    return np.asarray(handles[filename][dataset])
 
-def best_fit_rigid(reference: np.ndarray,
-                   target: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Return proper rotation R and translation t for reference @ R + t."""
-    ref_center = reference.mean(axis=0)
-    target_center = target.mean(axis=0)
-    covariance = (reference - ref_center).T @ (target - target_center)
-    left, unused, right_t = np.linalg.svd(covariance)
-    rotation = left @ right_t
-    if np.linalg.det(rotation) < 0.0:
-        left[:, -1] *= -1.0
-        rotation = left @ right_t
-    translation = target_center - ref_center @ rotation
-    return rotation, translation
+def read_xdmf(path,field):
+    root=ET.parse(path).getroot(); handles={}; records=[]; skipped={}
+    geometry=topology=None; topology_type=''
+    try:
+        grids=[g for g in descendants(root,'Grid') if g.get('GridType','Uniform')=='Uniform']
+        for grid in grids:
+            gs=children(grid,'Geometry'); ts=children(grid,'Topology')
+            if gs and descendants(gs[0],'DataItem'): geometry=descendants(gs[0],'DataItem')[-1]
+            if ts and descendants(ts[0],'DataItem'):
+                topology=descendants(ts[0],'DataItem')[-1]; topology_type=ts[0].get('TopologyType','')
+            times=children(grid,'Time')
+            if not times: continue
+            time=float(times[0].get('Value'))
+            for attr in children(grid,'Attribute'):
+                name=attr.get('Name','')
+                if name!=field:
+                    skipped[name]=skipped.get(name,0)+1; continue
+                items=descendants(attr,'DataItem')
+                if not items: raise ValueError('displacement Attribute has no DataItem')
+                records.append((time,np.asarray(read_item(items[0],path,handles),float)))
+        if geometry is None or topology is None:
+            gs=descendants(root,'Geometry'); ts=descendants(root,'Topology')
+            if not gs or not ts: raise ValueError('XDMF contains no mesh')
+            geometry=descendants(gs[0],'DataItem')[-1]
+            topology=descendants(ts[0],'DataItem')[-1]
+            topology_type=ts[0].get('TopologyType','')
+        points=np.asarray(read_item(geometry,path,handles),float)
+        cells=np.asarray(read_item(topology,path,handles),np.int64)
+    finally:
+        for h in handles.values(): h.close()
+    if not records: raise ValueError("no XDMF Attribute Name='%s'; other fields: %s"%(field,sorted(skipped)))
+    unique={}; duplicates=0
+    for time,values in records:
+        if time in unique:
+            duplicates+=1
+            if unique[time].shape!=values.shape or not np.array_equal(unique[time],values):
+                raise ValueError('conflicting displacement records at %s'%time)
+        else: unique[time]=values
+    return points,cells,topology_type,sorted(unique.items()),skipped,duplicates
 
+def normalize_u(values,n):
+    a=np.asarray(values,float)
+    if a.ndim==1 and a.size==3*n: a=a.reshape((n,3))
+    if a.shape!=(n,3): raise ValueError('displacement shape %s != (%d,3)'%(a.shape,n))
+    return a
 
-def affine_tetra_gradient(points: np.ndarray, displacement: np.ndarray,
-                          tetrahedra: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Return F=I+grad(u) and validity for linear tetra vertex data."""
-    gradients = np.full((len(tetrahedra), 3, 3), np.nan)
-    valid = np.zeros(len(tetrahedra), dtype=bool)
-    for index, tet in enumerate(tetrahedra):
-        vertices = np.asarray(tet[:4], dtype=int)
-        x = points[vertices]
-        u = displacement[vertices]
-        reference_edges = np.column_stack((x[1] - x[0],
-                                           x[2] - x[0],
-                                           x[3] - x[0]))
-        if abs(np.linalg.det(reference_edges)) < 1.0e-14:
-            continue
-        displacement_edges = np.column_stack((u[1] - u[0],
-                                              u[2] - u[0],
-                                              u[3] - u[0]))
-        gradients[index] = np.eye(3) + displacement_edges @ np.linalg.inv(
-            reference_edges)
-        valid[index] = True
-    return gradients, valid
+def rigid(a,b):
+    ac=a.mean(0); bc=b.mean(0); left,unused,right=np.linalg.svd(np.dot((a-ac).T,b-bc))
+    rotation=np.dot(left,right)
+    if np.linalg.det(rotation)<0: left[:,-1]*=-1; rotation=np.dot(left,right)
+    return rotation,bc-np.dot(ac,rotation)
 
+def containing_tetra(point,points,cells,tol):
+    for i,cell in enumerate(cells):
+        x=points[np.asarray(cell[:4],int)]
+        m=np.column_stack((x[1]-x[0],x[2]-x[0],x[3]-x[0]))
+        try: tail=np.linalg.solve(m,point-x[0])
+        except np.linalg.LinAlgError: continue
+        bary=np.concatenate(([1-tail.sum()],tail))
+        if np.all(bary>=-tol) and np.all(bary<=1+tol): return int(i),bary
+    return None,None
 
-def containing_tetra(point: np.ndarray, points: np.ndarray,
-                     tetrahedra: np.ndarray, tolerance: float = 1.0e-8):
-    """Find a containing tetrahedron using barycentric coordinates."""
-    for index, tet in enumerate(tetrahedra):
-        ids = np.asarray(tet[:4], dtype=int)
-        x = points[ids]
-        matrix = np.column_stack((x[1] - x[0], x[2] - x[0], x[3] - x[0]))
-        try:
-            tail = np.linalg.solve(matrix, point - x[0])
-        except np.linalg.LinAlgError:
-            continue
-        barycentric = np.concatenate(([1.0 - tail.sum()], tail))
-        if np.all(barycentric >= -tolerance) and np.all(
-                barycentric <= 1.0 + tolerance):
-            return int(index), [float(value) for value in barycentric]
-    return None, None
+def quadratic_derivatives(b):
+    dl=np.asarray(((-1.,-1.,-1.),(1.,0.,0.),(0.,1.,0.),(0.,0.,1.)))
+    result=[(4*b[i]-1)*dl[i] for i in range(4)]
+    # XDMF tetra10 convention: 01,12,20,03,13,23.
+    for i,j in ((0,1),(1,2),(2,0),(0,3),(1,3),(2,3)):
+        result.append(4*(dl[i]*b[j]+dl[j]*b[i]))
+    return np.asarray(result)
 
+def interpolate_displacement(u,cell,bary):
+    ids=np.asarray(cell,int)
+    if len(ids)>=10:
+        l0,l1,l2,l3=bary
+        weights=[l0*(2*l0-1),l1*(2*l1-1),l2*(2*l2-1),l3*(2*l3-1),
+                 4*l0*l1,4*l1*l2,4*l2*l0,4*l0*l3,4*l1*l3,4*l2*l3]
+        return np.dot(np.asarray(weights),u[ids[:10]])
+    return np.dot(bary,u[ids[:4]])
 
-def nearest_index(times: np.ndarray, wanted: float) -> int:
-    return int(np.argmin(np.abs(times - wanted)))
+def deformation_gradient(points,u,cell,bary):
+    ids=np.asarray(cell,int)
+    if len(ids)>=10:
+        ids=ids[:10]; d=quadratic_derivatives(bary)
+        dx=np.dot(points[ids].T,d); du=np.dot(u[ids].T,d)
+        return np.eye(3)+np.dot(du,np.linalg.inv(dx)),'quadratic_tetra10'
+    ids=ids[:4]; x=points[ids]; v=u[ids]
+    dx=np.column_stack((x[1]-x[0],x[2]-x[0],x[3]-x[0]))
+    du=np.column_stack((v[1]-v[0],v[2]-v[0],v[3]-v[0]))
+    return np.eye(3)+np.dot(du,np.linalg.inv(dx)),'linear_tetra4'
 
-
-def select_displacement(point_data: Dict[str, np.ndarray], requested: str):
-    if requested:
-        if requested not in point_data:
-            raise KeyError("displacement field %r not found; available: %s" %
-                           (requested, sorted(point_data)))
-        return requested, np.asarray(point_data[requested], dtype=float)
-    candidates = []
-    for name, values in point_data.items():
-        array = np.asarray(values)
-        if array.ndim == 2 and array.shape[1] in (2, 3):
-            score = 0 if "displacement" in name.lower() else 1
-            candidates.append((score, name, array))
-    if not candidates:
-        raise ValueError("no vector point field found; available: %s" %
-                         sorted(point_data))
-    unused, name, array = sorted(candidates, key=lambda item: item[:2])[0]
-    if array.shape[1] == 2:
-        array = np.column_stack((array, np.zeros(len(array))))
-    return name, np.asarray(array, dtype=float)
-
-
-def read_time_series(path: Path, field: str):
-    import meshio
-    with meshio.xdmf.TimeSeriesReader(str(path)) as reader:
-        points, cells = reader.read_points_cells()
-        frames = []
-        chosen_name = None
-        for step in range(reader.num_steps):
-            time, point_data, unused_cell_data = reader.read_data(step)
-            name, displacement = select_displacement(point_data, field)
-            if chosen_name is None:
-                chosen_name = name
-            elif name != chosen_name:
-                raise ValueError("displacement field changed across steps")
-            if len(displacement) != len(points):
-                raise ValueError("displacement/mesh point counts differ")
-            frames.append((float(time), displacement.copy()))
-    tetrahedra = None
-    for block in cells:
-        if block.type in ("tetra", "tetra10"):
-            tetrahedra = np.asarray(block.data, dtype=int)
-            break
-    if tetrahedra is None:
-        raise ValueError("XDMF contains no tetra/tetra10 cells")
-    return np.asarray(points, dtype=float), tetrahedra, chosen_name, frames
-
-
-def load_hotspots(path: Path, ids: Sequence[int]):
-    coordinates = np.load(str(path))
-    coordinates = np.asarray(coordinates)
-    if coordinates.ndim != 2 or coordinates.shape[1] < 3:
-        raise ValueError("quadrature coordinate NPY must have shape (N, >=3)")
-    result = {}
-    for global_id in ids:
-        if global_id < 0 or global_id >= len(coordinates):
-            raise ValueError("hotspot DOF %d is outside coordinate array" %
-                             global_id)
-        result[int(global_id)] = coordinates[global_id, :3].astype(float)
-    return result
-
-
-def summary_metrics(first: np.ndarray, second: np.ndarray):
-    difference = second - first
-    norm_first = float(np.linalg.norm(first))
-    return {
-        "absolute_l2": float(np.linalg.norm(difference)),
-        "relative_l2": float(np.linalg.norm(difference) /
-                             max(norm_first, np.finfo(float).eps)),
-        "maximum_point_difference": float(np.linalg.norm(
-            difference, axis=1).max()),
-        "mean_point_difference": float(np.linalg.norm(
-            difference, axis=1).mean())}
-
+def metrics(a,b):
+    d=b-a; mag=np.linalg.norm(d,axis=1)
+    return {'absolute_l2':float(np.linalg.norm(d)),
+            'relative_l2':float(np.linalg.norm(d)/max(np.linalg.norm(a),np.finfo(float).eps)),
+            'mean_point_difference':float(mag.mean()),'maximum_point_difference':float(mag.max())}
 
 def analyze(args):
-    output = Path(args.output)
-    output.mkdir(parents=True, exist_ok=False)
-    points, tetrahedra, field_name, frames = read_time_series(
-        Path(args.xdmf), args.displacement_field)
-    times = np.asarray([item[0] for item in frames])
-    if len(np.unique(times)) != len(times):
-        raise ValueError("XDMF contains duplicate timestamps")
-    order = np.argsort(times)
-    times = times[order]
-    displacements = [frames[index][1] for index in order]
-    finite = bool(np.isfinite(points).all() and
-                  all(np.isfinite(value).all() for value in displacements))
-    if not finite:
-        raise ValueError("mesh or displacement contains nonfinite values")
-
-    hotspot_coordinates = {}
-    if args.quadrature_coordinates:
-        hotspot_coordinates = load_hotspots(
-            Path(args.quadrature_coordinates), args.hotspot_dofs)
-    hotspot_elements = {}
-    for global_id, coordinate in hotspot_coordinates.items():
-        cell, barycentric = containing_tetra(coordinate, points, tetrahedra)
-        hotspot_elements[global_id] = {
-            "coordinate": coordinate.tolist(),
-            "containing_tetrahedron": cell,
-            "barycentric_coordinates": barycentric}
-
-    rows = []
-    comparisons = []
-    figures = []
+    if os.path.exists(args.output): raise IOError('refusing to overwrite %s'%args.output)
+    os.makedirs(args.output)
+    points,cells,topology,records,skipped,duplicates=read_xdmf(args.xdmf,args.field_name)
+    times=np.asarray([x[0] for x in records]); us=[normalize_u(x[1],len(points)) for x in records]
+    if points.shape[1]!=3 or not np.isfinite(points).all() or not all(np.isfinite(u).all() for u in us):
+        raise ValueError('mesh/displacement is not finite 3-D data')
+    coordinates=np.load(args.quadrature_coordinates)
+    if coordinates.ndim!=2 or coordinates.shape[1]<3: raise ValueError('quadrature_dof.npy must be (N,>=3)')
+    hotspots={}
+    for gid in args.hotspots:
+        if gid<0 or gid>=len(coordinates): raise ValueError('hotspot %d out of range'%gid)
+        coordinate=np.asarray(coordinates[gid,:3],float)
+        cell,bary=containing_tetra(coordinate,points,cells,args.coordinate_tolerance)
+        hotspots[gid]={'coordinate':coordinate.tolist(),'cell':cell,
+                       'barycentric':None if bary is None else bary.tolist()}
+    selections=[]; comparisons=[]; plots=[]
     for phase in args.phases:
-        selected = []
-        for cycle_index, (start, stop) in enumerate(args.cycles):
-            wanted = start + phase
-            index = nearest_index(times, wanted)
-            actual = float(times[index])
-            phase_error = actual - wanted
-            selected.append((index, actual, displacements[index]))
-            rows.append({"phase": phase, "cycle": cycle_index + 1,
-                         "wanted_time": wanted, "saved_time": actual,
-                         "phase_error": phase_error,
-                         "within_cycle": bool(start <= actual <= stop)})
-        for first_cycle in range(2):
-            second_cycle = first_cycle + 1
-            first_index, first_time, first_u = selected[first_cycle]
-            second_index, second_time, second_u = selected[second_cycle]
-            first_x = points + first_u
-            second_x = points + second_u
-            rotation, translation = best_fit_rigid(first_x, second_x)
-            aligned = first_x @ rotation + translation
-            rigid_residual = second_x - aligned
-            first_f, first_valid = affine_tetra_gradient(
-                points, first_u, tetrahedra)
-            second_f, second_valid = affine_tetra_gradient(
-                points, second_u, tetrahedra)
-            valid = first_valid & second_valid
-            f_difference = np.linalg.norm(second_f[valid] - first_f[valid],
-                                          axis=(1, 2))
-            j_first = np.linalg.det(first_f[valid])
-            j_second = np.linalg.det(second_f[valid])
-            item = {
-                "phase": float(phase),
-                "cycle_pair": [first_cycle + 1, second_cycle + 1],
-                "times": [first_time, second_time],
-                "phase_errors": [rows[-3 + first_cycle]["phase_error"],
-                                  rows[-3 + second_cycle]["phase_error"]],
-                "displacement": summary_metrics(first_u, second_u),
-                "best_fit_rigid": {
-                    "rotation": rotation.tolist(),
-                    "translation": translation.tolist(),
-                    "residual_l2": float(np.linalg.norm(rigid_residual)),
-                    "residual_maximum": float(np.linalg.norm(
-                        rigid_residual, axis=1).max())},
-                "tetrahedral_deformation": {
-                    "valid_cell_count": int(valid.sum()),
-                    "F_difference_l2": float(np.linalg.norm(f_difference)),
-                    "F_difference_maximum": float(f_difference.max()),
-                    "minimum_J_first": float(j_first.min()),
-                    "minimum_J_second": float(j_second.min())},
-                "hotspots": {}}
-            for global_id, metadata in hotspot_elements.items():
-                cell = metadata["containing_tetrahedron"]
-                hotspot = dict(metadata)
-                if cell is not None and valid[cell]:
-                    hotspot.update({
-                        "F_difference": float(np.linalg.norm(
-                            second_f[cell] - first_f[cell])),
-                        "J_first": float(np.linalg.det(first_f[cell])),
-                        "J_second": float(np.linalg.det(second_f[cell]))})
-                item["hotspots"][str(global_id)] = hotspot
-            comparisons.append(item)
-
+        selected=[]
+        for number,cycle in enumerate(args.cycles):
+            wanted=cycle[0]+phase; index=int(np.argmin(np.abs(times-wanted))); actual=float(times[index])
+            selections.append({'phase':phase,'cycle':number+1,'requested_time':wanted,
+                               'snapshot_time':actual,'phase_error':actual-wanted,
+                               'within_cycle':bool(cycle[0]<=actual<=cycle[1])})
+            selected.append((actual,us[index]))
+        base=len(selections)-3
+        for first in (0,1):
+            second=first+1; t1,u1=selected[first]; t2,u2=selected[second]
+            x1=points+u1; x2=points+u2; rotation,translation=rigid(x1,x2)
+            residual=x2-(np.dot(x1,rotation)+translation)
+            item={'phase':phase,'cycle_pair':[first+1,second+1],'snapshot_times':[t1,t2],
+                  'phase_errors':[selections[base+first]['phase_error'],selections[base+second]['phase_error']],
+                  'displacement':metrics(u1,u2),'best_fit_rigid':{
+                      'rotation':rotation.tolist(),'translation':translation.tolist(),
+                      'residual_l2':float(np.linalg.norm(residual)),
+                      'residual_maximum':float(np.linalg.norm(residual,axis=1).max())},'hotspots':{}}
+            methods=set()
+            for gid,meta in hotspots.items():
+                entry=dict(meta); cell=meta['cell']
+                if cell is not None:
+                    bary=np.asarray(meta['barycentric']); f1,method=deformation_gradient(points,u1,cells[cell],bary)
+                    f2,unused=deformation_gradient(points,u2,cells[cell],bary); methods.add(method)
+                    local_u1=interpolate_displacement(u1,cells[cell],bary)
+                    local_u2=interpolate_displacement(u2,cells[cell],bary)
+                    coordinate=np.asarray(meta['coordinate'])
+                    deformed1=coordinate+local_u1; deformed2=coordinate+local_u2
+                    aligned1=np.dot(deformed1,rotation)+translation
+                    entry.update({'deformation_gradient_method':method,'F_first':f1.tolist(),'F_second':f2.tolist(),
+                                  'F_difference':float(np.linalg.norm(f2-f1)),
+                                  'J_first':float(np.linalg.det(f1)),'J_second':float(np.linalg.det(f2)),
+                                  'displacement_first':local_u1.tolist(),
+                                  'displacement_second':local_u2.tolist(),
+                                  'displacement_difference':float(np.linalg.norm(local_u2-local_u1)),
+                                  'rigid_aligned_deformed_position_difference':float(np.linalg.norm(deformed2-aligned1))})
+                item['hotspots'][str(gid)]=entry
+            item['deformation_gradient_methods']=sorted(methods); comparisons.append(item)
             if not args.no_plots:
-                import matplotlib.pyplot as plt
-                magnitude = np.linalg.norm(second_u - first_u, axis=1)
-                figure = plt.figure(figsize=(10, 7))
-                axis = figure.add_subplot(111, projection="3d")
-                image = axis.scatter(points[:, 0], points[:, 1], points[:, 2],
-                                     c=magnitude, s=5, cmap="viridis")
-                figure.colorbar(image, ax=axis,
-                                label="|u(second)-u(first)|")
-                axis.set_title("Phase %.2f s, cycles %d-%d" %
-                               (phase, first_cycle + 1, second_cycle + 1))
-                name = "displacement_phase_%.2f_cycles_%d_%d.png" % (
-                    phase, first_cycle + 1, second_cycle + 1)
-                figure.tight_layout()
-                figure.savefig(str(output / name), dpi=180)
-                plt.close(figure)
-                figures.append(name)
+                try:
+                    import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+                    fig=plt.figure(figsize=(10,7)); ax=fig.add_subplot(111,projection='3d')
+                    image=ax.scatter(points[:,0],points[:,1],points[:,2],c=np.linalg.norm(u2-u1,axis=1),s=5)
+                    fig.colorbar(image,ax=ax,label='|u(second)-u(first)|')
+                    name='displacement_phase_%.2f_cycles_%d_%d.png'%(phase,first+1,second+1)
+                    fig.savefig(os.path.join(args.output,name),dpi=180); plt.close(fig); plots.append(name)
+                except ImportError: pass
+    allowed=args.save_frequency/2+args.time_tolerance
+    phase_ok=all(abs(r['phase_error'])<=allowed and r['within_cycle'] for r in selections)
+    mapped=all(x['cell'] is not None for x in hotspots.values())
+    report={'test':'existing_cycle_displacement_comparison','source_xdmf':os.path.abspath(args.xdmf),
+            'source_files_modified':False,'selected_attribute_name':args.field_name,
+            'skipped_xdmf_field_record_counts':skipped,
+            'identical_duplicate_displacement_records_ignored':duplicates,'topology_type':topology,
+            'mesh_point_count':len(points),'cell_count':len(cells),'displacement_snapshot_count':len(times),
+            'snapshot_time_range':[float(times.min()),float(times.max())],
+            'maximum_allowed_phase_error':allowed,'phase_selection_passed':phase_ok,
+            'all_hotspots_mapped':mapped,'passed':bool(phase_ok and mapped),
+            'pass_scope':'read-only field selection, phase alignment and hotspot mapping; mechanics are measurements',
+            'selected_snapshots':selections,'comparisons':comparisons,'plots':plots}
+    path=os.path.join(args.output,'displacement_cycle_comparison.json')
+    with open(path,'w') as h: json.dump(report,h,indent=2,sort_keys=True)
+    with open(os.path.join(args.output,'selected_snapshots.csv'),'wb') as h:
+        columns=('phase','cycle','requested_time','snapshot_time','phase_error','within_cycle')
+        writer=csv.DictWriter(h,fieldnames=columns); writer.writeheader(); writer.writerows(selections)
+    print('Displacement cycle comparison: %s'%('PASS' if report['passed'] else 'FAIL')); print('Report: %s'%path)
+    return 0 if report['passed'] else 1
 
-    maximum_allowed = args.save_frequency / 2.0 + args.time_tolerance
-    phase_selection_passed = all(
-        abs(row["phase_error"]) <= maximum_allowed and row["within_cycle"]
-        for row in rows)
-    report = {
-        "test": "existing_cycle_displacement_comparison",
-        "source_xdmf": str(Path(args.xdmf).resolve()),
-        "source_files_modified": False,
-        "displacement_field": field_name,
-        "mesh_point_count": int(len(points)),
-        "tetrahedron_count": int(len(tetrahedra)),
-        "saved_time_count": int(len(times)),
-        "saved_time_range": [float(times.min()), float(times.max())],
-        "declared_save_frequency_seconds": args.save_frequency,
-        "maximum_allowed_phase_error_seconds": maximum_allowed,
-        "finite": finite,
-        "phase_selection_passed": phase_selection_passed,
-        "passed": bool(finite and phase_selection_passed),
-        "pass_scope": ("I/O, correspondence, finiteness, and phase selection; "
-                       "mechanical differences are reported, not thresholded"),
-        "selected_snapshots": rows,
-        "comparisons": comparisons,
-        "plots": figures}
-    with open(output / "displacement_cycle_comparison.json", "w") as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
-    with open(output / "selected_snapshots.csv", "w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
-        writer.writeheader()
-        writer.writerows(rows)
-    print("Displacement comparison: %s" %
-          ("PASS" if report["passed"] else "FAIL"))
-    print("Report: %s" %
-          (output / "displacement_cycle_comparison.json"))
-    return 0 if report["passed"] else 1
-
-
-def parse_cycle(value: str):
-    start, stop = value.split(":", 1)
-    start, stop = float(start), float(stop)
-    if stop <= start:
-        raise argparse.ArgumentTypeError("cycle stop must exceed start")
-    return start, stop
-
+def cycle(value):
+    start,stop=[float(x) for x in value.split(':',1)]
+    if stop<=start: raise argparse.ArgumentTypeError('cycle stop must exceed start')
+    return start,stop
 
 def main(argv=None):
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--xdmf", required=True)
-    parser.add_argument("--output", required=True,
-                        help="new directory; existing paths are refused")
-    parser.add_argument("--displacement-field", default="")
-    parser.add_argument("--cycle", dest="cycles", action="append",
-                        type=parse_cycle)
-    parser.add_argument("--phase", dest="phases", action="append", type=float)
-    parser.add_argument("--save-frequency", type=float, default=0.1)
-    parser.add_argument("--time-tolerance", type=float, default=1.0e-8)
-    parser.add_argument("--quadrature-coordinates",
-                        help="quadrature_dof.npy ordered by global q-DOF")
-    parser.add_argument("--hotspot-dof", dest="hotspot_dofs", action="append",
-                        type=int)
-    parser.add_argument("--no-plots", action="store_true")
-    args = parser.parse_args(argv)
-    args.cycles = tuple(args.cycles or DEFAULT_CYCLES)
-    args.phases = tuple(args.phases or DEFAULT_PHASES)
-    args.hotspot_dofs = tuple(args.hotspot_dofs or DEFAULT_HOTSPOTS)
-    if len(args.cycles) != 3:
-        parser.error("exactly three --cycle values are required")
-    if args.save_frequency <= 0.0:
-        parser.error("--save-frequency must be positive")
+    p=argparse.ArgumentParser(); p.add_argument('--xdmf',required=True); p.add_argument('--quadrature-coordinates',required=True)
+    p.add_argument('--output',required=True); p.add_argument('--field-name',default='displacement')
+    p.add_argument('--cycle',action='append',type=cycle,dest='cycles'); p.add_argument('--phase',action='append',type=float,dest='phases')
+    p.add_argument('--hotspot-dof',action='append',type=int,dest='hotspots'); p.add_argument('--save-frequency',type=float,default=.1)
+    p.add_argument('--time-tolerance',type=float,default=1e-8); p.add_argument('--coordinate-tolerance',type=float,default=1e-7)
+    p.add_argument('--no-plots',action='store_true'); args=p.parse_args(argv)
+    args.cycles=tuple(args.cycles or CYCLES); args.phases=tuple(args.phases or PHASES); args.hotspots=tuple(args.hotspots or HOTSPOTS)
+    if len(args.cycles)!=3: p.error('exactly three cycles required')
     return analyze(args)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__=='__main__': sys.exit(main())

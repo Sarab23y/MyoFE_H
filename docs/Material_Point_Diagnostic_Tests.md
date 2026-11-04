@@ -55,31 +55,35 @@ actual mixed-space layout in that runtime/partition.  A PASS establishes the
 tested vector-layout correspondence, but does not establish correct MyoSim
 kinetics, FE mechanics, or cycle stability.
 
-## 2. Existing displacement comparison (Windows/Python 3)
+## 2. Existing displacement comparison (LCC/FEniCS image)
 
-The postprocessor reads the existing `solution.xdmf` and associated HDF5 file
-without opening either for writing.  Install dependencies in a VS Code Python
-3 environment:
+The Python 2.7 postprocessor reads the existing `solution.xdmf` XML and only
+the HDF5 datasets referenced by XDMF Attributes named `displacement`. Other
+fields at the same timestamp are counted and skipped, not treated as duplicate
+snapshots. Input files are never opened for writing.
 
-```powershell
-py -3 -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install numpy meshio h5py matplotlib
+From the repository root:
+
+```bash
+git pull --ff-only
+mkdir -p demos/ECM/logs
+sbatch validation/run_cycle_displacement_analysis.slurm
 ```
 
-Run it against a copied or mounted simulation output directory:
+The launcher defaults to the completed run at
+`/mnt/gpfs2_4m/scratch/sba431/demos/ECM/ECM_40s_healthy_quad_validation_optimized`
+and writes a new job-specific directory named
+`displacement_cycle_analysis_${SLURM_JOB_ID}`. Override `BASE` or `OUT` when
+submitting if necessary; an existing output path is refused.
 
-```powershell
-python validation\compare_cycle_displacements.py `
-  --xdmf "D:\ECM_40s_healthy_quad_validation\sim_output\mesh_output\solution.xdmf" `
-  --quadrature-coordinates "D:\ECM_40s_healthy_quad_validation\sim_output\quadrature_dof.npy" `
-  --output "D:\ECM_analysis\displacement_cycles"
+After SLURM reports completion, inspect the machine-readable results with:
+
+```bash
+OUT=/mnt/gpfs2_4m/scratch/sba431/demos/ECM/displacement_cycle_analysis_JOB_ID
+python -m json.tool "$OUT/displacement_cycle_comparison.json" | less
+column -s, -t "$OUT/selected_snapshots.csv" | less -S
+find "$OUT" -maxdepth 1 -type f -name '*.png' -print
 ```
-
-If `quadrature_dof.npy` is in a different output subdirectory, provide its
-actual path.  Use `--displacement-field NAME` if the vector field is not named
-`displacement` and automatic selection reports ambiguity.  The output
-directory must not already exist.
 
 The default cycle intervals are 37.484-38.316, 38.316-39.147, and
 39.147-39.978 seconds.  Default phases are +0.10, +0.30, +0.50, and +0.70
@@ -88,11 +92,19 @@ cycle, reports the exact requested/saved times, and requires the error to be
 no greater than half the declared 0.1-second save interval.
 
 Reports include raw displacement differences, residuals after a proper
-best-fit rigid transformation, affine tetrahedral deformation-gradient and
-determinant comparisons, and containing-element results for hotspot
+best-fit rigid transformation, deformation-gradient and determinant
+comparisons, and containing-element results for hotspot
 Quadrature DOFs 1643, 1694, 2404, 4751, 4844, and 5004.  A Quadrature ID is
 first converted through `quadrature_dof.npy` to a reference coordinate and
 then located in a tetrahedron; it is never treated as a mesh-node ID.
+
+For an XDMF `tetra10` geometry with displacement values at all ten nodes, the
+script evaluates the quadratic shape-function gradient at the hotspot's
+barycentric coordinate. For a four-node visualization mesh it reports the
+explicit fallback `linear_tetra4`. A normal `XDMFFile.write()` visualization
+does not carry a reconstructible DOLFIN CG2 Function/dofmap checkpoint; the
+script therefore does not claim an exact CG2 gradient when only vertex data
+were saved.
 
 ### PASS/FAIL
 
@@ -107,7 +119,6 @@ error.  Mechanical differences are measurements rather than pass thresholds:
 - matching displacement/`F` with differing saved Quadrature stretch would
   support a downstream projection or mapping problem.
 
-The linear-tetrahedron `F` reconstruction is diagnostic.  For higher-order
-CG2 displacement it uses the tetrahedron's four vertices and therefore cannot
-recover within-element quadratic variation.  The 0.1-second save interval
-also cannot resolve transitions occurring between snapshots.
+The 0.1-second save interval cannot resolve transitions occurring between
+snapshots. The JSON records exact requested times, selected snapshot times,
+and signed phase errors so this limitation remains visible.
