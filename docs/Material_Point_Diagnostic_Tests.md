@@ -55,10 +55,11 @@ actual mixed-space layout in that runtime/partition.  A PASS establishes the
 tested vector-layout correspondence, but does not establish correct MyoSim
 kinetics, FE mechanics, or cycle stability.
 
-## 2. Existing displacement comparison (LCC/FEniCS image)
+## 2. Existing displacement and active-stress comparison (LCC Python 3)
 
-The Python 2.7 postprocessor reads the existing `solution.xdmf` XML and only
-the HDF5 datasets referenced by XDMF Attributes named `displacement`. Other
+The Python 3 postprocessor requires only NumPy and h5py; Matplotlib is
+optional. It reads the existing `solution.xdmf` XML and the HDF5 datasets
+referenced by XDMF Attributes named `displacement` and `active_stress`. Other
 fields at the same timestamp are counted and skipped, not treated as duplicate
 snapshots. Input files are never opened for writing.
 
@@ -67,7 +68,10 @@ From the repository root:
 ```bash
 git pull --ff-only
 mkdir -p demos/ECM/logs
-sbatch validation/run_cycle_displacement_analysis.slurm
+source /path/to/existing/python3/venv/bin/activate
+PYTHON_BIN="$(command -v python)"
+sbatch --export=ALL,PYTHON_BIN="$PYTHON_BIN" \
+  validation/run_cycle_displacement_analysis.slurm
 ```
 
 The launcher defaults to the completed run at
@@ -80,20 +84,24 @@ After SLURM reports completion, inspect the machine-readable results with:
 
 ```bash
 OUT=/mnt/gpfs2_4m/scratch/sba431/demos/ECM/displacement_cycle_analysis_JOB_ID
-python -m json.tool "$OUT/displacement_cycle_comparison.json" | less
-column -s, -t "$OUT/selected_snapshots.csv" | less -S
+python -m json.tool "$OUT/displacement_active_cycle_comparison.json" | less
+column -s, -t "$OUT/comparison_table.csv" | less -S
+column -s, -t "$OUT/interpolation_sources.csv" | less -S
+column -s, -t "$OUT/hotspot_summary.csv" | less -S
 find "$OUT" -maxdepth 1 -type f -name '*.png' -print
 ```
 
 The default cycle intervals are 37.484-38.316, 38.316-39.147, and
-39.147-39.978 seconds.  Default phases are +0.10, +0.30, +0.50, and +0.70
-seconds.  The script selects the closest saved snapshot independently for each
-cycle, reports the exact requested/saved times, and requires the error to be
-no greater than half the declared 0.1-second save interval.
+39.147-39.978 seconds. Default phases are +0.10, +0.30, +0.50, and +0.70
+seconds. The script reports both the previous closest-snapshot comparison and
+a linearly phase-interpolated comparison. Every interpolated field records its
+two source times and weights. Extrapolation and interpolation across a cycle
+boundary are rejected.
 
 Reports include raw displacement differences, residuals after a proper
-best-fit rigid transformation, deformation-gradient and determinant
-comparisons, and containing-element results for hotspot
+best-fit rigid transformation, active-stress spatial differences and their
+correlation with displacement-difference magnitude, deformation-gradient and
+determinant comparisons, and containing-element results for hotspot
 Quadrature DOFs 1643, 1694, 2404, 4751, 4844, and 5004.  A Quadrature ID is
 first converted through `quadrature_dof.npy` to a reference coordinate and
 then located in a tetrahedron; it is never treated as a mesh-node ID.
@@ -108,9 +116,9 @@ were saved.
 
 ### PASS/FAIL
 
-PASS means that the XDMF data are finite, timestamps are unique, and every
-requested phase has a valid in-cycle snapshot within the expected sampling
-error.  Mechanical differences are measurements rather than pass thresholds:
+PASS means that both named fields were read, all values are finite, each target
+is bracketed inside its own cycle, and every hotspot maps by coordinate.
+Mechanical differences are measurements rather than pass thresholds:
 
 - a large raw difference that disappears after rigid alignment supports
   rigid drift;
@@ -121,4 +129,6 @@ error.  Mechanical differences are measurements rather than pass thresholds:
 
 The 0.1-second save interval cannot resolve transitions occurring between
 snapshots. The JSON records exact requested times, selected snapshot times,
-and signed phase errors so this limitation remains visible.
+interpolation weights, and nearest-snapshot errors so this limitation remains
+visible. Active-stress/displacement correlation does not establish causal
+ordering.

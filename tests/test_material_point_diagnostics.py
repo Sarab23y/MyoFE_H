@@ -32,23 +32,27 @@ class MaterialPointDiagnosticTests(unittest.TestCase):
         self.assertLess(source.index('singularity exec'),
                         source.index('mpiexec -np 1'))
 
-    def test_displacement_script_is_python2_lcc_and_refuses_overwrite(self):
+    def test_displacement_script_is_python3_lcc_and_refuses_overwrite(self):
         source = read('validation/compare_cycle_displacements.py')
-        self.assertIn('from __future__ import division, print_function', source)
+        self.assertTrue(source.startswith('#!/usr/bin/env python3'))
         self.assertIn("attr.get('Name','')", source)
-        self.assertIn("if name!=field", source)
-        self.assertIn('conflicting displacement records', source)
+        self.assertIn("if name not in found", source)
+        self.assertIn("raise ValueError('conflicting %s records", source)
         self.assertIn('refusing to overwrite', source)
         self.assertIn('rigid(', source)
         self.assertIn('deformation_gradient', source)
         self.assertIn('quadratic_tetra10', source)
+        self.assertIn("interpolate(displacement,target,cyc)", source)
+        self.assertIn("interpolate(active,target,cyc)", source)
+        self.assertIn('active_displacement_difference_correlation', source)
         self.assertIn('containing_tetra', source)
         self.assertIn('source_files_modified', source)
 
     def test_quadrature_ids_are_mapped_through_coordinates(self):
         source = read('validation/compare_cycle_displacements.py')
-        self.assertIn("coordinates=np.load(args.quadrature_coordinates)", source)
-        self.assertIn('containing_tetra(coordinate,points,cells', source)
+        self.assertIn("q=np.load(args.quadrature_coordinates)", source)
+        compact = ''.join(source.split())
+        self.assertIn('containing_tetra(coordinate,points,cells', compact)
         self.assertNotIn('points[global_id]', source)
 
     def test_displacement_launcher_is_read_only_and_job_specific(self):
@@ -57,7 +61,8 @@ class MaterialPointDiagnosticTests(unittest.TestCase):
         self.assertIn('ECM_40s_healthy_quad_validation_optimized', source)
         self.assertIn('mesh_output/solution.xdmf', source)
         self.assertIn('sim_output/quadrature_dof.npy', source)
-        self.assertIn('singularity exec --cleanenv "$IMAGE" python', source)
+        self.assertIn("-c 'import numpy, h5py'", source)
+        self.assertIn('"$PYTHON_BIN" "$REPO/validation/compare_cycle_displacements.py"', source)
         self.assertNotIn('MyoFE.py', source)
 
 
