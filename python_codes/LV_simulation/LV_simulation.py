@@ -589,9 +589,30 @@ class LV_simulation():
                             self.spatial_fiber_data_fields+\
                             self.spatial_extra'''
         
-        ### to save resutls space, here we save less results
-        data_field = self.spatial_fiber_data_fields+\
-                            self.spatial_extra
+        # ``save_outputs: all`` is intentionally explicit: include every
+        # scalar half-sarcomere, myofilament, and membrane datum as a
+        # material-point history.  Older code populated these lists but then
+        # silently dropped them here to save disk space.  That behaviour made
+        # calcium fluxes and the actual (rather than baroreflex ``*_rc``)
+        # kinetic parameters unavailable even when the user requested all
+        # output.  Configuration-based field selection remains unchanged for
+        # smaller profiles.
+        if self.save_outputs_mode == 'all':
+            reserved = set(self.spatial_extra + self.spatial_fiber_data_fields)
+            self.spatial_hs_data_fields = [f for f in
+                self.spatial_hs_data_fields if f not in reserved]
+            reserved.update(self.spatial_hs_data_fields)
+            self.spatial_myof_data_fields = [f for f in
+                self.spatial_myof_data_fields if f not in reserved]
+            reserved.update(self.spatial_myof_data_fields)
+            self.spatial_memb_data_fields = [f for f in
+                self.spatial_memb_data_fields if f not in reserved]
+            data_field = self.spatial_hs_data_fields + \
+                         self.spatial_myof_data_fields + \
+                         self.spatial_memb_data_fields + \
+                         self.spatial_fiber_data_fields + self.spatial_extra
+        else:
+            data_field = self.spatial_fiber_data_fields + self.spatial_extra
                             
 
         if (self.gr != [] ):
@@ -2713,7 +2734,7 @@ class LV_simulation():
                         self.ecm_diag.data[f]
 
 
-            '''for f in self.spatial_hs_data_fields:
+            for f in self.spatial_hs_data_fields:
                 data_field = []
                 for h in self.hs_objs_list:
                     data_field.append(h.data[f])
@@ -2732,17 +2753,8 @@ class LV_simulation():
             for f in self.spatial_memb_data_fields:
                 data_field = []
                 for h in list(self.hs_objs_list):
-                    #print("h check",np.shape(h.memb.data[f]))
                     data_field.append(h.memb.data[f])
                 self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field
-            
-            
-                #self.local_spatial_sim_data[f].at[self.write_counter,'time'] = \
-                #    self.data['time']
-            if self.gr:
-                for f in self.spatial_gr_data_fields:
-                    data_field = self.gr.data[f]
-                    self.local_spatial_sim_data[f].iloc[self.write_counter] = data_field'''
             
 
 
