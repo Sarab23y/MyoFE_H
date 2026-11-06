@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=180G
 #SBATCH --partition=CAC48M192_L
-#SBATCH --nodelist=cascadeb022
+#SBATCH --nodelist=cascadeb024
 #SBATCH --account=col_jfwe223_uksr
 
 set -euo pipefail
