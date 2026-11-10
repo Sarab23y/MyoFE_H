@@ -9,9 +9,18 @@ DOF obtained from each subspace's cell dofmap.
 from __future__ import division, print_function
 
 import argparse
+import hashlib
 import json
 import os
 import sys
+
+
+def file_sha256(path):
+    value = hashlib.sha256()
+    with open(path, 'rb') as handle:
+        for block in iter(lambda: handle.read(1048576), b''):
+            value.update(block)
+    return value.hexdigest()
 
 
 def _marker(global_q_dof, component):
@@ -93,7 +102,13 @@ def _local_parent_map(mesh, scalar_space, mixed_space, components):
 def run(args):
     import numpy as np
     from dolfin import (FiniteElement, Function, FunctionSpace, HDF5File, MPI,
-                        Mesh, MixedElement, UnitCubeMesh, mpi_comm_world)
+                        Mesh, MixedElement, UnitCubeMesh, mpi_comm_world,
+                        parameters)
+
+    # MeshClass explicitly selects SCOTCH for production MPI mesh loading.
+    # Match it before constructing the mesh; do not rely on site defaults.
+    if MPI.size(mpi_comm_world()) > 1:
+        parameters['mesh_partitioner'] = 'SCOTCH'
 
     components = _state_component_count(args.input_json,
                                         args.state_components)
@@ -205,6 +220,9 @@ def run(args):
         "mpi_size": int(MPI.size(mesh.mpi_comm())),
         "mesh_source": mesh_source,
         "quadrature_degree": 2,
+        "input_sha256": file_sha256(args.input_json) if args.input_json else None,
+        "mesh_sha256": file_sha256(mesh_source) if not args.manufactured_mesh else None,
+        "mesh_partitioner": str(parameters['mesh_partitioner']),
         "state_component_count": int(components),
         "packing_under_test": "point_major: q_local * components + component",
         "ranks": gathered,
