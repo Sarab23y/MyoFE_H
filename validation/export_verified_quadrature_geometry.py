@@ -26,11 +26,11 @@ SOURCES = ('validation/validate_ecm_quadrature_mpi.py',
            'validation/run_phase_region_analysis.slurm')
 
 if __package__:
-    from .diagnostic_io import write_report, root_call
+    from .diagnostic_io import write_report, root_call, open_hdf5_file
     from .mpi_compat import as_mpi4py, world_comm
     from .validate_myosim_mixed_quadrature_ordering import _production_mesh, _local_parent_map
 else:
-    from diagnostic_io import write_report, root_call
+    from diagnostic_io import write_report, root_call, open_hdf5_file
     from mpi_compat import as_mpi4py, world_comm
     from validate_myosim_mixed_quadrature_ordering import _production_mesh, _local_parent_map
 
@@ -150,7 +150,7 @@ def run(args):
     element._quad_scheme = 'default'
     space = df.FunctionSpace(mesh, element)
     wall = df.Function(space)
-    h5 = df.HDF5File(raw_comm, mesh_path, 'r')
+    h5 = open_hdf5_file(df.HDF5File, raw_comm, mesh_path, 'r')
     # Fail if absent, unlike the production optional-read fallback.
     try:
         h5.read(wall, 'ellipsoidal/endo_dist')

@@ -159,6 +159,26 @@ for space in instruction['mesh'].get('function_spaces', []):
         assert space['element_type'][0] == 'Quadrature' and space['degree'][0] == 2, 'Unsupported quadrature definition'
 """
         command('saved_metadata', [sys.executable, '-c', metadata_code, saved, input_json], repo, output, checks)
+        mesh_code = """
+import sys, dolfin
+from validation.mpi_compat import world_comm
+from validation.validate_myosim_mixed_quadrature_ordering import _production_mesh
+from validation.diagnostic_io import open_hdf5_file
+mesh, path = _production_mesh(sys.argv[1], sys.argv[2],
+    (dolfin.HDF5File, dolfin.Mesh, lambda: world_comm(dolfin)))
+element = dolfin.FiniteElement('Quadrature', mesh.ufl_cell(), degree=2, quad_scheme='default')
+element._quad_scheme = 'default'
+space = dolfin.FunctionSpace(mesh, element)
+wall = dolfin.Function(space)
+handle = open_hdf5_file(dolfin.HDF5File, mesh.mpi_comm(), path, 'r')
+try:
+    handle.read(wall, 'ellipsoidal/endo_dist')
+finally:
+    handle.close()
+assert mesh.num_cells() > 0, 'Empty input mesh'
+print('Mesh/HDF binding check passed; cells', mesh.num_cells())
+"""
+        command('mesh_binding', [sys.executable, '-c', mesh_code, input_json, repo], repo, output, checks)
         if args.analysis_python:
             command('analysis_dependencies', [args.analysis_python, '-c',
                 'import sys,numpy,h5py; assert sys.version_info >= (3,6); print(sys.version,numpy.__version__,h5py.__version__)'],

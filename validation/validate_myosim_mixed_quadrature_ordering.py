@@ -16,10 +16,10 @@ import sys
 
 if __package__:
     from .mpi_compat import as_mpi4py, world_comm
-    from .diagnostic_io import write_report, root_call
+    from .diagnostic_io import write_report, root_call, open_hdf5_file
 else:
     from mpi_compat import as_mpi4py, world_comm
-    from diagnostic_io import write_report, root_call
+    from diagnostic_io import write_report, root_call, open_hdf5_file
 
 
 def file_sha256(path):
@@ -72,7 +72,7 @@ def _production_mesh(input_json, repo, dolfin_objects):
     HDF5File, Mesh, mpi_comm_world = dolfin_objects
     mesh_path = resolve_mesh_path(input_json, repo)
     mesh = Mesh()
-    handle = HDF5File(mpi_comm_world(), mesh_path, "r")
+    handle = open_hdf5_file(HDF5File, mpi_comm_world(), mesh_path, "r")
     try:
         handle.read(mesh, "ellipsoidal", False)
     finally:

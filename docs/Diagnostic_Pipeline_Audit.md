@@ -6,6 +6,11 @@ inside `/home/sba431/fenics.img`, with 32 ranks on `skylake047` in
 `SKY32M192_D`. The production checkout is `/home/sba431/MyoFE_H` and the
 diagnostic worktree is `/home/sba431/MyoFE_H_diagnostics`.
 
+For the filename conversion failure in job 6340723 and the CAL/cascade001 rerun,
+see [HDF5_Path_Compatibility.md](HDF5_Path_Compatibility.md). The preflight now
+opens the actual mesh and wall dataset before the numerical validator stages,
+logging the filename and communicator Python types at the constructor boundary.
+
 ## Issues identified and repaired
 
 1. Standalone scripts attempted relative imports and caught only ImportError.
