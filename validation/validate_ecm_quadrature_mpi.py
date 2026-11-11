@@ -14,10 +14,12 @@ from collections import Counter
 
 if __package__:
     from .diagnostic_io import write_report, root_call
-    from .mpi_compat import as_mpi4py
+    from .mpi_compat import as_mpi4py, world_comm
+    from .validate_myosim_mixed_quadrature_ordering import _production_mesh, file_sha256
 else:
     from diagnostic_io import write_report, root_call
-    from mpi_compat import as_mpi4py
+    from mpi_compat import as_mpi4py, world_comm
+    from validate_myosim_mixed_quadrature_ordering import _production_mesh, file_sha256
 
 
 def compare_reports(first_path, second_path, output_path):
@@ -47,15 +49,24 @@ def compare_reports(first_path, second_path, output_path):
     return 0 if report['passed'] else 1
 
 
-def run(output_path):
+def run(output_path, input_json=None):
     import numpy as np
+    import dolfin
     from dolfin import (Constant, FiniteElement, Function, FunctionSpace,
                         Identity, MixedElement, SpatialCoordinate,
                         UnitCubeMesh, VectorElement, VectorFunctionSpace,
                         as_tensor, conditional, det, diff, dx, exp, inner,
                         grad, interpolate, inv, project, split, sqrt, tr,
                         variable, assemble)
-    mesh = UnitCubeMesh(2, 2, 2)
+    mesh_path = None
+    if input_json:
+        if as_mpi4py(world_comm(dolfin)).Get_size() > 1:
+            dolfin.parameters['mesh_partitioner'] = 'SCOTCH'
+        repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        mesh, mesh_path = _production_mesh(input_json, repo,
+            (dolfin.HDF5File, dolfin.Mesh, lambda: world_comm(dolfin)))
+    else:
+        mesh = UnitCubeMesh(2, 2, 2)
     cell = mesh.ufl_cell()
     qelement = FiniteElement('Quadrature', cell, degree=2,
                              quad_scheme='default')
@@ -153,6 +164,10 @@ def run(output_path):
                          item['direct_fields'].values()) and
                      np.isfinite(item['historical_dg1_transfer']) for item in points)
         report = {'mode': 'fenics_quadrature_validation', 'mpi_size': comm.Get_size(),
+                  'mesh_source': mesh_path or 'manufactured UnitCubeMesh(2,2,2)',
+                  'field_source': 'manufactured deterministic fields, not historical deformation',
+                  'mesh_sha256': file_sha256(mesh_path) if mesh_path else None,
+                  'input_sha256': file_sha256(input_json) if input_json else None,
                   'point_count': len(points), 'unique_coordinate_count': len(set(keys)),
                   'finite': finite, 'maximum_absolute_dg1_direct_difference':
                   max([abs(item['direct_ecm']-item['historical_dg1_transfer']) for item in points] or [0.0]),
@@ -168,10 +183,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', required=True)
     parser.add_argument('--compare', nargs=2)
+    parser.add_argument('--input-json', help='actual submitted input; otherwise manufactured mesh')
     args = parser.parse_args(argv)
     if args.compare:
         return compare_reports(args.compare[0], args.compare[1], args.output)
-    return run(args.output)
+    return run(args.output, args.input_json)
 
 
 if __name__ == '__main__':

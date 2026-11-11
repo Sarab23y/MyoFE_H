@@ -29,12 +29,12 @@ OUT=${OUT:-/mnt/gpfs2_4m/scratch/sba431/demos/ECM/phase_region_${SLURM_JOB_ID}}
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 "$ANALYSIS_PYTHON" -c 'import sys,numpy; assert sys.version_info >= (3,6); print(sys.version); print(numpy.__version__)'
 cd "$REPO"
-WINDOW=()
-if test -n "${START:-}"; then WINDOW+=(--start "$START"); fi
-if test -n "${END:-}"; then WINDOW+=(--end "$END"); fi
+set --
+if test -n "${START:-}"; then set -- "$@" --start "$START"; fi
+if test -n "${END:-}"; then set -- "$@" --end "$END"; fi
 # The analyzer itself verifies the sealed suite, input/source/report hashes,
 # geometry and weights. Direct CLI use cannot bypass the suite gate.
 "$ANALYSIS_PYTHON" validation/analyze_phase_region.py \
   --data "$DATA" --mapping "$MAPPING" --input-json "$INPUT" \
-  --axis "$LONG_AXIS" "${WINDOW[@]}" --cycles 5 --output "$OUT"
+  --axis "$LONG_AXIS" "$@" --cycles 5 --output "$OUT"
 echo "Reports: $OUT"

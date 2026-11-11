@@ -9,8 +9,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-BASH = shutil.which('bash')
-if os.name == 'nt' and Path('C:/Program Files/Git/bin/bash.exe').exists():
+BASH = os.environ.get('DIAGNOSTIC_TEST_BASH') or shutil.which('bash')
+if not os.environ.get('DIAGNOSTIC_TEST_BASH') and os.name == 'nt' and Path('C:/Program Files/Git/bin/bash.exe').exists():
     BASH = 'C:/Program Files/Git/bin/bash.exe'
 
 
@@ -36,12 +36,17 @@ class DiagnosticLauncherTests(unittest.TestCase):
                    INPUT=shell_path(instruction), DATA=shell_path(data), OUT=shell_path(directory/'reports'),
                    SLURM_NTASKS='32', SLURM_JOB_ID='synthetic-test',
                    DIAG_TEST_PYTHON=sys.executable.replace('\\', '/'),
+                   BASH_TEST_PYTHON=sys.executable.replace('\\', '/'),
                    DIAG_TEST_DRIVER=(ROOT/'tests/fake_diagnostic_container.py').as_posix(),
                    DIAG_TEST_REPO=str(ROOT), DIAG_TEST_TRACE=str(directory/'commands.jsonl'))
         if fail:
             env['DIAG_TEST_FAIL'] = fail
         # Bash PATH uses ':' even when the parent is Windows PowerShell.
-        driver = 'export PATH="$DIAG_TEST_BIN:/usr/bin:/bin:$PATH"; exec bash "$DIAG_TEST_LAUNCHER"'
+        driver = 'export PATH="$DIAG_TEST_BIN:/usr/bin:/bin:$PATH"; exec "$DIAG_TEST_BASH" "$DIAG_TEST_LAUNCHER"'
+        # Git/bin/bash.exe is a native Windows wrapper that converts env paths;
+        # use its actual MSYS interpreter for the inner shell.
+        env['DIAG_TEST_BASH'] = '/usr/bin/bash' if os.name == 'nt' and 'Git/bin/bash' in BASH else BASH
+        env['DIAGNOSTIC_TEST_BASH'] = BASH
         env['DIAG_TEST_BIN'] = shell_path(commands)
         env['DIAG_TEST_LAUNCHER'] = shell_path(ROOT/'validation/run_phase_mapping_validation.slurm')
         return subprocess.run([BASH, '-c', driver], env=env, cwd=directory,

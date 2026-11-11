@@ -20,7 +20,7 @@ else:
 
 MAPPING = ('mpi_compat', 'validate_ecm_quadrature_mpi',
            'validate_myosim_mixed_quadrature_ordering', 'export_verified_quadrature_geometry')
-SHARED = ('diagnostic_io', 'preflight_diagnostics')
+SHARED = ('diagnostic_io', 'rank_scatter_audit', 'preflight_diagnostics')
 ANALYSIS = ('analyze_phase_region', 'analyze_ecm_spatial_anomalies',
             'compare_cycle_displacements')
 
@@ -48,7 +48,7 @@ def workflow(repo, input_json, saved_output, output, ranks, checks):
         os.mkdir(prefix)
         cases = [
             ('comm', 'mpi_compat', ['--expected-size', str(n)]),
-            ('scalar', 'validate_ecm_quadrature_mpi', []),
+            ('scalar', 'validate_ecm_quadrature_mpi', ['--input-json', input_json]),
             ('mixed', 'validate_myosim_mixed_quadrature_ordering', ['--input-json', input_json]),
             ('geometry', 'export_verified_quadrature_geometry', ['--input-json', input_json])]
         if n == 32:

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "event_scalar_evidence_class": "historically observed",
+  "event_scalar_provenance": "D:/F/results/sarcomere_local_analysis/hsl_hotspots.csv; checked against original HSL CSV in 2026-11-11 investigation",
+  "historical_population_state_available": false,
+  "fixture_evidence_class": "fixture-demonstrated",
+  "population_definition": "synthetic normalized uniform bound bins: SRX=0.4, DRX=0.55, bound total=0.05, thin off=0.9, thin on=0.1; NOT historical populations",
+  "membrane_definition": "synthetic Ca cytosol=1e-7, remainder in SR; initial dictionary refreshed before step",
+  "stored_feedback_Pa": [100.0, 20.0],
+  "incoming_feedback_Pa": [300.0, 40.0],
+  "time_step_s": 0.001,
+  "activation": 0,
+  "events": [
+    {"dof": 2833, "time_before_s": 8.695, "hsl_before_nm": 444.41832814581426, "delta_hsl_nm": -59.0309348},
+    {"dof": 2497, "time_before_s": 35.164, "hsl_before_nm": 1108.8338772277257, "delta_hsl_nm": 47.88250430475091},
+    {"dof": 4844, "time_before_s": 20.272, "hsl_before_nm": 934.9828312902524, "delta_hsl_nm": 48.065190030755275},
+    {"dof": 1580, "time_before_s": 25.164, "hsl_before_nm": 973.7467924651387, "delta_hsl_nm": 53.64368487776551}
+  ],
+  "extreme_overlap_probe_hsl_nm": 198.81592281199082
+  ,"positivity_probe": {
+    "evidence_class": "fixture-demonstrated",
+    "definition": "Separate nonnegative normalized sparse fixture, not any historical DOF population",
+    "delta_hsl_nm": -0.08631066524995767,
+    "x_bins_nm": [-5,-4,-3,-2,-1,0,1,2,3,4,5],
+    "bound_bins": [5.1520302543357496e-11,4.151235318602092e-08,8.078395506180152e-24,0.494860058252601,1.0603012039177353e-07,0.37777865807439936,6.119924659146374e-34,0.00043335180280966115,0.026927466242540044,9.996532060250415e-12,3.1802365960188274e-07]
+  }
+}

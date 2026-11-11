@@ -29,6 +29,7 @@ if script == 'preflight_diagnostics.py':
 report = dict(passed=True, mpi_size=ranks, synthetic_boundary_only=True,
               mesh_partitioner='SCOTCH', mesh_sha256='synthetic-test-mesh',
               weights_verified=True, vector_point_major_ordering_verified_all_ranks=True,
+              owned_index_and_rank_scatter_verified=True,
               saved_mapping_verified=True)
 if '--input-json' in args:
     data = Path(args[args.index('--input-json')+1]).read_bytes()
