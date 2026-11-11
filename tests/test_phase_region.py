@@ -223,7 +223,8 @@ class PhaseRegionTests(unittest.TestCase):
             self.field(field, g['time'], list(reversed(self.ids)))
         self.make_suite()
         args = ar.parser().parse_args(['--data', str(self.root), '--mapping', str(self.mapping), '--input-json', str(self.input),
-                                      '--output', str(self.root/'out'), '--axis', '2', '--start', '0'])
+                                      '--output', str(self.root/'out'), '--axis', '2', '--start', '0',
+                                      '--hotspots', '2833', '2497', '4844'])
         ar.analyze(args)
         report = json.loads((self.root/'out/report.json').read_text())
         self.assertTrue(report['complete'])
@@ -302,6 +303,7 @@ class PhaseRegionTests(unittest.TestCase):
         self.assertEqual(eq.compare(a, b, result), 0)
         second['points'][0]['reference_weight'] += 1
         b.write_text(json.dumps(second))
+        result.unlink()
         self.assertEqual(eq.compare(a, b, result), 1)
 
 

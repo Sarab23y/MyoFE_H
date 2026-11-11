@@ -15,6 +15,8 @@ REPORTS = ('mpi_comm_1.json', 'mpi_comm_32.json', 'ecm_1.json', 'ecm_32.json', '
            'geometry_1.json', 'geometry_32.json', 'ecm_comparison.json', 'geometry_comparison.json')
 SOURCES = ('validation/validate_ecm_quadrature_mpi.py',
            'validation/mpi_compat.py',
+           'validation/diagnostic_io.py',
+           'validation/preflight_diagnostics.py',
            'validation/validate_myosim_mixed_quadrature_ordering.py',
            'validation/export_verified_quadrature_geometry.py',
            'validation/analyze_phase_region.py',
@@ -23,10 +25,12 @@ SOURCES = ('validation/validate_ecm_quadrature_mpi.py',
            'validation/run_phase_mapping_validation.slurm',
            'validation/run_phase_region_analysis.slurm')
 
-try:
+if __package__:
+    from .diagnostic_io import write_report, root_call
     from .mpi_compat import as_mpi4py, world_comm
     from .validate_myosim_mixed_quadrature_ordering import _production_mesh, _local_parent_map
-except ImportError:
+else:
+    from diagnostic_io import write_report, root_call
     from mpi_compat import as_mpi4py, world_comm
     from validate_myosim_mixed_quadrature_ordering import _production_mesh, _local_parent_map
 
@@ -85,8 +89,7 @@ def seal_suite(directory, input_json, image, repo):
                 'repo_commit': subprocess.check_output(['git', '-C', repo, 'rev-parse', 'HEAD']).decode('ascii').strip(),
                 'report_sha256': dict((name, digest(os.path.join(directory, name))) for name in REPORTS),
                 'diagnostic_source_sha256': dict((name, digest(os.path.join(repo, name))) for name in SOURCES)}
-    with open(os.path.join(directory, 'mapping_manifest.json'), 'w') as handle:
-        json.dump(manifest, handle, indent=2, sort_keys=True)
+    write_report(os.path.join(directory, 'mapping_manifest.json'), manifest)
     return manifest
 
 
@@ -123,12 +126,14 @@ def compare(first, second, output):
         for x, y in zip(left, right):
             if not np.allclose(x['coordinate'], y['coordinate'], atol=1e-10, rtol=0):
                 passed = False
+            if not all(np.isfinite(p['reference_weight']) and p['reference_weight'] > 0 and
+                       np.isfinite(p['wall_depth']) for p in (x, y)):
+                passed = False
             error = max(error, abs(x['reference_weight']-y['reference_weight']),
                         abs(x['wall_depth']-y['wall_depth']))
         passed = passed and error <= 1e-10
-    with open(output, 'w') as handle:
-        json.dump({'passed': bool(passed), 'maximum_weight_or_wall_difference': error,
-                   'comparison': 'physical coordinates, reference weights and wall depth; IDs may differ'}, handle, indent=2)
+    write_report(output, {'passed': bool(passed), 'maximum_weight_or_wall_difference': error,
+                   'comparison': 'physical coordinates, reference weights and wall depth; IDs may differ'})
     return 0 if passed else 1
 
 
@@ -147,8 +152,10 @@ def run(args):
     wall = df.Function(space)
     h5 = df.HDF5File(raw_comm, mesh_path, 'r')
     # Fail if absent, unlike the production optional-read fallback.
-    h5.read(wall, 'ellipsoidal/endo_dist')
-    h5.close()
+    try:
+        h5.read(wall, 'ellipsoidal/endo_dist')
+    finally:
+        h5.close()
     form = df.TestFunction(space)*df.dx(domain=mesh, metadata={'quadrature_degree': 2, 'quadrature_scheme': 'default'})
     weights = df.assemble(form, form_compiler_parameters={'representation': 'quadrature'}).get_local()
     n = len(wall.vector().get_local())
@@ -188,47 +195,46 @@ def run(args):
         item.update(metadata[i]); local.append(item)
     gathered = comm.gather(local, root=0)
     reference_volume = float(df.assemble(df.Constant(1.)*df.dx(domain=mesh)))
-    if comm.Get_rank() != 0:
-        return 0
-    points = sorted([p for rank in gathered for p in rank], key=lambda p: p['global_dof'])
-    xyz = np.asarray([p['coordinate'] for p in points])
-    ids = [p['global_dof'] for p in points]
-    w = np.asarray([p['reference_weight'] for p in points])
-    wall = np.asarray([p['wall_depth'] for p in points])
-    saved_verified = False
-    hashes = {}
-    mapping_error = None
-    if args.saved_output:
-        names = ('quadrature_dof.npy', 'quadrature_global_dof.npy', 'norm_dist_endo.npy')
-        saved_xyz, saved_ids, saved_wall = [np.load(os.path.join(args.saved_output, name)) for name in names]
-        saved_ids = np.asarray(saved_ids).reshape(-1)
-        saved_wall = np.asarray(saved_wall).reshape(-1)
-        index = dict((int(gid), i) for i, gid in enumerate(saved_ids))
-        if len(index) == len(saved_ids) and set(ids) == set(index) and saved_xyz.shape == xyz.shape:
-            order = [index[gid] for gid in ids]
-            saved_verified = bool(np.allclose(xyz, saved_xyz[order], rtol=0, atol=1e-10) and
-                                  np.allclose(wall, saved_wall[order], rtol=0, atol=1e-10))
-        if not saved_verified:
-            mapping_error = 'saved ID-coordinate/wall tuples differ from reconstructed production-rank space'
-        hashes = dict((name, digest(os.path.join(args.saved_output, name))) for name in names)
-    valid = bool(vector_ok_global and len(ids) == len(set(ids)) and len(set(tuple(c) for c in xyz)) == len(ids) and
-                 np.isfinite(xyz).all() and np.isfinite(w).all() and np.all(w > 0) and
-                 np.isfinite(wall).all() and np.all((wall >= 0) & (wall <= 1)) and
-                 np.isclose(w.sum(), reference_volume, rtol=1e-10, atol=1e-12))
-    report = {'passed': valid and (saved_verified if args.saved_output else True),
-              'saved_mapping_verified': saved_verified, 'mapping_error': mapping_error,
-              'weights_verified': valid, 'source_sha256': hashes,
-              'vector_point_major_ordering_verified_all_ranks': bool(vector_ok_global),
-              'mesh_sha256': digest(mesh_path), 'input_sha256': digest(args.input_json),
-              'mesh_path': mesh_path, 'mpi_size': int(comm.Get_size()),
-              'mesh_partitioner': str(df.parameters['mesh_partitioner']),
-              'reference_volume': reference_volume, 'sum_reference_weights': float(w.sum()),
-              'weight_definition': 'assembled scalar Quadrature test basis against reference dx, degree 2',
-              'wall_definition': 'mesh ellipsoidal/endo_dist, compared with saved norm_dist_endo; anatomical normalization must be reviewed',
-              'points': points}
-    with open(args.output, 'w') as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
-    return 0 if report['passed'] else 1
+    def finish():
+        points = sorted([p for rank in gathered for p in rank], key=lambda p: p['global_dof'])
+        xyz = np.asarray([p['coordinate'] for p in points])
+        ids = [p['global_dof'] for p in points]
+        w = np.asarray([p['reference_weight'] for p in points])
+        wall = np.asarray([p['wall_depth'] for p in points])
+        saved_verified = False
+        hashes = {}
+        mapping_error = None
+        if args.saved_output:
+            names = ('quadrature_dof.npy', 'quadrature_global_dof.npy', 'norm_dist_endo.npy')
+            saved_xyz, saved_ids, saved_wall = [np.load(os.path.join(args.saved_output, name)) for name in names]
+            saved_ids = np.asarray(saved_ids).reshape(-1)
+            saved_wall = np.asarray(saved_wall).reshape(-1)
+            index = dict((int(gid), i) for i, gid in enumerate(saved_ids))
+            if len(index) == len(saved_ids) and set(ids) == set(index) and saved_xyz.shape == xyz.shape:
+                order = [index[gid] for gid in ids]
+                saved_verified = bool(np.allclose(xyz, saved_xyz[order], rtol=0, atol=1e-10) and
+                                      np.allclose(wall, saved_wall[order], rtol=0, atol=1e-10))
+            if not saved_verified:
+                mapping_error = 'saved ID-coordinate/wall tuples differ from reconstructed production-rank space'
+            hashes = dict((name, digest(os.path.join(args.saved_output, name))) for name in names)
+        valid = bool(vector_ok_global and len(ids) == len(set(ids)) and len(set(tuple(c) for c in xyz)) == len(ids) and
+                     np.isfinite(xyz).all() and np.isfinite(w).all() and np.all(w > 0) and
+                     np.isfinite(wall).all() and np.all((wall >= 0) & (wall <= 1)) and
+                     np.isclose(w.sum(), reference_volume, rtol=1e-10, atol=1e-12))
+        report = {'passed': valid and (saved_verified if args.saved_output else True),
+                  'saved_mapping_verified': saved_verified, 'mapping_error': mapping_error,
+                  'weights_verified': valid, 'source_sha256': hashes,
+                  'vector_point_major_ordering_verified_all_ranks': bool(vector_ok_global),
+                  'mesh_sha256': digest(mesh_path), 'input_sha256': digest(args.input_json),
+                  'mesh_path': mesh_path, 'mpi_size': int(comm.Get_size()),
+                  'mesh_partitioner': str(df.parameters['mesh_partitioner']),
+                  'reference_volume': reference_volume, 'sum_reference_weights': float(w.sum()),
+                  'weight_definition': 'assembled scalar Quadrature test basis against reference dx, degree 2',
+                  'wall_definition': 'mesh ellipsoidal/endo_dist, compared with saved norm_dist_endo; anatomical normalization must be reviewed',
+                  'points': points}
+        write_report(args.output, report)
+        return 0 if report['passed'] else 1
+    return root_call(comm, finish)
 
 
 if __name__ == '__main__':

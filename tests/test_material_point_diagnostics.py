@@ -50,7 +50,7 @@ class MaterialPointDiagnosticTests(unittest.TestCase):
 
     def test_quadrature_ids_are_mapped_through_coordinates(self):
         source = read('validation/compare_cycle_displacements.py')
-        self.assertIn("q=np.load(args.quadrature_coordinates)", source)
+        self.assertIn("q=coordinate_lookup(args.quadrature_coordinates, args.quadrature_global_dofs)", source)
         compact = ''.join(source.split())
         self.assertIn('containing_tetra(coordinate,points,cells', compact)
         self.assertNotIn('points[global_id]', source)

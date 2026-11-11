@@ -46,6 +46,13 @@ class PETScComm:
 
 
 class CommCompatibilityTests(unittest.TestCase):
+    def test_null_or_out_of_range_rank_is_rejected(self):
+        for rank, size in ((-1, 0), (-1, 32), (32, 32)):
+            with self.assertRaises(ValueError):
+                as_mpi4py(ObjectComm(rank, size))
+            with self.assertRaises(ValueError):
+                as_mpi4py(PETScComm(ObjectComm(rank, size)))
+
     def test_mpi4py_is_preserved_without_duplication(self):
         comm = ObjectComm(7, 32)
         self.assertIs(as_mpi4py(comm), comm)

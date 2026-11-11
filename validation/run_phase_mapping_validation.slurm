@@ -9,8 +9,8 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=32G
 #SBATCH --account=col_jfwe223_uksr
-#SBATCH --partition=CAC48M192_L
-#SBATCH --nodelist=cascadeb024
+#SBATCH --partition=SKY32M192_D
+#SBATCH --nodelist=skylake047
 set -euo pipefail
 REPO=${REPO:-/home/sba431/MyoFE_H_diagnostics}
 IMAGE=${IMAGE:-/home/sba431/fenics.img}
@@ -23,14 +23,15 @@ if test "$REPO" = "$PRODUCTION_REPO"; then
   echo 'Refusing to run from the production checkout; set REPO to the diagnostic worktree.' >&2
   exit 2
 fi
-test "$(git -C "$REPO" rev-parse --show-toplevel)" = "$REPO"
+test "$(cd "$(git -C "$REPO" rev-parse --show-toplevel)" && pwd -P)" = "$REPO"
 test "${SLURM_NTASKS}" = 32
 test -f "$INPUT"
 test -f "$IMAGE"
 test -d "$DATA"
 test ! -e "$OUT"
-mkdir -p "$(dirname "$OUT")"
+if test ! -d "$(dirname "$OUT")"; then mkdir -p "$(dirname "$OUT")"; fi
 mkdir "$OUT"
+trap 'status=$?; echo "Mapping diagnostics failed at line $LINENO (exit $status). See $OUT" >&2; printf "exit=%s line=%s\n" "$status" "$LINENO" > "$OUT/failure.txt"; exit "$status"' ERR
 cd "$REPO/python_codes"
 {
   hostname
@@ -46,6 +47,9 @@ cp "$INPUT" "$OUT/instruction.json"
 # Every test consumes this frozen copy of the submitted input, not a mutable
 # repository configuration. Mesh and input checksums are recorded per test.
 INPUT="$OUT/instruction.json"
+singularity exec --cleanenv "$IMAGE" python "$REPO/validation/preflight_diagnostics.py" \
+  --repo "$REPO" --input-json "$INPUT" --saved-output "$DATA" \
+  --output "$OUT/preflight" --static-only
 for N in 1 "$SLURM_NTASKS"; do
   singularity exec --cleanenv "$IMAGE" mpiexec -np "$N" python \
     "$REPO/validation/mpi_compat.py" --expected-size "$N" --output "$OUT/mpi_comm_${N}.json"

@@ -5,6 +5,11 @@ of that same communicator for Python-object collectives.
 """
 from __future__ import print_function
 
+if __package__:
+    from .diagnostic_io import write_report, root_call
+else:
+    from diagnostic_io import write_report, root_call
+
 
 def world_comm(dolfin):
     """Support both the 2019 MPI.comm_world and legacy factory API."""
@@ -21,6 +26,8 @@ def as_mpi4py(comm):
     """
     methods = ('Get_rank', 'Get_size', 'gather', 'allgather', 'bcast')
     if all(callable(getattr(comm, name, None)) for name in methods):
+        if comm.Get_size() < 1 or not 0 <= comm.Get_rank() < comm.Get_size():
+            raise ValueError('Null or invalid diagnostic communicator')
         return comm
     convert = getattr(comm, 'tompi4py', None)
     if not callable(convert):
@@ -28,6 +35,8 @@ def as_mpi4py(comm):
     converted = convert()
     if not all(callable(getattr(converted, name, None)) for name in methods):
         raise TypeError('tompi4py() did not return an object-collective communicator')
+    if converted.Get_size() < 1 or not 0 <= converted.Get_rank() < converted.Get_size():
+        raise ValueError('Null or invalid converted communicator')
     for original, accessor in (('getRank', 'Get_rank'), ('getSize', 'Get_size')):
         query = getattr(comm, original, None)
         if callable(query) and query() != getattr(converted, accessor)():
@@ -61,16 +70,15 @@ def probe(output, expected_size):
     sub_members = subview.allgather(comm.Get_rank())
     local['subgroup_reversed_rank_order'] = sub_members == sorted(sub_members, reverse=True)
     ranks = converted.gather(local, root=0)
-    passed = None
-    if comm.Get_rank() == 0:
+    def finish():
         passed = (comm.Get_size() == expected_size and
                   [r['rank'] for r in ranks] == list(range(expected_size)) and
                   all(r['size'] == expected_size and r['petsc_conversion_same_context'] and
                       r['subgroup_conversion_same_context'] and r['subgroup_reversed_rank_order']
                       for r in ranks))
-        with open(output, 'w') as handle:
-            json.dump({'passed': bool(passed), 'mpi_size': comm.Get_size(), 'ranks': ranks}, handle, indent=2)
-    passed = comm.bcast(passed, root=0)
+        write_report(output, {'passed': bool(passed), 'mpi_size': comm.Get_size(), 'ranks': ranks})
+        return passed
+    passed = root_call(comm, finish)
     # Drop the PETSc view before releasing the explicitly created subgroup.
     del subview
     del subwrapped

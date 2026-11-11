@@ -10,33 +10,40 @@ import json
 import math
 import os
 import sys
+from collections import Counter
 
-try:
+if __package__:
+    from .diagnostic_io import write_report, root_call
     from .mpi_compat import as_mpi4py
-except ImportError:
+else:
+    from diagnostic_io import write_report, root_call
     from mpi_compat import as_mpi4py
 
 
 def compare_reports(first_path, second_path, output_path):
-    first = json.load(open(first_path)); second = json.load(open(second_path))
+    with open(first_path) as handle:
+        first = json.load(handle)
+    with open(second_path) as handle:
+        second = json.load(handle)
     first_keys = [tuple(item['coordinate']) for item in first['points']]
     second_keys = [tuple(item['coordinate']) for item in second['points']]
     a = dict((tuple(item['coordinate']), item['direct_fields']) for item in first['points'])
     b = dict((tuple(item['coordinate']), item['direct_fields']) for item in second['points'])
     missing = sorted(set(a).symmetric_difference(set(b)))
-    duplicates = sorted(set([key for key in first_keys
-                             if first_keys.count(key) > 1] +
-                            [key for key in second_keys
-                             if second_keys.count(key) > 1]))
+    duplicates = sorted(key for key, count in Counter(first_keys).items() if count > 1)
+    duplicates += sorted(key for key, count in Counter(second_keys).items() if count > 1)
+    if any(set(a[key]) != set(b[key]) for key in set(a).intersection(b)):
+        raise ValueError('Scalar comparison direct-field names differ')
     difference = max([abs(a[key][field]-b[key][field])
         for key in set(a).intersection(b) for field in a[key]] or [0.0])
     bad_coordinates = sorted(set(missing + duplicates))
     report = {'mode': 'cross_mpi_comparison', 'missing_or_duplicate_coordinates':
               [list(key) for key in bad_coordinates],
               'maximum_direct_value_difference': difference,
-              'passed': not bad_coordinates and difference <= 1.0e-10}
-    with open(output_path, 'w') as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
+              'passed': bool(first.get('passed') is True and second.get('passed') is True and
+                             a and b and not bad_coordinates and difference <= 1.0e-10 and
+                             all(not (math.isnan(v) or math.isinf(v)) for values in list(a.values()) + list(b.values()) for v in values.values()))}
+    write_report(output_path, report)
     return 0 if report['passed'] else 1
 
 
@@ -139,23 +146,22 @@ def run(output_path):
              for index in range(len(values))]
     comm = as_mpi4py(mesh.mpi_comm())
     gathered = comm.gather(local, root=0)
-    if comm.Get_rank() != 0:
-        return 0
-    points = [item for rank_items in gathered for item in rank_items]
-    keys = [tuple(item['coordinate']) for item in points]
-    finite = all(all(np.isfinite(value) for value in
-                     item['direct_fields'].values()) and
-                 np.isfinite(item['historical_dg1_transfer']) for item in points)
-    report = {'mode': 'fenics_quadrature_validation', 'mpi_size': comm.Get_size(),
-              'point_count': len(points), 'unique_coordinate_count': len(set(keys)),
-              'finite': finite, 'maximum_absolute_dg1_direct_difference':
-              max([abs(item['direct_ecm']-item['historical_dg1_transfer']) for item in points] or [0.0]),
-              'relative_weighted_l2_difference': math.sqrt(numerator/denominator) if denominator else 0.0,
-              'points': sorted(points, key=lambda item: item['coordinate'])}
-    report['passed'] = finite and len(points) == len(set(keys))
-    with open(output_path, 'w') as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
-    return 0 if report['passed'] else 1
+    def finish():
+        points = [item for rank_items in gathered for item in rank_items]
+        keys = [tuple(item['coordinate']) for item in points]
+        finite = all(all(np.isfinite(value) for value in
+                         item['direct_fields'].values()) and
+                     np.isfinite(item['historical_dg1_transfer']) for item in points)
+        report = {'mode': 'fenics_quadrature_validation', 'mpi_size': comm.Get_size(),
+                  'point_count': len(points), 'unique_coordinate_count': len(set(keys)),
+                  'finite': finite, 'maximum_absolute_dg1_direct_difference':
+                  max([abs(item['direct_ecm']-item['historical_dg1_transfer']) for item in points] or [0.0]),
+                  'relative_weighted_l2_difference': math.sqrt(numerator/denominator) if denominator else 0.0,
+                  'points': sorted(points, key=lambda item: item['coordinate'])}
+        report['passed'] = finite and len(points) == len(set(keys))
+        write_report(output_path, report)
+        return 0 if report['passed'] else 1
+    return root_call(comm, finish)
 
 
 def main(argv=None):

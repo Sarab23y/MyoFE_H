@@ -14,10 +14,10 @@ from pathlib import Path
 
 import numpy as np
 
-try:
+if __package__:
     from .analyze_ecm_spatial_anomalies import field_path, inspect_header, resolve_output_directory
     from .export_verified_quadrature_geometry import require_suite, REPORTS, SOURCES
-except ImportError:
+else:
     from analyze_ecm_spatial_anomalies import field_path, inspect_header, resolve_output_directory
     from export_verified_quadrature_geometry import require_suite, REPORTS, SOURCES
 
@@ -555,7 +555,7 @@ def parser():
     p.add_argument('--cycles', type=int, default=5)
     p.add_argument('--start', type=float, help='explicit lower bound; default selects latest complete cycles available')
     p.add_argument('--end', type=float, default=float('inf'))
-    p.add_argument('--hotspots', type=int, nargs='+', default=[2833, 2497, 4844])
+    p.add_argument('--hotspots', type=int, nargs='+', default=[2833, 2497, 4844, 1580])
     p.add_argument('--time-tolerance', type=float, default=1e-9)
     p.add_argument('--flow-threshold', type=float, default=1e-8)
     p.add_argument('--volume-rate-threshold', type=float, default=1e-5)

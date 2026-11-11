@@ -14,10 +14,12 @@ import json
 import os
 import sys
 
-try:
+if __package__:
     from .mpi_compat import as_mpi4py, world_comm
-except ImportError:
+    from .diagnostic_io import write_report, root_call
+else:
     from mpi_compat import as_mpi4py, world_comm
+    from diagnostic_io import write_report, root_call
 
 
 def file_sha256(path):
@@ -38,40 +40,43 @@ def _state_component_count(input_json, explicit):
         return int(explicit)
     if not input_json:
         raise ValueError("provide --input-json or --state-components")
-    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    lv_path = os.path.join(repo, "python_codes", "LV_simulation")
-    if lv_path not in sys.path:
-        sys.path.insert(0, lv_path)
-    from half_sarcomere import half_sarcomere as hs_module
+    import numpy as np
     with open(input_json) as handle:
         instruction = json.load(handle)
-    hs = hs_module.half_sarcomere(
-        instruction["model"]["half_sarcomere"])
-    return len(hs.myof.y)
+    impl = instruction['model']['half_sarcomere']['myofilaments']['implementation']
+    low, high, width = [float(impl[key][0]) for key in ('bin_min', 'bin_max', 'bin_width')]
+    if not np.isfinite([low, high, width]).all() or width <= 0 or high < low:
+        raise ValueError('Invalid MyoSim bin bounds/width')
+    bins = len(np.arange(low, high + width, width))
+    scheme = impl['kinetic_scheme'][0]
+    # Match myofilaments.set_up_3/4_state_with_SRX exactly, without importing
+    # membrane/kinetics dependencies or changing the production model.
+    if scheme in ('3_state_with_SRX', '3_state_with_SRX_and_exp_detach'):
+        return bins + 4
+    if scheme in ('4_state_with_SRX', '4_state_with_SRX_and_exp_detach'):
+        return 2 * bins + 4
+    raise ValueError('Unsupported MyoSim scheme: ' + scheme)
+
+
+def resolve_mesh_path(input_json, repo):
+    with open(input_json) as handle:
+        configured = json.load(handle)['mesh']['mesh_path'][0]
+    path = configured if os.path.isabs(configured) else os.path.join(repo, 'python_codes', configured)
+    path = os.path.realpath(path)
+    if not os.path.isfile(path):
+        raise IOError('Production mesh not found relative to REPO/python_codes: ' + path)
+    return path
 
 
 def _production_mesh(input_json, repo, dolfin_objects):
     HDF5File, Mesh, mpi_comm_world = dolfin_objects
-    with open(input_json) as handle:
-        instruction = json.load(handle)
-    configured = instruction["mesh"]["mesh_path"][0]
-    candidates = [configured,
-                  os.path.join(os.getcwd(), configured),
-                  os.path.join(repo, "python_codes", configured),
-                  os.path.join(os.path.dirname(input_json), configured)]
-    mesh_path = None
-    for candidate in candidates:
-        candidate = os.path.abspath(candidate)
-        if os.path.isfile(candidate):
-            mesh_path = candidate
-            break
-    if mesh_path is None:
-        raise IOError("configured production mesh was not found; checked: %s" %
-                      candidates)
+    mesh_path = resolve_mesh_path(input_json, repo)
     mesh = Mesh()
     handle = HDF5File(mpi_comm_world(), mesh_path, "r")
-    handle.read(mesh, "ellipsoidal", False)
-    handle.close()
+    try:
+        handle.read(mesh, "ellipsoidal", False)
+    finally:
+        handle.close()
     return mesh, mesh_path
 
 
@@ -220,26 +225,25 @@ def run(args):
         not len(forward_bad) and not len(inverse_bad))
 
     gathered = comm.gather(local_report, root=0)
-    if comm.Get_rank() != 0:
-        return 0 if local_report["passed"] else 1
-    report = {
-        "test": "myosim_mixed_quadrature_state_ordering",
-        "mpi_size": int(comm.Get_size()),
-        "mesh_source": mesh_source,
-        "quadrature_degree": 2,
-        "input_sha256": file_sha256(args.input_json) if args.input_json else None,
-        "mesh_sha256": file_sha256(mesh_source) if not args.manufactured_mesh else None,
-        "mesh_partitioner": str(parameters['mesh_partitioner']),
-        "state_component_count": int(components),
-        "packing_under_test": "point_major: q_local * components + component",
-        "ranks": gathered,
-        "passed": all(item["passed"] for item in gathered)}
-    with open(args.output, "w") as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
-    print("MyoSim mixed-quadrature ordering: %s" %
-          ("PASS" if report["passed"] else "FAIL"))
-    print("Report: %s" % args.output)
-    return 0 if report["passed"] else 1
+    def finish():
+        report = {
+            "test": "myosim_mixed_quadrature_state_ordering",
+            "mpi_size": int(comm.Get_size()),
+            "mesh_source": mesh_source,
+            "quadrature_degree": 2,
+            "input_sha256": file_sha256(args.input_json) if args.input_json else None,
+            "mesh_sha256": file_sha256(mesh_source) if not args.manufactured_mesh else None,
+            "mesh_partitioner": str(parameters['mesh_partitioner']),
+            "state_component_count": int(components),
+            "packing_under_test": "point_major: q_local * components + component",
+            "ranks": gathered,
+            "passed": all(item["passed"] for item in gathered)}
+        write_report(args.output, report)
+        print("MyoSim mixed-quadrature ordering: %s" %
+              ("PASS" if report["passed"] else "FAIL"))
+        print("Report: %s" % args.output)
+        return 0 if report["passed"] else 1
+    return root_call(comm, finish)
 
 
 def main(argv=None):
@@ -273,12 +277,12 @@ def main(argv=None):
                 rank = MPI.COMM_WORLD.Get_rank()
             except Exception:
                 rank = None
-        if rank == 0:
-            with open(args.output, "w") as handle:
-                json.dump({"test": "myosim_mixed_quadrature_state_ordering",
-                           "passed": False,
-                           "initialization_error": repr(error)},
-                          handle, indent=2, sort_keys=True)
+        if rank == 0 and not os.path.exists(args.output):
+            try:
+                write_report(args.output, {"test": "myosim_mixed_quadrature_state_ordering",
+                                          "passed": False, "initialization_error": repr(error)})
+            except Exception as report_error:
+                print('Could not write failure report: %s' % report_error)
         print("MyoSim mixed-quadrature ordering: ERROR: %s" % error)
         return 2
 
