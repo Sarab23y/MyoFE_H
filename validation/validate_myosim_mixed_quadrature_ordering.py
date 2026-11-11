@@ -14,6 +14,11 @@ import json
 import os
 import sys
 
+try:
+    from .mpi_compat import as_mpi4py, world_comm
+except ImportError:
+    from mpi_compat import as_mpi4py, world_comm
+
 
 def file_sha256(path):
     value = hashlib.sha256()
@@ -101,13 +106,14 @@ def _local_parent_map(mesh, scalar_space, mixed_space, components):
 
 def run(args):
     import numpy as np
-    from dolfin import (FiniteElement, Function, FunctionSpace, HDF5File, MPI,
-                        Mesh, MixedElement, UnitCubeMesh, mpi_comm_world,
+    from dolfin import (FiniteElement, Function, FunctionSpace, HDF5File,
+                        Mesh, MixedElement, UnitCubeMesh,
                         parameters)
+    import dolfin
 
     # MeshClass explicitly selects SCOTCH for production MPI mesh loading.
     # Match it before constructing the mesh; do not rely on site defaults.
-    if MPI.size(mpi_comm_world()) > 1:
+    if as_mpi4py(world_comm(dolfin)).Get_size() > 1:
         parameters['mesh_partitioner'] = 'SCOTCH'
 
     components = _state_component_count(args.input_json,
@@ -122,7 +128,8 @@ def run(args):
             raise ValueError("--input-json is required unless "
                              "--manufactured-mesh is selected")
         mesh, mesh_source = _production_mesh(
-            args.input_json, repo, (HDF5File, Mesh, mpi_comm_world))
+            args.input_json, repo, (HDF5File, Mesh, lambda: world_comm(dolfin)))
+    comm = as_mpi4py(mesh.mpi_comm())
     qelement = FiniteElement("Quadrature", mesh.ufl_cell(), degree=2,
                              quad_scheme="default")
     qelement._quad_scheme = "default"
@@ -188,7 +195,7 @@ def run(args):
     duplicate_parent = np.where(expected_seen > 1)[0]
     missing_parent = np.where(expected_seen == 0)[0]
     local_report = {
-        "rank": int(MPI.rank(mesh.mpi_comm())),
+        "rank": int(comm.Get_rank()),
         "scalar_owned_dofs": int(scalar_owned),
         "production_local_point_count_4_times_mesh_cells":
             int(production_local_points),
@@ -212,12 +219,12 @@ def run(args):
         not len(duplicate_parent) and not len(missing_parent) and
         not len(forward_bad) and not len(inverse_bad))
 
-    gathered = mesh.mpi_comm().gather(local_report, root=0)
-    if MPI.rank(mesh.mpi_comm()) != 0:
+    gathered = comm.gather(local_report, root=0)
+    if comm.Get_rank() != 0:
         return 0 if local_report["passed"] else 1
     report = {
         "test": "myosim_mixed_quadrature_state_ordering",
-        "mpi_size": int(MPI.size(mesh.mpi_comm())),
+        "mpi_size": int(comm.Get_size()),
         "mesh_source": mesh_source,
         "quadrature_degree": 2,
         "input_sha256": file_sha256(args.input_json) if args.input_json else None,
@@ -255,10 +262,17 @@ def main(argv=None):
         # Root writes a useful machine-readable failure when initialization
         # itself fails; other MPI ranks still return failure.
         try:
-            from dolfin import MPI, mpi_comm_world
-            rank = MPI.rank(mpi_comm_world())
+            import dolfin
+            rank = as_mpi4py(world_comm(dolfin)).Get_rank()
         except Exception:
-            rank = 0
+            # This standalone command starts on the world communicator. If
+            # DOLFIN initialization failed, use mpi4py only to select the
+            # single initialization-error reporter, never for mesh gathers.
+            try:
+                from mpi4py import MPI
+                rank = MPI.COMM_WORLD.Get_rank()
+            except Exception:
+                rank = None
         if rank == 0:
             with open(args.output, "w") as handle:
                 json.dump({"test": "myosim_mixed_quadrature_state_ordering",

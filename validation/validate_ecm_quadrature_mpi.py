@@ -11,6 +11,11 @@ import math
 import os
 import sys
 
+try:
+    from .mpi_compat import as_mpi4py
+except ImportError:
+    from mpi_compat import as_mpi4py
+
 
 def compare_reports(first_path, second_path, output_path):
     first = json.load(open(first_path)); second = json.load(open(second_path))
@@ -38,7 +43,7 @@ def compare_reports(first_path, second_path, output_path):
 def run(output_path):
     import numpy as np
     from dolfin import (Constant, FiniteElement, Function, FunctionSpace,
-                        Identity, MPI, MixedElement, SpatialCoordinate,
+                        Identity, MixedElement, SpatialCoordinate,
                         UnitCubeMesh, VectorElement, VectorFunctionSpace,
                         as_tensor, conditional, det, diff, dx, exp, inner,
                         grad, interpolate, inv, project, split, sqrt, tr,
@@ -132,15 +137,16 @@ def run(output_path):
                                     diagnostic_values.items()),
               'historical_dg1_transfer': float(old[index])}
              for index in range(len(values))]
-    comm = mesh.mpi_comm(); gathered = comm.gather(local, root=0)
-    if MPI.rank(comm) != 0:
+    comm = as_mpi4py(mesh.mpi_comm())
+    gathered = comm.gather(local, root=0)
+    if comm.Get_rank() != 0:
         return 0
     points = [item for rank_items in gathered for item in rank_items]
     keys = [tuple(item['coordinate']) for item in points]
     finite = all(all(np.isfinite(value) for value in
                      item['direct_fields'].values()) and
                  np.isfinite(item['historical_dg1_transfer']) for item in points)
-    report = {'mode': 'fenics_quadrature_validation', 'mpi_size': MPI.size(comm),
+    report = {'mode': 'fenics_quadrature_validation', 'mpi_size': comm.Get_size(),
               'point_count': len(points), 'unique_coordinate_count': len(set(keys)),
               'finite': finite, 'maximum_absolute_dg1_direct_difference':
               max([abs(item['direct_ecm']-item['historical_dg1_transfer']) for item in points] or [0.0]),

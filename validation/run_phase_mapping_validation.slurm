@@ -29,7 +29,8 @@ test -f "$INPUT"
 test -f "$IMAGE"
 test -d "$DATA"
 test ! -e "$OUT"
-mkdir -p "$OUT"
+mkdir -p "$(dirname "$OUT")"
+mkdir "$OUT"
 cd "$REPO/python_codes"
 {
   hostname
@@ -46,6 +47,8 @@ cp "$INPUT" "$OUT/instruction.json"
 # repository configuration. Mesh and input checksums are recorded per test.
 INPUT="$OUT/instruction.json"
 for N in 1 "$SLURM_NTASKS"; do
+  singularity exec --cleanenv "$IMAGE" mpiexec -np "$N" python \
+    "$REPO/validation/mpi_compat.py" --expected-size "$N" --output "$OUT/mpi_comm_${N}.json"
   singularity exec --cleanenv "$IMAGE" mpiexec -np "$N" python \
     "$REPO/validation/validate_ecm_quadrature_mpi.py" --output "$OUT/ecm_${N}.json"
   singularity exec --cleanenv "$IMAGE" mpiexec -np "$N" python \

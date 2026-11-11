@@ -11,9 +11,10 @@ import json
 import os
 import subprocess
 
-REPORTS = ('ecm_1.json', 'ecm_32.json', 'mixed_1.json', 'mixed_32.json',
+REPORTS = ('mpi_comm_1.json', 'mpi_comm_32.json', 'ecm_1.json', 'ecm_32.json', 'mixed_1.json', 'mixed_32.json',
            'geometry_1.json', 'geometry_32.json', 'ecm_comparison.json', 'geometry_comparison.json')
 SOURCES = ('validation/validate_ecm_quadrature_mpi.py',
+           'validation/mpi_compat.py',
            'validation/validate_myosim_mixed_quadrature_ordering.py',
            'validation/export_verified_quadrature_geometry.py',
            'validation/analyze_phase_region.py',
@@ -23,8 +24,10 @@ SOURCES = ('validation/validate_ecm_quadrature_mpi.py',
            'validation/run_phase_region_analysis.slurm')
 
 try:
+    from .mpi_compat import as_mpi4py, world_comm
     from .validate_myosim_mixed_quadrature_ordering import _production_mesh, _local_parent_map
 except ImportError:
+    from mpi_compat import as_mpi4py, world_comm
     from validate_myosim_mixed_quadrature_ordering import _production_mesh, _local_parent_map
 
 
@@ -47,7 +50,7 @@ def check_reports(directory, input_json):
     expected_input = digest(input_json)
     meshes = set()
     for ranks in (1, 32):
-        for kind in ('ecm', 'mixed', 'geometry'):
+        for kind in ('mpi_comm', 'ecm', 'mixed', 'geometry'):
             name = '%s_%d.json' % (kind, ranks)
             if reports[name].get('mpi_size') != ranks:
                 raise ValueError('wrong MPI size: ' + name)
@@ -132,16 +135,17 @@ def compare(first, second, output):
 def run(args):
     import numpy as np
     import dolfin as df
-    if df.MPI.size(df.mpi_comm_world()) > 1:
+    if as_mpi4py(world_comm(df)).Get_size() > 1:
         df.parameters['mesh_partitioner'] = 'SCOTCH'
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    mesh, mesh_path = _production_mesh(args.input_json, repo, (df.HDF5File, df.Mesh, df.mpi_comm_world))
-    comm = mesh.mpi_comm()
+    mesh, mesh_path = _production_mesh(args.input_json, repo, (df.HDF5File, df.Mesh, lambda: world_comm(df)))
+    raw_comm = mesh.mpi_comm()
+    comm = as_mpi4py(raw_comm)
     element = df.FiniteElement('Quadrature', mesh.ufl_cell(), degree=2, quad_scheme='default')
     element._quad_scheme = 'default'
     space = df.FunctionSpace(mesh, element)
     wall = df.Function(space)
-    h5 = df.HDF5File(comm, mesh_path, 'r')
+    h5 = df.HDF5File(raw_comm, mesh_path, 'r')
     # Fail if absent, unlike the production optional-read fallback.
     h5.read(wall, 'ellipsoidal/endo_dist')
     h5.close()
@@ -169,7 +173,7 @@ def run(args):
                     vector_mismatch += 1
                 vector_seen.add(parent_dof)
     vector_ok = not vector_conflicts and not vector_mismatch and len(vector_seen) == 3*n == vector_owned
-    vector_ok_global = df.MPI.min(comm, int(vector_ok)) == 1
+    vector_ok_global = all(comm.allgather(bool(vector_ok)))
     metadata = {}
     for cell in df.cells(mesh):
         for q, dof in enumerate(space.dofmap().cell_dofs(cell.index())):
@@ -184,7 +188,7 @@ def run(args):
         item.update(metadata[i]); local.append(item)
     gathered = comm.gather(local, root=0)
     reference_volume = float(df.assemble(df.Constant(1.)*df.dx(domain=mesh)))
-    if df.MPI.rank(comm) != 0:
+    if comm.Get_rank() != 0:
         return 0
     points = sorted([p for rank in gathered for p in rank], key=lambda p: p['global_dof'])
     xyz = np.asarray([p['coordinate'] for p in points])
@@ -216,7 +220,7 @@ def run(args):
               'weights_verified': valid, 'source_sha256': hashes,
               'vector_point_major_ordering_verified_all_ranks': bool(vector_ok_global),
               'mesh_sha256': digest(mesh_path), 'input_sha256': digest(args.input_json),
-              'mesh_path': mesh_path, 'mpi_size': int(df.MPI.size(comm)),
+              'mesh_path': mesh_path, 'mpi_size': int(comm.Get_size()),
               'mesh_partitioner': str(df.parameters['mesh_partitioner']),
               'reference_volume': reference_volume, 'sum_reference_weights': float(w.sum()),
               'weight_definition': 'assembled scalar Quadrature test basis against reference dx, degree 2',

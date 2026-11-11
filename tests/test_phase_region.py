@@ -60,7 +60,7 @@ class PhaseRegionTests(unittest.TestCase):
         self.mapping = self.root/'mapping'
         self.mapping.mkdir()
         for ranks in (1, 32):
-            for kind in ('ecm', 'mixed', 'geometry'):
+            for kind in ('mpi_comm', 'ecm', 'mixed', 'geometry'):
                 report = dict(self.report) if kind == 'geometry' else {'passed': True}
                 report.update(mpi_size=ranks, input_sha256=ar.digest(self.input), mesh_sha256='same',
                               mesh_partitioner='SCOTCH', vector_point_major_ordering_verified_all_ranks=True)
