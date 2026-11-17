@@ -28,6 +28,11 @@ class half_sarcomere():
 
     def update_simulation(self, time_step, delta_hsl, activation, cb_stress, pas_stress):
         
+        # FE_CYCLE_BEGIN
+        observer = getattr(self, '_fe_observer', None)
+        if observer is not None:
+            observer('before_advection', self, dict(delta_hsl=delta_hsl, incoming_cb=cb_stress, incoming_passive=pas_stress))
+        # FE_CYCLE_END
         #if (np.abs(delta_hsl) > 0.0):
         if delta_hsl != 0:
             # Need to move some things
@@ -37,6 +42,10 @@ class half_sarcomere():
             self.data['hs_length'] = self.data['hs_length'] + delta_hsl
             
 
+        # FE_CYCLE_BEGIN
+        if observer is not None:
+            observer('after_advection', self)
+        # FE_CYCLE_END
         if (time_step > 0.0):
             # Need to do some kinetics stuff
 
@@ -45,9 +54,17 @@ class half_sarcomere():
                                            activation)
 
             # Myofilaments
+            # FE_CYCLE_BEGIN
+            if observer is not None:
+                observer('before_kinetics', self, dict(consumed_calcium=self.memb.data['Ca_cytosol']))
+            # FE_CYCLE_END
             self.myof.evolve_kinetics(time_step,
                                       self.memb.data['Ca_cytosol'])
 
+        # FE_CYCLE_BEGIN
+        if observer is not None:
+            observer('after_kinetics_before_feedback', self)
+        # FE_CYCLE_END
         # Update forces
         self.myof.cb_stress = cb_stress
         self.myof.pas_stress = pas_stress
@@ -56,6 +73,10 @@ class half_sarcomere():
         
         self.total_stress = self.myof.total_stress
 
+        # FE_CYCLE_BEGIN
+        if observer is not None:
+            observer('after_feedback', self)
+        # FE_CYCLE_END
         return self.myof.y[:]
         
     def update_data(self):

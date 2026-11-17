@@ -1126,6 +1126,16 @@ class LV_simulation():
             self.write_buffered_reference_metadata()
         
         self.cnt = 0  #### out of time loop
+        # FE_CYCLE_BEGIN
+        self._fe_cycle = None
+        cycle_config = self.instruction_data.get('fe_cycle_diagnostic', {})
+        if cycle_config.get('enabled', False):
+            from .dependencies.fe_cycle_diagnostic import FECycleDiagnostic
+            self._fe_cycle = FECycleDiagnostic(self, cycle_config)
+        elif cycle_config.get('invariance_witness', False):
+            from .dependencies.fe_invariance_witness import InvarianceWitness
+            self._fe_cycle = InvarianceWitness(self, cycle_config)
+        # FE_CYCLE_END
         simulation_wall_start = time.time()
 
         for i in np.arange(self.prot.data['no_of_time_steps']+1):
@@ -1133,7 +1143,15 @@ class LV_simulation():
             
             runtime_error = None
             try:
+                # FE_CYCLE_BEGIN
+                if self._fe_cycle is not None:
+                    self._fe_cycle.begin()
+                # FE_CYCLE_END
                 self.implement_time_step(self.prot.data['time_step'])
+                # FE_CYCLE_BEGIN
+                if self._fe_cycle is not None:
+                    self._fe_cycle.end()
+                # FE_CYCLE_END
             except RuntimeError as e:
                 runtime_error = e
                 print "RuntimeError happened on rank %d: %s" % (
@@ -1156,6 +1174,10 @@ class LV_simulation():
                 raise RuntimeError(
                     'Solver RuntimeError occurred on another MPI rank')
         
+            # FE_CYCLE_BEGIN
+            if self._fe_cycle is not None and self._fe_cycle.stop:
+                break
+            # FE_CYCLE_END
             if i % 20000 == 0:
                 self.handle_output(output_struct)
         
@@ -1166,6 +1188,10 @@ class LV_simulation():
             self.performance['total_simulation_wall'] = \
                 time.time()-simulation_wall_start
         self.handle_output(output_struct)
+        # FE_CYCLE_BEGIN
+        if self._fe_cycle is not None and not self._fe_cycle.stop:
+            raise RuntimeError('Diagnostic safety ceiling reached before requested cycles; incomplete')
+        # FE_CYCLE_END
         if self.optimized_output:
             self._mark_buffered_output_complete()
         # Close parallel output handles while MPI is still active.  mpi4py
@@ -1320,6 +1346,10 @@ class LV_simulation():
         # Proceed time
         (activation, new_beat,self.end_diastolic) = \
             self.hr.implement_time_step(time_step)
+        # FE_CYCLE_BEGIN
+        if getattr(self, '_fe_cycle', None) is not None:
+            self._fe_cycle.note_beat(new_beat)
+        # FE_CYCLE_END
 
         if self.comm.Get_rank() == 0:
             # Solve MyoSim ODEs across the mesh
@@ -1381,7 +1411,15 @@ class LV_simulation():
         if self.comm.Get_rank() == 0:
             print 'solving weak form'
         fe_start = time.time()
+        # FE_CYCLE_BEGIN
+        if getattr(self, '_fe_cycle', None) is not None:
+            self._fe_cycle.before_solve()
+        # FE_CYCLE_END
         self.solver.solvenonlinear()
+        # FE_CYCLE_BEGIN
+        if getattr(self, '_fe_cycle', None) is not None:
+            self._fe_cycle.accepted()
+        # FE_CYCLE_END
         if self.output_profiling:
             self.performance['fe_nonlinear_solution'] += \
                 time.time()-fe_start
