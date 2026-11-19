@@ -5,6 +5,9 @@ Local development branch: `diagnostics/phase-regional-investigation`.
 No production equations, kinetics, coupling, solver, simulation parameters,
 or production launchers are changed. No push, PR, or LCC submission was made.
 
+Current preflight, standalone-import checks, test limitations and submission
+commands are maintained in [Diagnostic_Pipeline_Audit.md](Diagnostic_Pipeline_Audit.md).
+
 ## Environment finding
 
 `cascadeb024` and `cascadeb022` are SLURM compute-node names, **not containers**.
@@ -13,7 +16,7 @@ validation launchers select `cascadeb022`. All name `/home/sba431/fenics.img`
 and launch `singularity exec --cleanenv IMAGE mpiexec -np N python ...`.
 No different image is established by these launcher files.
 
-The new mapping launcher selects `cascadeb024` and the production image,
+The audited mapping launcher selects `skylake047` in `SKY32M192_D` and the production image,
 rank count (32), working directory convention and SCOTCH MPI partitioner.
 It requests one exclusive node. For the first staged validation, submit with
 an `afterany` dependency on the actual baseline job ID, so diagnostics wait for
@@ -154,14 +157,14 @@ Optional node comparison after reviewing site/node availability, retaining the
 same image, input and baseline dependency:
 
 ```bash
-sbatch --nodelist=cascadeb022 --dependency="afterany:${BASELINE_JOB_ID}" \
+sbatch --partition=CAC48M192_L --nodelist=cascadeb022 --dependency="afterany:${BASELINE_JOB_ID}" \
   validation/run_phase_mapping_validation.slurm
 ```
 
 Compare both jobs' `environment.txt` and reports. This overrides only the new
 diagnostic launcher's node request. It does not edit the production launcher.
-`cascadeb022` availability is unverified, so delayed submission on `cascadeb024`
-is recommended first. Slurm documents `afterany` as waiting for termination;
+`cascadeb022` availability is unverified. The audited path uses `skylake047`
+after serial preflight. Slurm documents `afterany` as waiting for termination;
 `--exclusive` normally prevents sharing, subject to partition policy:
 [official sbatch documentation](https://slurm.schedmd.com/sbatch.html).
 
@@ -223,7 +226,8 @@ selection starts before calibration. Use `START=40` only for an explicitly
 requested post-calibration analysis with enough data. An explicit start never
 falls back to another window or fewer cycles.
 
-The CLI itself requires all eight reports plus `mapping_manifest.json`. Report
+The CLI itself requires all ten reports, including both communicator probes,
+plus `mapping_manifest.json`. Report
 and diagnostic-source hashes, rank counts, every mixed-test rank, mesh/input
 identity, SCOTCH selection, vector mapping and weights must pass. Saved geometry
 arrays are hash-bound and their ID-coordinate tuples independently rechecked.

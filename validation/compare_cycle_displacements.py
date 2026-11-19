@@ -10,7 +10,19 @@ import numpy as np
 
 CYCLES=((37.484,38.316),(38.316,39.147),(39.147,39.978))
 PHASES=(.10,.30,.50,.70)
-HOTSPOTS=(1643,1694,2404,4751,4844,5004)
+HOTSPOTS=(2497,4844,2833,1580)
+
+def coordinate_lookup(coordinate_path, id_path=None):
+    """Read an explicit saved ID-to-reference-coordinate map."""
+    if id_path is None:
+        id_path = os.path.join(os.path.dirname(coordinate_path), 'quadrature_global_dof.npy')
+    ids = np.asarray(np.load(id_path)).reshape(-1)
+    coordinates = np.asarray(np.load(coordinate_path), float)
+    if coordinates.shape != (len(ids), 3) or not np.isfinite(coordinates).all():
+        raise ValueError('Invalid quadrature coordinate shape/values')
+    if len(set(ids)) != len(ids) or not np.isfinite(ids).all() or np.any(ids != ids.astype(np.int64)):
+        raise ValueError('Invalid or duplicated quadrature IDs')
+    return dict((int(gid), coordinates[i]) for i, gid in enumerate(ids))
 
 def descendants(e,name): return [x for x in e.iter() if x.tag.split('}')[-1]==name]
 def children(e,name): return [x for x in list(e) if x.tag.split('}')[-1]==name]
@@ -28,7 +40,7 @@ def read_item(item,xdmf,handles):
     if filename not in handles: handles[filename]=h5py.File(filename,'r')
     return np.asarray(handles[filename][dataset])
 
-def read_xdmf(path,field_names):
+def read_xdmf(path,field_names,time_window=None):
     """Read the shared mesh and only requested Attribute records."""
     root=ET.parse(path).getroot(); handles={}; found={name:[] for name in field_names}
     metadata={}; geometry=topology=None; topology_type=''; skipped={}
@@ -42,6 +54,8 @@ def read_xdmf(path,field_names):
             times=children(grid,'Time')
             if not times: continue
             time=float(times[0].get('Value'))
+            if time_window is not None and not time_window[0] <= time <= time_window[1]:
+                continue
             for attr in children(grid,'Attribute'):
                 name=attr.get('Name','')
                 if name not in found:
@@ -208,7 +222,8 @@ def comparison(points,cells,hotspots,u1,u2,a1,a2,active_meta):
 def analyze(args):
     if os.path.exists(args.output): raise IOError('refusing to overwrite %s'%args.output)
     os.makedirs(args.output)
-    points,cells,topology,fields,metadata,skipped,duplicates=read_xdmf(args.xdmf,('displacement','active_stress'))
+    window = (min(c[0] for c in args.cycles), max(c[1] for c in args.cycles))
+    points,cells,topology,fields,metadata,skipped,duplicates=read_xdmf(args.xdmf,('displacement','active_stress'),window)
     displacement=[(t,normalize_displacement(v,len(points))) for t,v in fields['displacement']]
     active=[]; representation=None
     for t,v in fields['active_stress']:
@@ -216,9 +231,11 @@ def analyze(args):
         if representation not in (None,current): raise ValueError('active_stress representation changes')
         representation=current; active.append((t,value))
     if not np.isfinite(points).all() or not all(np.isfinite(x[1]).all() for x in displacement+active): raise ValueError('nonfinite input')
-    q=np.load(args.quadrature_coordinates); hotspots={}
+    q=coordinate_lookup(args.quadrature_coordinates, args.quadrature_global_dofs); hotspots={}
     for gid in args.hotspots:
-        coordinate=np.asarray(q[gid,:3],float); ci,b=containing_tetra(coordinate,points,cells,args.coordinate_tolerance)
+        if gid not in q:
+            raise ValueError('Hotspot ID missing from saved geometry: %d' % gid)
+        coordinate=np.asarray(q[gid],float); ci,b=containing_tetra(coordinate,points,cells,args.coordinate_tolerance)
         hotspots[gid]={'coordinate':coordinate.tolist(),'cell':ci,'barycentric':None if b is None else b.tolist()}
     selections=[]; rows=[]; plots=[]
     for phase in args.phases:
@@ -317,6 +334,7 @@ def cycle(value):
     return start,stop
 def main(argv=None):
     p=argparse.ArgumentParser(); p.add_argument('--xdmf',required=True); p.add_argument('--quadrature-coordinates',required=True); p.add_argument('--output',required=True)
+    p.add_argument('--quadrature-global-dofs', help='default: quadrature_global_dof.npy beside coordinates')
     p.add_argument('--cycle',action='append',type=cycle,dest='cycles'); p.add_argument('--phase',action='append',type=float,dest='phases'); p.add_argument('--hotspot-dof',action='append',type=int,dest='hotspots')
     p.add_argument('--coordinate-tolerance',type=float,default=1e-7); p.add_argument('--no-plots',action='store_true'); args=p.parse_args(argv)
     args.cycles=tuple(args.cycles or CYCLES); args.phases=tuple(args.phases or PHASES); args.hotspots=tuple(args.hotspots or HOTSPOTS)

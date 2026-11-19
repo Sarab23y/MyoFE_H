@@ -60,10 +60,11 @@ class PhaseRegionTests(unittest.TestCase):
         self.mapping = self.root/'mapping'
         self.mapping.mkdir()
         for ranks in (1, 32):
-            for kind in ('ecm', 'mixed', 'geometry'):
+            for kind in ('mpi_comm', 'ecm', 'mixed', 'geometry'):
                 report = dict(self.report) if kind == 'geometry' else {'passed': True}
                 report.update(mpi_size=ranks, input_sha256=ar.digest(self.input), mesh_sha256='same',
-                              mesh_partitioner='SCOTCH', vector_point_major_ordering_verified_all_ranks=True)
+                              mesh_partitioner='SCOTCH', vector_point_major_ordering_verified_all_ranks=True,
+                              owned_index_and_rank_scatter_verified=True)
                 if kind == 'mixed':
                     report['ranks'] = [{'rank': r, 'passed': True} for r in range(ranks)]
                 (self.mapping/('%s_%d.json' % (kind, ranks))).write_text(json.dumps(report))
@@ -74,6 +75,25 @@ class PhaseRegionTests(unittest.TestCase):
         self.repo = Path(ar.__file__).resolve().parents[1]
         with mock.patch.object(eq.subprocess, 'check_output', return_value=b'synthetic-test-commit'):
             eq.seal_suite(str(self.mapping), str(self.input), str(self.image), str(self.repo))
+
+    def test_suite_rejects_missing_owned_scatter_evidence(self):
+        self.make_suite()
+        path = self.mapping/'geometry_32.json'
+        report = json.loads(path.read_text())
+        del report['owned_index_and_rank_scatter_verified']
+        path.write_text(json.dumps(report))
+        with self.assertRaisesRegex(ValueError, 'owned indices/rank scatter'):
+            eq.check_reports(str(self.mapping), str(self.input))
+
+    def test_suite_rejects_scalar_using_a_different_mesh_or_instruction(self):
+        self.make_suite()
+        path = self.mapping/'ecm_1.json'
+        original = json.loads(path.read_text())
+        for key in ('mesh_sha256', 'input_sha256'):
+            report = dict(original); report[key] = 'different'
+            path.write_text(json.dumps(report))
+            with self.assertRaises(ValueError):
+                eq.check_reports(str(self.mapping), str(self.input))
 
     def field(self, name, times, order=None):
         order = order or self.ids
@@ -223,7 +243,8 @@ class PhaseRegionTests(unittest.TestCase):
             self.field(field, g['time'], list(reversed(self.ids)))
         self.make_suite()
         args = ar.parser().parse_args(['--data', str(self.root), '--mapping', str(self.mapping), '--input-json', str(self.input),
-                                      '--output', str(self.root/'out'), '--axis', '2', '--start', '0'])
+                                      '--output', str(self.root/'out'), '--axis', '2', '--start', '0',
+                                      '--hotspots', '2833', '2497', '4844'])
         ar.analyze(args)
         report = json.loads((self.root/'out/report.json').read_text())
         self.assertTrue(report['complete'])
@@ -302,6 +323,7 @@ class PhaseRegionTests(unittest.TestCase):
         self.assertEqual(eq.compare(a, b, result), 0)
         second['points'][0]['reference_weight'] += 1
         b.write_text(json.dumps(second))
+        result.unlink()
         self.assertEqual(eq.compare(a, b, result), 1)
 
 

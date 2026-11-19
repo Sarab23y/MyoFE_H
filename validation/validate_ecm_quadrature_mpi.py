@@ -10,40 +10,63 @@ import json
 import math
 import os
 import sys
+from collections import Counter
+
+if __package__:
+    from .diagnostic_io import write_report, root_call
+    from .mpi_compat import as_mpi4py, world_comm
+    from .validate_myosim_mixed_quadrature_ordering import _production_mesh, file_sha256
+else:
+    from diagnostic_io import write_report, root_call
+    from mpi_compat import as_mpi4py, world_comm
+    from validate_myosim_mixed_quadrature_ordering import _production_mesh, file_sha256
 
 
 def compare_reports(first_path, second_path, output_path):
-    first = json.load(open(first_path)); second = json.load(open(second_path))
+    with open(first_path) as handle:
+        first = json.load(handle)
+    with open(second_path) as handle:
+        second = json.load(handle)
     first_keys = [tuple(item['coordinate']) for item in first['points']]
     second_keys = [tuple(item['coordinate']) for item in second['points']]
     a = dict((tuple(item['coordinate']), item['direct_fields']) for item in first['points'])
     b = dict((tuple(item['coordinate']), item['direct_fields']) for item in second['points'])
     missing = sorted(set(a).symmetric_difference(set(b)))
-    duplicates = sorted(set([key for key in first_keys
-                             if first_keys.count(key) > 1] +
-                            [key for key in second_keys
-                             if second_keys.count(key) > 1]))
+    duplicates = sorted(key for key, count in Counter(first_keys).items() if count > 1)
+    duplicates += sorted(key for key, count in Counter(second_keys).items() if count > 1)
+    if any(set(a[key]) != set(b[key]) for key in set(a).intersection(b)):
+        raise ValueError('Scalar comparison direct-field names differ')
     difference = max([abs(a[key][field]-b[key][field])
         for key in set(a).intersection(b) for field in a[key]] or [0.0])
     bad_coordinates = sorted(set(missing + duplicates))
     report = {'mode': 'cross_mpi_comparison', 'missing_or_duplicate_coordinates':
               [list(key) for key in bad_coordinates],
               'maximum_direct_value_difference': difference,
-              'passed': not bad_coordinates and difference <= 1.0e-10}
-    with open(output_path, 'w') as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
+              'passed': bool(first.get('passed') is True and second.get('passed') is True and
+                             a and b and not bad_coordinates and difference <= 1.0e-10 and
+                             all(not (math.isnan(v) or math.isinf(v)) for values in list(a.values()) + list(b.values()) for v in values.values()))}
+    write_report(output_path, report)
     return 0 if report['passed'] else 1
 
 
-def run(output_path):
+def run(output_path, input_json=None):
     import numpy as np
+    import dolfin
     from dolfin import (Constant, FiniteElement, Function, FunctionSpace,
-                        Identity, MPI, MixedElement, SpatialCoordinate,
+                        Identity, MixedElement, SpatialCoordinate,
                         UnitCubeMesh, VectorElement, VectorFunctionSpace,
                         as_tensor, conditional, det, diff, dx, exp, inner,
                         grad, interpolate, inv, project, split, sqrt, tr,
                         variable, assemble)
-    mesh = UnitCubeMesh(2, 2, 2)
+    mesh_path = None
+    if input_json:
+        if as_mpi4py(world_comm(dolfin)).Get_size() > 1:
+            dolfin.parameters['mesh_partitioner'] = 'SCOTCH'
+        repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        mesh, mesh_path = _production_mesh(input_json, repo,
+            (dolfin.HDF5File, dolfin.Mesh, lambda: world_comm(dolfin)))
+    else:
+        mesh = UnitCubeMesh(2, 2, 2)
     cell = mesh.ufl_cell()
     qelement = FiniteElement('Quadrature', cell, degree=2,
                              quad_scheme='default')
@@ -132,34 +155,39 @@ def run(output_path):
                                     diagnostic_values.items()),
               'historical_dg1_transfer': float(old[index])}
              for index in range(len(values))]
-    comm = mesh.mpi_comm(); gathered = comm.gather(local, root=0)
-    if MPI.rank(comm) != 0:
-        return 0
-    points = [item for rank_items in gathered for item in rank_items]
-    keys = [tuple(item['coordinate']) for item in points]
-    finite = all(all(np.isfinite(value) for value in
-                     item['direct_fields'].values()) and
-                 np.isfinite(item['historical_dg1_transfer']) for item in points)
-    report = {'mode': 'fenics_quadrature_validation', 'mpi_size': MPI.size(comm),
-              'point_count': len(points), 'unique_coordinate_count': len(set(keys)),
-              'finite': finite, 'maximum_absolute_dg1_direct_difference':
-              max([abs(item['direct_ecm']-item['historical_dg1_transfer']) for item in points] or [0.0]),
-              'relative_weighted_l2_difference': math.sqrt(numerator/denominator) if denominator else 0.0,
-              'points': sorted(points, key=lambda item: item['coordinate'])}
-    report['passed'] = finite and len(points) == len(set(keys))
-    with open(output_path, 'w') as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
-    return 0 if report['passed'] else 1
+    comm = as_mpi4py(mesh.mpi_comm())
+    gathered = comm.gather(local, root=0)
+    def finish():
+        points = [item for rank_items in gathered for item in rank_items]
+        keys = [tuple(item['coordinate']) for item in points]
+        finite = all(all(np.isfinite(value) for value in
+                         item['direct_fields'].values()) and
+                     np.isfinite(item['historical_dg1_transfer']) for item in points)
+        report = {'mode': 'fenics_quadrature_validation', 'mpi_size': comm.Get_size(),
+                  'mesh_source': mesh_path or 'manufactured UnitCubeMesh(2,2,2)',
+                  'field_source': 'manufactured deterministic fields, not historical deformation',
+                  'mesh_sha256': file_sha256(mesh_path) if mesh_path else None,
+                  'input_sha256': file_sha256(input_json) if input_json else None,
+                  'point_count': len(points), 'unique_coordinate_count': len(set(keys)),
+                  'finite': finite, 'maximum_absolute_dg1_direct_difference':
+                  max([abs(item['direct_ecm']-item['historical_dg1_transfer']) for item in points] or [0.0]),
+                  'relative_weighted_l2_difference': math.sqrt(numerator/denominator) if denominator else 0.0,
+                  'points': sorted(points, key=lambda item: item['coordinate'])}
+        report['passed'] = finite and len(points) == len(set(keys))
+        write_report(output_path, report)
+        return 0 if report['passed'] else 1
+    return root_call(comm, finish)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', required=True)
     parser.add_argument('--compare', nargs=2)
+    parser.add_argument('--input-json', help='actual submitted input; otherwise manufactured mesh')
     args = parser.parse_args(argv)
     if args.compare:
         return compare_reports(args.compare[0], args.compare[1], args.output)
-    return run(args.output)
+    return run(args.output, args.input_json)
 
 
 if __name__ == '__main__':

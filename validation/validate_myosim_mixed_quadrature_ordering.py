@@ -14,6 +14,13 @@ import json
 import os
 import sys
 
+if __package__:
+    from .mpi_compat import as_mpi4py, world_comm
+    from .diagnostic_io import write_report, root_call, open_hdf5_file
+else:
+    from mpi_compat import as_mpi4py, world_comm
+    from diagnostic_io import write_report, root_call, open_hdf5_file
+
 
 def file_sha256(path):
     value = hashlib.sha256()
@@ -33,40 +40,43 @@ def _state_component_count(input_json, explicit):
         return int(explicit)
     if not input_json:
         raise ValueError("provide --input-json or --state-components")
-    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    lv_path = os.path.join(repo, "python_codes", "LV_simulation")
-    if lv_path not in sys.path:
-        sys.path.insert(0, lv_path)
-    from half_sarcomere import half_sarcomere as hs_module
+    import numpy as np
     with open(input_json) as handle:
         instruction = json.load(handle)
-    hs = hs_module.half_sarcomere(
-        instruction["model"]["half_sarcomere"])
-    return len(hs.myof.y)
+    impl = instruction['model']['half_sarcomere']['myofilaments']['implementation']
+    low, high, width = [float(impl[key][0]) for key in ('bin_min', 'bin_max', 'bin_width')]
+    if not np.isfinite([low, high, width]).all() or width <= 0 or high < low:
+        raise ValueError('Invalid MyoSim bin bounds/width')
+    bins = len(np.arange(low, high + width, width))
+    scheme = impl['kinetic_scheme'][0]
+    # Match myofilaments.set_up_3/4_state_with_SRX exactly, without importing
+    # membrane/kinetics dependencies or changing the production model.
+    if scheme in ('3_state_with_SRX', '3_state_with_SRX_and_exp_detach'):
+        return bins + 4
+    if scheme in ('4_state_with_SRX', '4_state_with_SRX_and_exp_detach'):
+        return 2 * bins + 4
+    raise ValueError('Unsupported MyoSim scheme: ' + scheme)
+
+
+def resolve_mesh_path(input_json, repo):
+    with open(input_json) as handle:
+        configured = json.load(handle)['mesh']['mesh_path'][0]
+    path = configured if os.path.isabs(configured) else os.path.join(repo, 'python_codes', configured)
+    path = os.path.realpath(path)
+    if not os.path.isfile(path):
+        raise IOError('Production mesh not found relative to REPO/python_codes: ' + path)
+    return path
 
 
 def _production_mesh(input_json, repo, dolfin_objects):
     HDF5File, Mesh, mpi_comm_world = dolfin_objects
-    with open(input_json) as handle:
-        instruction = json.load(handle)
-    configured = instruction["mesh"]["mesh_path"][0]
-    candidates = [configured,
-                  os.path.join(os.getcwd(), configured),
-                  os.path.join(repo, "python_codes", configured),
-                  os.path.join(os.path.dirname(input_json), configured)]
-    mesh_path = None
-    for candidate in candidates:
-        candidate = os.path.abspath(candidate)
-        if os.path.isfile(candidate):
-            mesh_path = candidate
-            break
-    if mesh_path is None:
-        raise IOError("configured production mesh was not found; checked: %s" %
-                      candidates)
+    mesh_path = resolve_mesh_path(input_json, repo)
     mesh = Mesh()
-    handle = HDF5File(mpi_comm_world(), mesh_path, "r")
-    handle.read(mesh, "ellipsoidal", False)
-    handle.close()
+    handle = open_hdf5_file(HDF5File, mpi_comm_world(), mesh_path, "r")
+    try:
+        handle.read(mesh, "ellipsoidal", False)
+    finally:
+        handle.close()
     return mesh, mesh_path
 
 
@@ -101,13 +111,14 @@ def _local_parent_map(mesh, scalar_space, mixed_space, components):
 
 def run(args):
     import numpy as np
-    from dolfin import (FiniteElement, Function, FunctionSpace, HDF5File, MPI,
-                        Mesh, MixedElement, UnitCubeMesh, mpi_comm_world,
+    from dolfin import (FiniteElement, Function, FunctionSpace, HDF5File,
+                        Mesh, MixedElement, UnitCubeMesh,
                         parameters)
+    import dolfin
 
     # MeshClass explicitly selects SCOTCH for production MPI mesh loading.
     # Match it before constructing the mesh; do not rely on site defaults.
-    if MPI.size(mpi_comm_world()) > 1:
+    if as_mpi4py(world_comm(dolfin)).Get_size() > 1:
         parameters['mesh_partitioner'] = 'SCOTCH'
 
     components = _state_component_count(args.input_json,
@@ -122,7 +133,8 @@ def run(args):
             raise ValueError("--input-json is required unless "
                              "--manufactured-mesh is selected")
         mesh, mesh_source = _production_mesh(
-            args.input_json, repo, (HDF5File, Mesh, mpi_comm_world))
+            args.input_json, repo, (HDF5File, Mesh, lambda: world_comm(dolfin)))
+    comm = as_mpi4py(mesh.mpi_comm())
     qelement = FiniteElement("Quadrature", mesh.ufl_cell(), degree=2,
                              quad_scheme="default")
     qelement._quad_scheme = "default"
@@ -188,7 +200,7 @@ def run(args):
     duplicate_parent = np.where(expected_seen > 1)[0]
     missing_parent = np.where(expected_seen == 0)[0]
     local_report = {
-        "rank": int(MPI.rank(mesh.mpi_comm())),
+        "rank": int(comm.Get_rank()),
         "scalar_owned_dofs": int(scalar_owned),
         "production_local_point_count_4_times_mesh_cells":
             int(production_local_points),
@@ -212,27 +224,26 @@ def run(args):
         not len(duplicate_parent) and not len(missing_parent) and
         not len(forward_bad) and not len(inverse_bad))
 
-    gathered = mesh.mpi_comm().gather(local_report, root=0)
-    if MPI.rank(mesh.mpi_comm()) != 0:
-        return 0 if local_report["passed"] else 1
-    report = {
-        "test": "myosim_mixed_quadrature_state_ordering",
-        "mpi_size": int(MPI.size(mesh.mpi_comm())),
-        "mesh_source": mesh_source,
-        "quadrature_degree": 2,
-        "input_sha256": file_sha256(args.input_json) if args.input_json else None,
-        "mesh_sha256": file_sha256(mesh_source) if not args.manufactured_mesh else None,
-        "mesh_partitioner": str(parameters['mesh_partitioner']),
-        "state_component_count": int(components),
-        "packing_under_test": "point_major: q_local * components + component",
-        "ranks": gathered,
-        "passed": all(item["passed"] for item in gathered)}
-    with open(args.output, "w") as handle:
-        json.dump(report, handle, indent=2, sort_keys=True)
-    print("MyoSim mixed-quadrature ordering: %s" %
-          ("PASS" if report["passed"] else "FAIL"))
-    print("Report: %s" % args.output)
-    return 0 if report["passed"] else 1
+    gathered = comm.gather(local_report, root=0)
+    def finish():
+        report = {
+            "test": "myosim_mixed_quadrature_state_ordering",
+            "mpi_size": int(comm.Get_size()),
+            "mesh_source": mesh_source,
+            "quadrature_degree": 2,
+            "input_sha256": file_sha256(args.input_json) if args.input_json else None,
+            "mesh_sha256": file_sha256(mesh_source) if not args.manufactured_mesh else None,
+            "mesh_partitioner": str(parameters['mesh_partitioner']),
+            "state_component_count": int(components),
+            "packing_under_test": "point_major: q_local * components + component",
+            "ranks": gathered,
+            "passed": all(item["passed"] for item in gathered)}
+        write_report(args.output, report)
+        print("MyoSim mixed-quadrature ordering: %s" %
+              ("PASS" if report["passed"] else "FAIL"))
+        print("Report: %s" % args.output)
+        return 0 if report["passed"] else 1
+    return root_call(comm, finish)
 
 
 def main(argv=None):
@@ -255,16 +266,23 @@ def main(argv=None):
         # Root writes a useful machine-readable failure when initialization
         # itself fails; other MPI ranks still return failure.
         try:
-            from dolfin import MPI, mpi_comm_world
-            rank = MPI.rank(mpi_comm_world())
+            import dolfin
+            rank = as_mpi4py(world_comm(dolfin)).Get_rank()
         except Exception:
-            rank = 0
-        if rank == 0:
-            with open(args.output, "w") as handle:
-                json.dump({"test": "myosim_mixed_quadrature_state_ordering",
-                           "passed": False,
-                           "initialization_error": repr(error)},
-                          handle, indent=2, sort_keys=True)
+            # This standalone command starts on the world communicator. If
+            # DOLFIN initialization failed, use mpi4py only to select the
+            # single initialization-error reporter, never for mesh gathers.
+            try:
+                from mpi4py import MPI
+                rank = MPI.COMM_WORLD.Get_rank()
+            except Exception:
+                rank = None
+        if rank == 0 and not os.path.exists(args.output):
+            try:
+                write_report(args.output, {"test": "myosim_mixed_quadrature_state_ordering",
+                                          "passed": False, "initialization_error": repr(error)})
+            except Exception as report_error:
+                print('Could not write failure report: %s' % report_error)
         print("MyoSim mixed-quadrature ordering: ERROR: %s" % error)
         return 2
 
