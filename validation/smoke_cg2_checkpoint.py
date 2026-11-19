@@ -78,7 +78,7 @@ def main():
     comm.Barrier()
     reader.run(argparse.Namespace(state=target,output=os.path.join(args.output,'reconstruction.json')))
     root_call(comm,lambda:write_report(os.path.join(args.output,'checkpoint_smoke.json'),dict(
-        passed=True,mpi_size=comm.Get_size(),manufactured_field=True,actual_input_mesh=True,
+        passed=True,dolfin_version=df.__version__,mpi_size=comm.Get_size(),manufactured_field=True,actual_input_mesh=True,
         exact_mixed_coefficient_roundtrip=exact,cg2_vs_vertex_linear_error=vertex_only_error,
         displacement_element=str(ve),mixed_element=str(W.ufl_element()),
         full_coupled_restart=False,full_pipeline_validated=False)))

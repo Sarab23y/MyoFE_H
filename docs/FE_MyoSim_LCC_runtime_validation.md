@@ -1,3 +1,5 @@
+> Production correction: DOLFIN **2017.1.0** is authoritative. Start with [the compatibility probe and exact LCC paths](DOLFIN_2017_Compatibility.md) before this complete short validation. Historical 2019 assumptions are superseded.
+
 # One-launcher LCC validation handoff
 
 **Current full-run assessment: NO-GO. Actual LCC/FEniCS checks are UNEXECUTED.**
@@ -9,17 +11,17 @@ The local implementation was not rewritten or edited. The review ZIP was read an
 Use the existing isolated diagnostic worktree with the reviewed cumulative OR incremental patch installed as described in the prior handoff. Do not apply both or modify production. The launcher is a new standalone artifact, not a replacement for any existing launcher. Transfer it to a new filename on LCC. All commands below run on LCC; replace the three explicit placeholders with actual paths.
 
 ```bash
-export REPO=/home/sba431/MyoFE_H_30cycle_diagnostics
+export REPO=/mnt/gpfs2_4m/scratch/sba431/MyoFE_H_30cycle_validation
 export BASELINE_REPO=/home/sba431/MyoFE_H
-export BASELINE_INPUT=/ABSOLUTE/PATH/TO/ACTUAL_SUBMITTED/instruction.json
-export DATA=/ABSOLUTE/PATH/TO/EXISTING_HEALTHY/sim_output
-export ANALYSIS_PYTHON=/ABSOLUTE/PATH/TO/PYTHON3
+export BASELINE_INPUT=/mnt/gpfs2_4m/scratch/sba431/demos/ECM/ECM_60s_healthy_all_outputs_stride1/instruction.json
+export DATA=/mnt/gpfs2_4m/scratch/sba431/demos/ECM/ECM_60s_healthy_all_outputs_stride1/sim_output
+export ANALYSIS_PYTHON=/opt/ohpc/pub/libs/Miniconda3/bin/python
 export IMAGE=/home/sba431/fenics.img
 export ROOT=/mnt/gpfs2_4m/scratch/sba431/demos/ECM/FE30_runtime_$(date -u +%Y%m%dT%H%M%SZ)
-export LAUNCHER=/ABSOLUTE/PATH/TO/NEW/validate_lcc.slurm
+export LAUNCHER="$REPO/validation/validate_lcc.slurm"
 # Inspect the job queue first. No production node is reserved by this script.
 squeue -u "$USER" -o '%.18i %.9P %.24j %.8T %.10M %.20R'
-sinfo -N -p SKY32M192_D
+sinfo -N -p CAC48M192_L
 "$ANALYSIS_PYTHON" -c 'import sys,numpy,h5py,matplotlib; print(sys.version)'
 bash -n "$LAUNCHER"
 test ! -e "$ROOT"

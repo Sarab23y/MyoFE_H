@@ -1,4 +1,7 @@
 // Opt-in Linux ELF interposition. Original DOLFIN algorithms remain in libdolfin.
+// DOLFIN 2017.1.0 / 2019.1.0 profiles: exact signatures, virtual overrides and
+// accessors are checked by the builder against the actual image. No algorithm
+// is reproduced here. Successful compilation is not callback reachability proof.
 // Build against the exact container headers/library. Never install over DOLFIN.
 #include <dolfin/nls/NewtonSolver.h>
 #include <dolfin/nls/NonlinearProblem.h>

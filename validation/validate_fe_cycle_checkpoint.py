@@ -30,12 +30,14 @@ def run(args):
     from diagnostic_io import open_hdf5_file, root_call, write_report
     from LV_simulation.dependencies.fenics_2017_compat import project_quadrature
     from LV_simulation.dependencies.fe_cycle_core import deformation_metrics
-    comm=MP.COMM_WORLD
+    import dolfin as df
+    from mpi_compat import world_comm, as_mpi4py
+    comm=as_mpi4py(world_comm(df))
     if comm.Get_size()>1:
         parameters['mesh_partitioner']='SCOTCH'
     parameters['form_compiler']['quadrature_degree']=2
     parameters['form_compiler']['representation']='quadrature'
-    mesh=Mesh(MPI.comm_world)
+    mesh=Mesh(world_comm(df))
     handle=open_hdf5_file(HDF5File,mesh.mpi_comm(),args.state,'r')
     try:
         handle.read(mesh,'/mesh',False)

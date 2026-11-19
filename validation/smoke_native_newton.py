@@ -37,8 +37,9 @@ def main():
         if observe:
             previous=[None]
             def sink(kind,values):
-                if inject_error and comm.Get_rank()==comm.Get_size()-1:
-                    raise RuntimeError('intentional observer-only failure fixture')
+                injected = inject_error and comm.Get_rank()==comm.Get_size()-1
+                if any(comm.allgather(injected)):
+                    raise RuntimeError('intentional observer-only failure fixture on last rank')
                 current=u.vector().get_local().copy()
                 if previous[0] is not None:
                     difference=current-previous[0]
@@ -84,7 +85,8 @@ def main():
     if not all(abs(initial[key]-1.)<1.e-10 for key in ('J_min','J_max','stretch_min')):
         raise RuntimeError('initial constant displacement must give F=I, J=1, stretch=1')
     root_call(comm,lambda:write_report(os.path.join(args.output,'native_probe.json'),dict(
-        passed=True,mpi_size=comm.Get_size(),max_coefficient_difference=difference,
+        passed=True,dolfin_version=df.__version__,mpi_size=comm.Get_size(),max_coefficient_difference=difference,
+        telemetry_availability="residual, correction and trial metrics recorded by reachable native hooks",
         exact_solution_equal=True,telemetry=telemetry,
         one_rank_observer_failure_deferred_and_solution_unchanged=True,
         comparison='same loaded forwarder, callback inactive versus active',

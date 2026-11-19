@@ -1,3 +1,5 @@
+> Compatibility update: the confirmed production image uses **DOLFIN 2017.1.0**. See [DOLFIN_2017_Compatibility.md](DOLFIN_2017_Compatibility.md); its strict image/header/symbol and runtime probes supersede the earlier 2019-only guard.
+
 # Follow-up: native Newton observation and source-stage event analysis
 
 **Readiness: not demonstrated. Do not submit the 30-cycle case.**

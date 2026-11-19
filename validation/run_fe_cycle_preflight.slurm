@@ -1,5 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=FEcycle_preflight
+#SBATCH --partition=CAC48M192_L
+#SBATCH --exclude=cascadeb024
 #SBATCH --nodes=1
 #SBATCH --ntasks=32
 #SBATCH --cpus-per-task=1
@@ -8,7 +10,7 @@
 #SBATCH --account=col_jfwe223_uksr
 #SBATCH --output=FEcycle_preflight_%j.out
 #SBATCH --error=FEcycle_preflight_%j.err
-set -euo pipefail
+set -Eeuo pipefail
 : "${REPO:?Set isolated worktree}"
 : "${INPUT:?Set frozen prepared input with absolute production mesh path}"
 : "${OUT:?Set new preflight output directory}"
@@ -25,7 +27,7 @@ sha256sum "$IMAGE" "$INPUT" > "$OUT/input_image.sha256"
 git -C "$REPO" status --short > "$OUT/worktree_status.txt"
 cd "$REPO/python_codes"
 singularity exec --cleanenv "$IMAGE" "$FENICS_PYTHON" -c \
-  'import sys; sys.path.insert(0,sys.argv[1]); import MyoFE; import dolfin; print(sys.version); print(dolfin.__version__)' \
+  'import sys; sys.path.insert(0,sys.argv[1]); import MyoFE; import dolfin; print(sys.version); print(dolfin.__version__); assert dolfin.__version__ == "2017.1.0", "Expected authoritative production DOLFIN 2017.1.0"' \
   "$REPO/python_codes" > "$OUT/model_import.log" 2>&1
 singularity exec --cleanenv "$IMAGE" "$FENICS_PYTHON" -c \
   'import json,sys; d=json.load(open(sys.argv[1])); assert not d["mesh"]["relative_path"][0], "Prepare absolute mesh path before preflight"' "$INPUT"

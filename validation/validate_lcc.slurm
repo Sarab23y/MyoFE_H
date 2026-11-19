@@ -6,7 +6,7 @@
 #SBATCH --mem=180G
 #SBATCH --time=08:00:00
 #SBATCH --account=col_jfwe223_uksr
-#SBATCH --partition=SKY32M192_D
+#SBATCH --partition=CAC48M192_L
 #SBATCH --exclude=cascadeb024
 #SBATCH --output=FE30_validation_%j.out
 #SBATCH --error=FE30_validation_%j.err
